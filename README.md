@@ -1,24 +1,24 @@
 # 🎸 CHSuite by JURMR
 
-An all-in-one utility suite for Clone Hero — swap menu backgrounds, generate custom colored player names, and clean up bad songs from your library. All three tools in a single unified application.
+An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate custom colored player names, and clean up bad songs from your library. All three tools in a single unified application.
 
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/iamjrmh/CHSuite)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/iamjrmh/CHSuite)
 [![Python Version](https://img.shields.io/badge/python-3.11-blue)](https://python.org)
 
----
+--
 
-## ✅ Clone Hero Launcher — Handled Automatically
+## ✅ Clone Hero Launcher - Handled Automatically
 
 The Clone Hero launcher used to reset your game files back to default after every launch, undoing any background changes made with the BG Changer.
 
 **This is now handled automatically.** On first launch, CHSuite patches your install as Manual in the background so the launcher leaves your files alone. A `✓ Patched` / `✗ Not Patched` badge in the welcome screen confirms the result before it closes.
 
-You can also manage patch state at any time from the **Launcher Patcher** page in the sidebar — patch or unpatch any registered install on the fly, with auto-kill of the launcher process if it's running.
+You can also manage patch state at any time from the **Launcher Patcher** page in the sidebar - patch or unpatch any registered install on the fly, with auto-kill of the launcher process if it's running.
 
 If your backgrounds still aren't saving after patching, open the Launcher → Settings and set this install as your default.
 
----
+--
 
 ## 🔴 Run as Administrator
 
@@ -31,18 +31,18 @@ Clone Hero's game files require elevated permissions to write to. Without admin 
 
 To avoid doing this every time: right-click the exe → **Properties** → **Compatibility** tab → check **Run this program as an administrator** → **OK**.
 
----
+--
 
 ## ✨ What's Inside
 
 | Tool | Description |
-|---|---|
+|--|--|
 | **BG Changer** | Swap Clone Hero's menu background textures directly via UnityPy asset editing |
 | **Name Generator** | Create gradient or per-letter colored player names with styling and export to `profiles.ini` |
 | **Bad Songs Cleaner** | Parse `badsongs.txt` and bulk-delete ERROR folders from your song library |
-| **Launcher Patcher** | Patch or unpatch any registered Clone Hero install on the fly — prevents the launcher from resetting game files |
+| **Launcher Patcher** | Patch or unpatch any registered Clone Hero install on the fly - prevents the launcher from resetting game files |
 
----
+--
 
 ## 📁 Direct Install (Recommended)
 
@@ -50,16 +50,16 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 2. Double-click **CHSuite_Setup.exe** to run the installer.
 3. By default it installs to `C:\CHSuite`. Change it if you prefer.
 4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
-5. On first launch, select your Clone Hero installation folder — CHSuite will derive the `Clone Hero_Data` path automatically and patch your install in the background.
+5. On first launch, select your Clone Hero installation folder - CHSuite will derive the `Clone Hero_Data` path automatically and patch your install in the background.
 
 ## 🚀 Portable Install
 
 1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page.
 2. Extract the ZIP anywhere on your PC.
-3. Double-click **CHSuite.exe** — no install, no Python, nothing else needed.
+3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted.
 
----
+--
 
 ## 🎨 BG Changer
 
@@ -76,21 +76,21 @@ Reads and writes Unity `.assets` files directly using UnityPy. No external tools
 </p>
 
 ### Features
-- **Direct asset editing** — reads and writes Unity `.assets` files, no external tools needed
-- **16 supported backgrounds** — all standard menu backgrounds plus the logo
-- **Live preview** — see the current in-game texture and your replacement side by side before applying
-- **Auto backup** — original files are automatically backed up to `_CH_BG_Backups` on first scan
-- **One-click restore** — revert to originals at any time from the Restore Backups button
-- **Profile system** — save multiple background sets and switch between them freely
-- **Default profile** — read-only, always reflects the original unmodified textures
-- **Size validation** — enforces minimum resolution per background (1920×1080 standard, 2030×1328 exact for the logo)
+- **Direct asset editing** - reads and writes Unity `.assets` files, no external tools needed
+- **16 supported backgrounds** - all standard menu backgrounds plus the logo
+- **Live preview** - see the current in-game texture and your replacement side by side before applying
+- **Auto backup** - original files are automatically backed up to `_CH_BG_Backups` on first scan
+- **One-click restore** - revert to originals at any time from the Restore Backups button
+- **Profile system** - save multiple background sets and switch between them freely
+- **Default profile** - read-only, always reflects the original unmodified textures
+- **Size validation** - enforces minimum resolution per background (1920×1080 standard, 2030×1328 exact for the logo)
 
 ### Usage
 
 1. Click **Browse** and select your `Clone Hero_Data` folder
    - Usually at `Documents\Clone Hero\Clone Hero_Data`
    - If not, look inside your Clone Hero installation folder (the one with the `.exe`)
-2. Click **Load & Scan** — the tool scans all asset files and creates backups automatically
+2. Click **Load & Scan** - the tool scans all asset files and creates backups automatically
 3. Select a background from the left panel
 4. Click **Choose Replacement** and pick your image
 5. Click **Apply & Save** to write the changes directly to your game files
@@ -99,7 +99,7 @@ Reads and writes Unity `.assets` files directly using UnityPy. No external tools
 ### Supported Backgrounds
 
 | Name | Min Size | Source File |
-|---|---|---|
+|--|--|--|
 | Black | 1920×1080 (Uneditable) | sharedassets1.assets |
 | Spray | 1920×1080 | sharedassets1.assets |
 | Pastel Burst | 1920×1080 | sharedassets1.assets |
@@ -121,21 +121,21 @@ Reads and writes Unity `.assets` files directly using UnityPy. No external tools
 
 Profiles let you maintain multiple background sets and switch between them without re-importing images each time.
 
-- **Default (Original)** — locked, read-only. Always reflects the unmodified originals. Cannot be renamed or deleted.
-- **New** — create a named profile and assign replacement images to any backgrounds.
-- **Duplicate** — copy any profile as a starting point for a new one.
-- **Rename / Delete** — available on any non-Default profile.
+- **Default (Original)** - locked, read-only. Always reflects the unmodified originals. Cannot be renamed or deleted.
+- **New** - create a named profile and assign replacement images to any backgrounds.
+- **Duplicate** - copy any profile as a starting point for a new one.
+- **Rename / Delete** - available on any non-Default profile.
 
 Profiles and the last-used folder path are saved automatically to `chsuite_config.json` and `ch_bg_profiles.json` alongside the exe.
 
 ### Backup System
 
-On the first **Load & Scan** of any folder, CHSuite automatically copies the original asset files into a `_CH_BG_Backups` subfolder inside `Clone Hero_Data`. This happens once — subsequent scans skip files that are already backed up.
+On the first **Load & Scan** of any folder, CHSuite automatically copies the original asset files into a `_CH_BG_Backups` subfolder inside `Clone Hero_Data`. This happens once - subsequent scans skip files that are already backed up.
 
 - The **Restore Backups** button copies all backed-up files back over the live game files and triggers a fresh scan.
 - **Apply & Save is blocked** if no backups exist, as a safety measure.
 
----
+--
 
 ## ✏️ Name Generator
 
@@ -147,7 +147,7 @@ Perfect for smooth, flowing color transitions across your entire name.
 
 1. Switch to the **Gradient** tab
 2. Enter your name in the Name field
-3. Choose a **Start Color** and **End Color** — optionally add up to 3 intermediate colors for complex gradients
+3. Choose a **Start Color** and **End Color** - optionally add up to 3 intermediate colors for complex gradients
 4. Apply styling if desired: **Bold**, **Italic**, **Underline**, **Strikethrough**
 5. Optionally set **Font Size** and **Character Spacing**
 6. Click **Generate**
@@ -170,10 +170,10 @@ Colors use standard hex format: `#RRGGBB`
 
 - Use [coolors.co](https://coolors.co) to find color schemes
 - High contrast colors make names more readable
-- For gradient: 2–3 colors for smooth transitions — similar hues = subtle, contrasting hues = bold
+- For gradient: 2–3 colors for smooth transitions - similar hues = subtle, contrasting hues = bold
 - For rainbow: Red → Orange → Yellow → Green → Blue → Purple per letter
 
----
+--
 
 ## 🗑️ Bad Songs Cleaner
 
@@ -193,14 +193,14 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 
 1. Click **Select badsongs.txt** and navigate to your Clone Hero folder
    - Usually at `Documents\Clone Hero\badsongs.txt`
-2. Review the list of folders marked for deletion — all are checked by default
+2. Review the list of folders marked for deletion - all are checked by default
 3. Uncheck any songs you want to keep
 4. Click **Delete Selected Songs** and confirm
-5. Done — check `Documents\Clone Hero\deletedsongs.log` for a full record
+5. Done - check `Documents\Clone Hero\deletedsongs.log` for a full record
 
 ### Log Format
 ```
---- Deletion started at 2026-01-04 21:25:02 ---
+-- Deletion started at 2026-01-04 21:25:02 --
 ✓ Deleted Folder: C:\Users\Owner\Documents\Clone Hero\songs\bad_song_1
 ✓ Deleted Folder: C:\Users\Owner\Documents\Clone Hero\songs\bad_song_2
 ⚠ Not found: C:\Users\Owner\Documents\Clone Hero\songs\already_gone
@@ -212,11 +212,11 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 ### File Locations
 
 | File | Default Location |
-|---|---|
+|--|--|
 | `badsongs.txt` | `Documents\Clone Hero\badsongs.txt` |
 | Deletion log | `Documents\Clone Hero\deletedsongs.log` |
 
----
+--
 
 ## ⚙️ Launcher Patcher
 
@@ -229,7 +229,7 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 - `game_installs.json` is backed up to `.bak` automatically before every write
 - **Refresh** button to re-read the file at any time without restarting
 
----
+--
 
 ## 🐛 Troubleshooting
 
@@ -237,7 +237,7 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 Make sure you selected the `Clone Hero_Data` folder, not the game's root folder or a subfolder inside it.
 
 **Changes are reverted after launching Clone Hero**  
-The launcher patch may not have applied correctly. Check the welcome screen badge — if it showed `✗ Not Patched`, your install may not be registered in `game_installs.json` yet. Open the Launcher, add the install, then head to the **Launcher Patcher** page and patch it manually. Also make sure the install is set as your default in Launcher → Settings.
+The launcher patch may not have applied correctly. Check the welcome screen badge - if it showed `✗ Not Patched`, your install may not be registered in `game_installs.json` yet. Open the Launcher, add the install, then head to the **Launcher Patcher** page and patch it manually. Also make sure the install is set as your default in Launcher → Settings.
 
 **Apply & Save fails or does nothing**  
 CHSuite is not running as Administrator. Right-click the exe and select Run as administrator.
@@ -249,19 +249,19 @@ Your replacement must meet the minimum resolution for that slot. Upscale to at l
 The folder is in use by Clone Hero or another program. Close Clone Hero and try again.
 
 **Songs not appearing in the Cleaner list**  
-They're under `Warning:` sections, not `ERROR:` sections — this is intentional.
+They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
 
 **Export to profiles.ini doesn't work**  
 `profiles.ini` is in use or read-only. Close Clone Hero and check file permissions.
 
----
+--
 
 ## 🔨 Building from Source
 
 **Requirements**
 - Windows 10 or 11 (64-bit)
-- Python 3.11 (64-bit) — from [python.org](https://python.org), check "Add Python to PATH" during install
-- NSIS 3.x (optional, for building the installer) — from [nsis.sourceforge.io](https://nsis.sourceforge.io/Download)
+- Python 3.11 (64-bit) - from [python.org](https://python.org), check "Add Python to PATH" during install
+- NSIS 3.x (optional, for building the installer) - from [nsis.sourceforge.io](https://nsis.sourceforge.io/Download)
 
 **Steps**
 
@@ -275,14 +275,14 @@ They're under `Warning:` sections, not `ERROR:` sections — this is intentional
    - `JURMRWEED.ico` *(optional, for icon)*
 3. Double-click **`build.bat`**
 
-The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable — do not ship the `.exe` alone.
+The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable - do not ship the `.exe` alone.
 
 If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe` will also be compiled automatically.
 
 **Dependencies installed by build.bat**
 
 | Package | Purpose |
-|---|---|
+|--|--|
 | Pillow | Image decoding and encoding |
 | UnityPy | Unity asset file reading/writing |
 | texture2ddecoder | GPU texture format decoding |
@@ -290,13 +290,13 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 | requests | Name Generator update checks |
 | PyInstaller | Executable bundling |
 
----
+--
 
 ## 📄 License
 
-MIT License — free to use, modify, and distribute.
+MIT License - free to use, modify, and distribute.
 
----
+--
 
 ## ⚠️ Disclaimer
 
@@ -309,7 +309,7 @@ MIT License — free to use, modify, and distribute.
 
 Use at your own risk.
 
----
+--
 
 ## 🎮 Related Projects
 
@@ -320,6 +320,6 @@ Use at your own risk.
 - [Clone Hero Launcher](https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/chlauncher-setup.exe) - Direct Download of the latest build of the Clone Hero Launcher.
 - [Discord Server](https://discord.gg/PtVqaCWFHa) - Questions? Join the discord server and ask! 
 
----
+--
 
 Made with 🎸 by JURMR
