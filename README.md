@@ -265,7 +265,7 @@ They're under `Warning:` sections, not `ERROR:` sections — this is intentional
 
 **Steps**
 
-1. Clone or download this repository into a single folder (e.g. `E:\Downloads\JURMR CHSuite`)
+1. Clone or download this repository into a single folder (e.g. `C:\Downloads\CHSuite`)
 2. Ensure the following files are all present in that folder:
    - `CHSuite.py`
    - `build.bat`
@@ -277,7 +277,7 @@ They're under `Warning:` sections, not `ERROR:` sections — this is intentional
 
 The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable — do not ship the `.exe` alone.
 
-If NSIS is installed, `CHSuite_Setup.exe` will also be compiled automatically.
+If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe` will also be compiled automatically.
 
 **Dependencies installed by build.bat**
 
