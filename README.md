@@ -6,7 +6,7 @@ An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate cus
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/iamjrmh/CHSuite)
 [![Python Version](https://img.shields.io/badge/python-3.11-blue)](https://python.org)
 
---
+---
 
 ## ✅ Clone Hero Launcher - Handled Automatically
 
@@ -18,7 +18,7 @@ You can also manage patch state at any time from the **Launcher Patcher** page i
 
 If your backgrounds still aren't saving after patching, open the Launcher → Settings and set this install as your default.
 
---
+---
 
 ## 🔴 Run as Administrator
 
@@ -31,7 +31,7 @@ Clone Hero's game files require elevated permissions to write to. Without admin 
 
 To avoid doing this every time: right-click the exe → **Properties** → **Compatibility** tab → check **Run this program as an administrator** → **OK**.
 
---
+---
 
 ## ✨ What's Inside
 
@@ -42,7 +42,7 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 | **Bad Songs Cleaner** | Parse `badsongs.txt` and bulk-delete ERROR folders from your song library |
 | **Launcher Patcher** | Patch or unpatch any registered Clone Hero install on the fly - prevents the launcher from resetting game files |
 
---
+---
 
 ## 📁 Direct Install (Recommended)
 
@@ -59,7 +59,7 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted.
 
---
+---
 
 ## 🎨 Suite Menu
 
@@ -83,7 +83,7 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite4.png">
 </p>
 
---
+---
 
 ## 🎨 BG Changer
 
@@ -159,7 +159,7 @@ On the first **Load & Scan** of any folder, CHSuite automatically copies the ori
 - The **Restore Backups** button copies all backed-up files back over the live game files and triggers a fresh scan.
 - **Apply & Save is blocked** if no backups exist, as a safety measure.
 
---
+---
 
 ## ✏️ Name Generator
 
@@ -197,7 +197,7 @@ Colors use standard hex format: `#RRGGBB`
 - For gradient: 2–3 colors for smooth transitions - similar hues = subtle, contrasting hues = bold
 - For rainbow: Red → Orange → Yellow → Green → Blue → Purple per letter
 
---
+---
 
 ## 🗑️ Bad Songs Cleaner
 
@@ -240,7 +240,7 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 | `badsongs.txt` | `Documents\Clone Hero\badsongs.txt` |
 | Deletion log | `Documents\Clone Hero\deletedsongs.log` |
 
---
+---
 
 ## ⚙️ Launcher Patcher
 
@@ -253,7 +253,7 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 - `game_installs.json` is backed up to `.bak` automatically before every write
 - **Refresh** button to re-read the file at any time without restarting
 
---
+---
 
 ## 🐛 Troubleshooting
 
@@ -278,7 +278,7 @@ They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
 **Export to profiles.ini doesn't work**  
 `profiles.ini` is in use or read-only. Close Clone Hero and check file permissions.
 
---
+---
 
 ## 🔨 Building from Source
 
@@ -314,7 +314,7 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 | requests | Name Generator update checks |
 | PyInstaller | Executable bundling |
 
---
+---
 
 ## 📄 License
 
@@ -333,7 +333,7 @@ MIT License - free to use, modify, and distribute.
 
 Use at your own risk.
 
---
+---
 
 ## 🎮 Related Projects
 
@@ -344,6 +344,6 @@ Use at your own risk.
 - [Clone Hero Launcher](https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/chlauncher-setup.exe) - Direct Download of the latest build of the Clone Hero Launcher.
 - [Discord Server](https://discord.gg/PtVqaCWFHa) - Questions? Join the discord server and ask! 
 
---
+---
 
 Made with 🎸 by JURMR
