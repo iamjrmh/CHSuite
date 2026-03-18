@@ -8,20 +8,15 @@ An all-in-one utility suite for Clone Hero — swap menu backgrounds, generate c
 
 ---
 
-## ⚠️ Important — Clone Hero Launcher
+## ✅ Clone Hero Launcher — Handled Automatically
 
-The Clone Hero launcher **resets your game files back to default after every launch**, which will undo any background changes made with the BG Changer.
+The Clone Hero launcher used to reset your game files back to default after every launch, undoing any background changes made with the BG Changer.
 
-To prevent this, set up your install manually:
+**This is now handled automatically.** On first launch, CHSuite patches your install as Manual in the background so the launcher leaves your files alone. A `✓ Patched` / `✗ Not Patched` badge in the welcome screen confirms the result before it closes.
 
-1. Install Clone Hero through the launcher as normal.
-2. Move that install folder to a different location on your PC.
-3. In the launcher settings, remove the old install path.
-4. Add your new manual path instead.
+You can also manage patch state at any time from the **Launcher Patcher** page in the sidebar — patch or unpatch any registered install on the fly, with auto-kill of the launcher process if it's running.
 
-Once set up this way, the launcher will no longer overwrite your files.
-
-> **A simple video + written walkthrough tutorial for this setup is in progress.**
+If your backgrounds still aren't saving after patching, open the Launcher → Settings and set this install as your default.
 
 ---
 
@@ -45,20 +40,21 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 | **BG Changer** | Swap Clone Hero's menu background textures directly via UnityPy asset editing |
 | **Name Generator** | Create gradient or per-letter colored player names with styling and export to `profiles.ini` |
 | **Bad Songs Cleaner** | Parse `badsongs.txt` and bulk-delete ERROR folders from your song library |
+| **Launcher Patcher** | Patch or unpatch any registered Clone Hero install on the fly — prevents the launcher from resetting game files |
 
 ---
 
 ## 📁 Direct Install (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the latest release.
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite_Setup.exe).
 2. Double-click **CHSuite_Setup.exe** to run the installer.
 3. By default it installs to `C:\CHSuite`. Change it if you prefer.
 4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
-5. On first launch, select your Clone Hero installation folder — CHSuite will derive the `Clone Hero_Data` path automatically.
+5. On first launch, select your Clone Hero installation folder — CHSuite will derive the `Clone Hero_Data` path automatically and patch your install in the background.
 
 ## 🚀 Portable Install
 
-1. Download **CHSuite_Portable.zip** from the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page.
+1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page.
 2. Extract the ZIP anywhere on your PC.
 3. Double-click **CHSuite.exe** — no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted.
@@ -203,7 +199,6 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 5. Done — check `Documents\Clone Hero\deletedsongs.log` for a full record
 
 ### Log Format
-
 ```
 --- Deletion started at 2026-01-04 21:25:02 ---
 ✓ Deleted Folder: C:\Users\Owner\Documents\Clone Hero\songs\bad_song_1
@@ -223,13 +218,26 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 
 ---
 
+## ⚙️ Launcher Patcher
+
+Lists every install registered in `game_installs.json` and lets you patch or unpatch them on the fly.
+
+- Each install displays its current state: `✓ Manual` (patched) or `⚙ Launcher` (unpatched)
+- **Patch** sets `isFromLauncher=false` so the launcher stops resetting your game files
+- **Unpatch** reverses this and restores the install to launcher-managed
+- CHSuite auto-kills the launcher process before writing if it detects it running, then waits for it to fully exit
+- `game_installs.json` is backed up to `.bak` automatically before every write
+- **Refresh** button to re-read the file at any time without restarting
+
+---
+
 ## 🐛 Troubleshooting
 
 **Backgrounds show "No texture matched"**  
 Make sure you selected the `Clone Hero_Data` folder, not the game's root folder or a subfolder inside it.
 
 **Changes are reverted after launching Clone Hero**  
-The Clone Hero launcher is resetting your files. See the important note at the top of this README.
+The launcher patch may not have applied correctly. Check the welcome screen badge — if it showed `✗ Not Patched`, your install may not be registered in `game_installs.json` yet. Open the Launcher, add the install, then head to the **Launcher Patcher** page and patch it manually. Also make sure the install is set as your default in Launcher → Settings.
 
 **Apply & Save fails or does nothing**  
 CHSuite is not running as Administrator. Right-click the exe and select Run as administrator.
