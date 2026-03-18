@@ -61,6 +61,30 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 --
 
+## 🎨 Suite Menu
+
+<h3 align="center">CHSuite BG Changer</h3>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite1.png">
+</p>
+
+<h3 align="center">CHSuite Name Gen</h3>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite2.png">
+</p>
+
+<h3 align="center">CHSuite Bad Song Cleaner</h3>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite3.png">
+</p>
+
+<h3 align="center">CHSuite Clone Hero Launcher Patcher</h3>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite4.png">
+</p>
+
+--
+
 ## 🎨 BG Changer
 
 Reads and writes Unity `.assets` files directly using UnityPy. No external tools or config file edits required.
