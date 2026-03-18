@@ -162,6 +162,137 @@ CONFIG_FILE   = _app_dir() / "chsuite_config.json"
 PROFILES_FILE = _app_dir() / "ch_bg_profiles.json"
 SCAN_LOG_FILE = _app_dir() / "ch_bg_scan.log"
 
+# ── CH Launcher registry path ─────────────────────────────────────────────────
+_INSTALLS_FILE = (
+    Path(os.environ.get("APPDATA", "")) /
+    "net.clonehero" / "ch_launcher" / "game_installs.json"
+)
+_LAUNCHER_PROCS = ("CloneHeroLauncher.exe", "ch_launcher.exe", "clone-hero-launcher.exe")
+
+
+def _launcher_is_running() -> bool:
+    """Return True if any known launcher process is currently running."""
+    if sys.platform == "win32":
+        try:
+            flags = 0x08000000
+            for proc in ("CloneHeroLauncher.exe", "ch_launcher.exe"):
+                out = subprocess.run(
+                    ["tasklist", "/FI", f"IMAGENAME eq {proc}", "/NH", "/FO", "CSV"],
+                    capture_output=True, text=True, creationflags=flags).stdout
+                if proc.lower() in out.lower():
+                    return True
+        except Exception:
+            pass
+        return False
+    else:
+        for proc in _LAUNCHER_PROCS:
+            try:
+                if subprocess.run(["pgrep", "-f", proc],
+                                  capture_output=True).returncode == 0:
+                    return True
+            except Exception:
+                pass
+        return False
+
+
+def _kill_launcher() -> bool:
+    """Force-kill the CH Launcher. Returns True if something was killed."""
+    killed = False
+    if sys.platform == "win32":
+        for proc in _LAUNCHER_PROCS:
+            try:
+                r = subprocess.run(
+                    ["taskkill", "/F", "/IM", proc],
+                    capture_output=True, creationflags=0x08000000)
+                if r.returncode == 0:
+                    killed = True
+            except Exception:
+                pass
+    else:
+        for proc in _LAUNCHER_PROCS:
+            try:
+                if subprocess.run(["pkill", "-9", "-f", proc],
+                                  capture_output=True).returncode == 0:
+                    killed = True
+            except Exception:
+                pass
+    return killed
+
+
+def _norm_path(p) -> str:
+    return str(p).replace("\\", "/").rstrip("/").lower()
+
+
+def _silent_patch_as_manual(install_folder: str) -> str:
+    """Patch game_installs.json – mark install as isFromLauncher=false. Never raises."""
+    if not _INSTALLS_FILE.is_file():
+        return "game_installs.json not found – launcher may not be installed"
+    try:
+        shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
+    except Exception as e:
+        return f"Could not back up game_installs.json: {e}"
+    try:
+        data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        return f"Could not read game_installs.json: {e}"
+    target  = _norm_path(install_folder)
+    patched = 0
+    for inst in data.get("installs", []):
+        if _norm_path(inst.get("directoryPath", "")) == target:
+            inst["isFromLauncher"]  = False
+            inst["manifestVersion"] = None
+            inst["manifestDate"]    = None
+            patched += 1
+    if patched == 0:
+        return f"No matching install in game_installs.json for: {install_folder}"
+    try:
+        _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception as e:
+        return f"Could not save game_installs.json: {e}"
+    return f"Launcher patch applied ({patched} install(s) set to Manual)"
+
+
+def _unpatch_as_launcher(install_folder: str) -> str:
+    """Reverse the patch – set isFromLauncher=true and restore manifestVersion. Never raises."""
+    if not _INSTALLS_FILE.is_file():
+        return "game_installs.json not found"
+    try:
+        shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
+    except Exception as e:
+        return f"Could not back up game_installs.json: {e}"
+    try:
+        data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        return f"Could not read game_installs.json: {e}"
+    target  = _norm_path(install_folder)
+    patched = 0
+    for inst in data.get("installs", []):
+        if _norm_path(inst.get("directoryPath", "")) == target:
+            inst["isFromLauncher"] = True
+            ver = inst.get("version")
+            if ver and not inst.get("manifestVersion"):
+                channel = inst.get("releaseChannel", "stable")
+                suffix  = f"-{channel}" if channel != "stable" else ""
+                inst["manifestVersion"] = f"{ver}{suffix}-win64.json"
+            patched += 1
+    if patched == 0:
+        return f"No matching install in game_installs.json for: {install_folder}"
+    try:
+        _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception as e:
+        return f"Could not save game_installs.json: {e}"
+    return f"Unpatch applied ({patched} install(s) set back to Launcher)"
+
+
+def _read_installs() -> list:
+    """Return the list of installs from game_installs.json, or []."""
+    try:
+        if _INSTALLS_FILE.is_file():
+            return json.loads(_INSTALLS_FILE.read_text(encoding="utf-8")).get("installs", [])
+    except Exception:
+        pass
+    return []
+
 def _log(msg: str):
     line = "[{}] {}".format(datetime.datetime.now().strftime("%H:%M:%S"), msg)
     print(line)
@@ -645,6 +776,13 @@ class SetupDialog:
         tk.Label(hi, text="  by JURMR", font=("Segoe UI", 13),
                  bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(8, 0))
 
+        # Patch status badge – top-right, updated after Confirm
+        self._patch_badge = tk.Label(
+            hi, text="", font=("Segoe UI", 9, "bold"),
+            bg=C["panel"], fg=C["text_dim"], padx=10, pady=4)
+        self._patch_badge.pack(side="right", padx=(0, 4))
+        self._update_patch_badge(None)
+
         # ── Body ──────────────────────────────────────────────────────────────
         body = tk.Frame(self.win, bg=C["bg"], padx=28, pady=22)
         body.pack(fill="both")
@@ -762,8 +900,35 @@ class SetupDialog:
                     "This might not be the right folder.  Continue anyway?",
                     parent=self.win):
                 return
+
+        # Kill the launcher if running, then patch after it exits
+        if _launcher_is_running():
+            if _kill_launcher():
+                _log("[launcher-patch] Launcher force-closed before patching")
+                self.win.after(600, lambda: self._do_patch(p, data_path))
+                return
+            else:
+                _log("[launcher-patch] Launcher detected but could not be killed")
+
+        self._do_patch(p, data_path)
+
+    def _do_patch(self, p: str, data_path: str):
+        """Run patch, show badge, auto-close."""
         self.result = data_path
-        self.win.destroy()
+        msg     = _silent_patch_as_manual(p)
+        success = msg.startswith("Launcher patch applied")
+        _log("[launcher-patch] " + msg)
+        self._update_patch_badge(success)
+        self.win.after(900, self.win.destroy)
+
+    def _update_patch_badge(self, success):
+        """None = not yet attempted, True = patched, False = failed."""
+        if success is None:
+            self._patch_badge.config(text="◦  Not Patched", fg=C["text_dim"])
+        elif success:
+            self._patch_badge.config(text="✓  Patched",     fg=C["success"])
+        else:
+            self._patch_badge.config(text="✗  Not Patched", fg=C["error"])
 
     def _skip(self):
         self.result = None
@@ -984,6 +1149,7 @@ class CHSuite(tk.Tk):
         self._build_page_bgchanger()
         self._build_page_namegen()
         self._build_page_cleaner()
+        self._build_page_patcher()
 
         self._show_page("bgchanger")
 
@@ -1004,6 +1170,7 @@ class CHSuite(tk.Tk):
             ("bgchanger", "◈", "BG Changer"),
             ("namegen",   "✦", "Name Generator"),
             ("cleaner",   "⊘", "Bad Songs Cleaner"),
+            ("patcher",   "⚙", "Launcher Patcher"),
         ]
         for page_id, icon, label in nav_items:
             # Outer frame acts as the clickable "button"
@@ -1110,25 +1277,10 @@ class CHSuite(tk.Tk):
         self._lock_lbl = tk.Label(pi, text="", font=FTS, bg=C["card2"], fg=C["warn"])
         self._lock_lbl.pack(side="left", padx=(10, 0))
 
-        # Launcher warning icon — hover to read the important notice
-        _LAUNCHER_WARNING = (
-            "The Clone Hero launcher resets your game files back to default "
-            "after every single launch, which will undo any background changes "
-            "made with this tool.\n\n"
-            "To prevent this, set up your install manually:\n\n"
-            "  1.  Install Clone Hero through the launcher as normal.\n"
-            "  2.  Move that install folder to a different location on your PC.\n"
-            "  3.  In the launcher settings, remove the old install path.\n"
-            "  4.  Add your new manual path instead.\n\n"
-            "Once set up this way, the launcher will no longer overwrite your files."
-        )
-        warn_icon = tk.Label(pi, text=" ⚠ ", font=("Segoe UI", 11, "bold"),
-                             bg=C["card2"], fg=C["warn"], cursor="question_arrow")
-        warn_icon.pack(side="left", padx=(8, 0))
-        HoverTooltip(warn_icon,
-                     text=_LAUNCHER_WARNING,
-                     title="! Important — Clone Hero Launcher",
-                     width=440)
+        # Reminder to set default install in the launcher (right-aligned so it never gets clipped)
+        tk.Label(pi,
+                 text="ℹ  If backgrounds aren't saving, open the Launcher → Settings and set this install as your default.",
+                 font=("Segoe UI", 8), bg=C["card2"], fg=C["text_dim"]).pack(side="right", padx=(14, 0))
         self._refresh_profile_combo()
 
         # ── Data folder bar ───────────────────────────────────────────────────
@@ -2286,6 +2438,222 @@ class CHSuite(tk.Tk):
                 f.write("\n" + "\n".join(self._log_entries) + "\n" + "=" * 60 + "\n\n")
         except Exception as e:
             messagebox.showerror("Log Error", f"Could not save log: {e}")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  PAGE 4 — LAUNCHER PATCHER
+    # ══════════════════════════════════════════════════════════════════════════
+    def _build_page_patcher(self):
+        page = tk.Frame(self._content, bg=C["bg"])
+        self._pages["patcher"] = page
+        inner = tk.Frame(page, bg=C["bg"], padx=24, pady=20)
+        inner.pack(fill="both", expand=True)
+
+        tk.Label(inner, text="Launcher Patcher",
+                 font=("Segoe UI", 18, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w")
+        tk.Label(inner,
+                 text="Mark installs as Manual so the launcher stops overwriting your game files.",
+                 font=FT, fg=C["text_dim"], bg=C["bg"]).pack(anchor="w", pady=(2, 18))
+
+        # ── Status card ───────────────────────────────────────────────────────
+        stat_card = _card(inner, padx=18, pady=14)
+        stat_card.pack(fill="x", pady=(0, 14))
+        tk.Label(stat_card, text="LAUNCHER STATUS", font=("Segoe UI", 8, "bold"),
+                 fg=C["text_dim"], bg=C["card"]).pack(anchor="w", pady=(0, 8))
+        self._pt_status_lbl = tk.Label(
+            stat_card, text="", font=("Segoe UI", 11, "bold"),
+            fg=C["text_dim"], bg=C["card"])
+        self._pt_status_lbl.pack(anchor="w")
+        self._pt_status_sub = tk.Label(
+            stat_card, text="", font=FT, fg=C["text_dim"], bg=C["card"],
+            wraplength=700, justify="left")
+        self._pt_status_sub.pack(anchor="w", pady=(4, 0))
+
+        tk.Button(stat_card, text="↺  Refresh", command=self._pt_refresh,
+                  bg=C["border"], fg=C["text"], relief="flat",
+                  font=FT_LABEL, padx=10, pady=3, cursor="hand2").pack(anchor="e", pady=(10, 0))
+
+        # ── Installs list ─────────────────────────────────────────────────────
+        list_card = _card(inner, padx=0, pady=0)
+        list_card.pack(fill="both", expand=True, pady=(0, 14))
+        lh = tk.Frame(list_card, bg=C["card"], padx=16, pady=10); lh.pack(fill="x")
+        tk.Label(lh, text="INSTALLS IN game_installs.json",
+                 font=("Segoe UI", 8, "bold"), fg=C["text_dim"], bg=C["card"]).pack(side="left")
+        _sep(list_card, bg=C["border"]).pack(fill="x")
+
+        scroll_wrap = tk.Frame(list_card, bg=C["card"])
+        scroll_wrap.pack(fill="both", expand=True)
+        vsb = ttk.Scrollbar(scroll_wrap, orient="vertical")
+        vsb.pack(side="right", fill="y")
+        self._pt_canvas = tk.Canvas(scroll_wrap, bg=C["card"],
+                                    highlightthickness=0, yscrollcommand=vsb.set)
+        self._pt_canvas.pack(side="left", fill="both", expand=True)
+        vsb.config(command=self._pt_canvas.yview)
+        self._pt_inner = tk.Frame(self._pt_canvas, bg=C["card"])
+        self._pt_canvas.create_window((0, 0), window=self._pt_inner, anchor="nw")
+        self._pt_inner.bind("<Configure>", lambda e: self._pt_canvas.configure(
+            scrollregion=self._pt_canvas.bbox("all")))
+
+        # ── Action buttons ────────────────────────────────────────────────────
+        btn_row = tk.Frame(inner, bg=C["bg"]); btn_row.pack(fill="x", pady=(0, 4))
+        self._pt_patch_btn = RoundedButton(
+            btn_row, "⚙  Patch Selected as Manual",
+            self._pt_patch_selected, C["accent"], C["accent_dim"], height=46)
+        self._pt_patch_btn.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        self._pt_unpatch_btn = RoundedButton(
+            btn_row, "↩  Unpatch Selected (Restore Launcher)",
+            self._pt_unpatch_selected, C["border"], C["hover"], height=46)
+        self._pt_unpatch_btn.pack(side="left", fill="x", expand=True)
+
+        # Warning note
+        warn_card = tk.Frame(inner, bg="#2a1f0a",
+                             highlightbackground=C["warn"], highlightthickness=1,
+                             padx=14, pady=10)
+        warn_card.pack(fill="x")
+        tk.Label(warn_card,
+                 text="⚠  Close the Clone Hero Launcher before patching. "
+                      "CHSuite will attempt to close it automatically if detected.",
+                 font=FT_LABEL, fg=C["warn"], bg="#2a1f0a",
+                 wraplength=760, justify="left").pack(anchor="w")
+
+        # ── Store selection vars ───────────────────────────────────────────────
+        self._pt_vars = {}          # directoryPath → BooleanVar
+        self._pt_refresh()
+
+    def _pt_refresh(self):
+        """Reload installs from game_installs.json and rebuild the list."""
+        for w in self._pt_inner.winfo_children():
+            w.destroy()
+        self._pt_vars.clear()
+
+        if not _INSTALLS_FILE.is_file():
+            self._pt_status_lbl.config(
+                text="✗  game_installs.json not found",
+                fg=C["error"])
+            self._pt_status_sub.config(
+                text=f"Expected at: {_INSTALLS_FILE}\n"
+                     "The Clone Hero Launcher may not be installed.",
+                fg=C["text_dim"])
+            return
+
+        installs = _read_installs()
+        if not installs:
+            self._pt_status_lbl.config(
+                text="◦  No installs found", fg=C["text_dim"])
+            self._pt_status_sub.config(text="", fg=C["text_dim"])
+            return
+
+        # Count how many are already manual
+        manual_count = sum(1 for i in installs if i.get("isFromLauncher") is False)
+        total = len(installs)
+        if manual_count == total:
+            status_text = f"✓  All {total} install(s) patched as Manual"
+            status_fg   = C["success"]
+        elif manual_count == 0:
+            status_text = f"✗  {total} install(s) — none patched"
+            status_fg   = C["error"]
+        else:
+            status_text = f"◑  {manual_count}/{total} install(s) patched"
+            status_fg   = C["warn"]
+        self._pt_status_lbl.config(text=status_text, fg=status_fg)
+        self._pt_status_sub.config(
+            text=f"File: {_INSTALLS_FILE}", fg=C["text_dim"])
+
+        # Populate list
+        for inst in installs:
+            path     = inst.get("directoryPath", "?")
+            ver      = inst.get("version") or "—"
+            is_man   = inst.get("isFromLauncher") is False
+            disabled = inst.get("disabled", False)
+
+            row = tk.Frame(self._pt_inner, bg=C["card"], pady=0)
+            row.pack(fill="x")
+            _sep(row, bg=C["border"]).pack(fill="x")
+
+            inner_row = tk.Frame(row, bg=C["card"], padx=14, pady=10)
+            inner_row.pack(fill="x")
+
+            # Checkbox
+            var = tk.BooleanVar(value=True)
+            self._pt_vars[path] = var
+            tk.Checkbutton(inner_row, variable=var,
+                           bg=C["card"], activebackground=C["card"],
+                           selectcolor=C["bg"], relief="flat",
+                           cursor="hand2").pack(side="left", padx=(0, 8))
+
+            # Info
+            info = tk.Frame(inner_row, bg=C["card"]); info.pack(side="left", fill="x", expand=True)
+            name_color = C["text_dim"] if disabled else C["text"]
+            tk.Label(info, text=os.path.basename(path),
+                     font=FTB, fg=name_color, bg=C["card"]).pack(anchor="w")
+            tk.Label(info, text=path,
+                     font=FTM, fg=C["text_dim"], bg=C["card"]).pack(anchor="w")
+
+            tag_row = tk.Frame(info, bg=C["card"]); tag_row.pack(anchor="w", pady=(2, 0))
+            tk.Label(tag_row, text=f"v{ver}", font=FTM,
+                     fg=C["text_dim"], bg=C["card"]).pack(side="left", padx=(0, 8))
+            if disabled:
+                tk.Label(tag_row, text="disabled", font=FTM,
+                         fg=C["error"], bg="#3a1f1f", padx=4).pack(side="left", padx=(0, 6))
+
+            # Patch badge
+            if is_man:
+                badge_text, badge_fg, badge_bg = "✓ Manual", C["success"], "#0d2e1a"
+            else:
+                badge_text, badge_fg, badge_bg = "⚙ Launcher", C["warn"], "#2a1f0a"
+            tk.Label(inner_row, text=badge_text, font=("Segoe UI", 9, "bold"),
+                     fg=badge_fg, bg=badge_bg, padx=8, pady=3).pack(side="right")
+
+    def _pt_patch_selected(self):
+        """Patch all checked installs as Manual."""
+        selected = [p for p, v in self._pt_vars.items() if v.get()]
+        if not selected:
+            messagebox.showinfo("Nothing selected",
+                                "Tick at least one install to patch.", parent=self)
+            return
+        if _launcher_is_running():
+            if _kill_launcher():
+                _log("[patcher] Launcher force-closed")
+                self.after(600, lambda: self._pt_do_patch(selected))
+                return
+            else:
+                _log("[patcher] Launcher detected but could not be killed")
+        self._pt_do_patch(selected)
+
+    def _pt_do_patch(self, paths: list):
+        results = []
+        for p in paths:
+            msg = _silent_patch_as_manual(p)
+            results.append(f"{'✓' if msg.startswith('Launcher patch') else '✗'}  {os.path.basename(p)}: {msg}")
+            _log("[patcher] " + msg)
+        messagebox.showinfo("Patch complete",
+                            "\n".join(results) +
+                            "\n\nOpen the Launcher and set the install as default.", parent=self)
+        self._pt_refresh()
+
+    def _pt_unpatch_selected(self):
+        """Unpatch all checked installs back to Launcher-managed."""
+        selected = [p for p, v in self._pt_vars.items() if v.get()]
+        if not selected:
+            messagebox.showinfo("Nothing selected",
+                                "Tick at least one install to unpatch.", parent=self)
+            return
+        if _launcher_is_running():
+            if _kill_launcher():
+                _log("[patcher] Launcher force-closed for unpatch")
+                self.after(600, lambda: self._pt_do_unpatch(selected))
+                return
+            else:
+                _log("[patcher] Launcher detected but could not be killed")
+        self._pt_do_unpatch(selected)
+
+    def _pt_do_unpatch(self, paths: list):
+        results = []
+        for p in paths:
+            msg = _unpatch_as_launcher(p)
+            results.append(f"{'✓' if msg.startswith('Unpatch applied') else '✗'}  {os.path.basename(p)}: {msg}")
+            _log("[patcher] " + msg)
+        messagebox.showinfo("Unpatch complete", "\n".join(results), parent=self)
+        self._pt_refresh()
 
     # ── Close ─────────────────────────────────────────────────────────────────
     def _on_close(self):
