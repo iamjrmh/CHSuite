@@ -33,7 +33,43 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, colorchooser, simpledialog, scrolledtext
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  DEPENDENCY BOOTSTRAP  (Pillow + UnityPy, only needed for bg-changer tab)
+#  GLOBAL COLOUR / FONT CONSTANTS  (defined early — used by the dep bootstrap)
+# ──────────────────────────────────────────────────────────────────────────────
+
+C = dict(
+    bg="#0c0e13",
+    panel="#13161f",
+    card="#181c28",
+    card2="#1c2030",
+    sidebar="#0f111a",
+    border="#252b3d",
+    border2="#2e3650",
+    accent="#6c3bff",
+    accent_dim="#3d2299",
+    accent2="#ff3b8a",
+    accent3="#00d4aa",
+    text="#e9ecf8",
+    text_dim="#636b82",
+    text_mid="#9aa3bf",
+    success="#22c55e",
+    warn="#f59e0b",
+    error="#ef4444",
+    selected="#341a7a",
+    hover="#1e2235",
+    nav_active="#6c3bff",
+    nav_hover="#1e2235",
+)
+
+FT  = ("Segoe UI", 10)
+FTB = ("Segoe UI", 10, "bold")
+FTS = ("Segoe UI", 8)
+FTH = ("Segoe UI", 13, "bold")
+FTT = ("Segoe UI", 20, "bold")
+FTM = ("Consolas", 9)
+FT_LABEL = ("Segoe UI", 9)
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  DEPENDENCY BOOTSTRAP  (Pillow + UnityPy + pypresence)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _check_deps():
@@ -48,6 +84,10 @@ def _check_deps():
         import UnityPy  # noqa
     except ImportError:
         missing.append("UnityPy")
+    try:
+        import pypresence  # noqa
+    except ImportError:
+        missing.append("pypresence")
     if not missing:
         return
 
@@ -62,7 +102,8 @@ def _check_deps():
         + "\n".join("  - " + m for m in missing)
         + "\n\nPython: " + exe
         + "\n\nClick YES to install now. Click NO to continue without them\n"
-          "(CHMenuChanger tab will be unavailable).",
+          "(CHMenuChanger will be unavailable without Pillow/UnityPy;\n"
+          " Discord Rich Presence will be unavailable without pypresence).",
         icon="warning")
     _root.destroy()
     if not answer:
@@ -111,42 +152,11 @@ try:
 except ImportError:
     _REQUESTS_OK = False
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-#  GLOBAL COLOUR / FONT CONSTANTS
-# ──────────────────────────────────────────────────────────────────────────────
-
-C = dict(
-    bg="#0c0e13",
-    panel="#13161f",
-    card="#181c28",
-    card2="#1c2030",
-    sidebar="#0f111a",
-    border="#252b3d",
-    border2="#2e3650",
-    accent="#6c3bff",
-    accent_dim="#3d2299",
-    accent2="#ff3b8a",
-    accent3="#00d4aa",
-    text="#e9ecf8",
-    text_dim="#636b82",
-    text_mid="#9aa3bf",
-    success="#22c55e",
-    warn="#f59e0b",
-    error="#ef4444",
-    selected="#341a7a",
-    hover="#1e2235",
-    nav_active="#6c3bff",
-    nav_hover="#1e2235",
-)
-
-FT  = ("Segoe UI", 10)
-FTB = ("Segoe UI", 10, "bold")
-FTS = ("Segoe UI", 8)
-FTH = ("Segoe UI", 13, "bold")
-FTT = ("Segoe UI", 20, "bold")
-FTM = ("Consolas", 9)
-FT_LABEL = ("Segoe UI", 9)
+try:
+    from pypresence import Presence as _DiscordPresence
+    _PYPRESENCE_OK = True
+except ImportError:
+    _PYPRESENCE_OK = False
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -292,6 +302,108 @@ def _read_installs() -> list:
     except Exception:
         pass
     return []
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  DISCORD RICH PRESENCE
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Discord Client ID — baked in as the default.  Users can override via the
+# ⬤ Discord dot in the titlebar; their value is saved to chsuite_config.json.
+DISCORD_CLIENT_ID_DEFAULT = "1484437105164943421"
+
+# Map internal page IDs → display names shown in Discord
+_PAGE_DISPLAY_NAMES = {
+    "bgchanger": "CHMenuChanger",
+    "namegen":   "CHNameGen",
+    "cleaner":   "CHCleaner",
+    "patcher":   "CHPatcher",
+}
+
+# The large_image key must match an Art Asset uploaded in the Discord
+# Developer Portal (Rich Presence → Art Assets).
+# This is detected automatically at runtime from any .ico file sitting
+# next to the exe / script — so just name your art asset the same as
+# your icon file (lowercase, no extension).  Falls back to "jurmrweed".
+def _detect_discord_icon_key() -> str:
+    """
+    Look for a .ico file in the same directory as the exe / script and
+    return its stem lowercased as the Discord art-asset key.
+    e.g.  JURMRWEED.ico  →  "jurmrweed"
+    Falls back to "jurmrweed" if nothing is found.
+    """
+    try:
+        ico_files = list(_app_dir().glob("*.ico"))
+        if ico_files:
+            return ico_files[0].stem.lower()
+    except Exception:
+        pass
+    return "jurmrweed"
+
+_DISCORD_LARGE_IMAGE = _detect_discord_icon_key()
+_DISCORD_LARGE_TEXT  = "CHSuite by JURMR"
+
+
+class _DiscordRPC:
+    """
+    Thin wrapper around pypresence.Presence.
+    Silently does nothing if pypresence is not installed or Discord is closed.
+    """
+
+    def __init__(self, client_id: str):
+        self._rpc     = None
+        self._running = False
+        if not _PYPRESENCE_OK:
+            return
+        if not client_id:
+            return
+        # ── Connect ───────────────────────────────────────────────────────────
+        try:
+            self._rpc = _DiscordPresence(client_id)
+            self._rpc.connect()
+            self._running = True
+            _log("[Discord RPC] Connected")
+        except Exception as e:
+            _log(f"[Discord RPC] Could not connect: {e}")
+
+    def update(self, state: str, details: str = ""):
+        """Update the Discord activity.  details = tool name (top), state = context (bottom)."""
+        if not self._running:
+            return
+        try:
+            kwargs = dict(
+                details=state,          # top line  — tool name e.g. "CHMenuChanger"
+                large_image=_DISCORD_LARGE_IMAGE,
+                large_text=_DISCORD_LARGE_TEXT,
+                buttons=[
+                    {"label": "Download",          "url": "https://github.com/iamjrmh/CHSuite"},
+                    {"label": "Murrin' it Central", "url": "https://discord.gg/KJYPjnzd7C"},
+                ],
+            )
+            if details:
+                kwargs["state"] = details   # bottom line — e.g. "Editing: Black"
+            self._rpc.update(**kwargs)
+        except Exception as e:
+            _log(f"[Discord RPC] update failed: {e}")
+
+    def close(self):
+        if not (self._rpc and self._running):
+            return
+        self._running = False
+        rpc = self._rpc
+        self._rpc = None
+
+        def _do_close():
+            try:
+                rpc.clear()
+                rpc.close()
+                _log("[Discord RPC] Disconnected")
+            except Exception as e:
+                _log(f"[Discord RPC] Close error: {e}")
+
+        t = threading.Thread(target=_do_close, daemon=True)
+        t.start()
+        t.join(timeout=3)   # wait up to 3 s — never block the UI forever
+
 
 def _log(msg: str):
     line = "[{}] {}".format(datetime.datetime.now().strftime("%H:%M:%S"), msg)
@@ -758,7 +870,7 @@ class SetupDialog:
     """
 
     def __init__(self, root: tk.Tk):
-        self.result = None          # set to the chosen Clone Hero_Data path on confirm
+        self.result = None   # Clone Hero_Data path
 
         self.win = tk.Toplevel(root)
         self.win.title("Welcome to CHSuite")
@@ -939,7 +1051,7 @@ class SetupDialog:
 #  SECTION 2 — NAME GENERATOR
 # ──────────────────────────────────────────────────────────────────────────────
 
-__namegen_version__ = "1.0.3"
+__namegen_version__ = "1.1.1"
 GITHUB_REPO_OWNER   = "iamjrmh"
 GITHUB_REPO_NAME    = "CloneHeroColorGen"
 GITHUB_RELEASE_API  = (
@@ -1087,6 +1199,12 @@ class CHSuite(tk.Tk):
         self.deiconify()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
+        # ── Discord Rich Presence ─────────────────────────────────────────────
+        _client_id = self._cfg.get("discord_client_id", DISCORD_CLIENT_ID_DEFAULT)
+        self._drpc  = _DiscordRPC(_client_id)
+        self._update_discord_rpc()
+        self._update_discord_dot()
+
     # ── styles ────────────────────────────────────────────────────────────────
     def _apply_styles(self):
         s = ttk.Style(self)
@@ -1128,6 +1246,13 @@ class CHSuite(tk.Tk):
         tk.Label(inner_tb, text="  by JURMR",
                  font=("Segoe UI", 13), bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(6,0))
 
+        # Discord status dot — click to set / re-enter Client ID
+        self._discord_dot = tk.Label(inner_tb, text="⬤  Discord",
+                                      font=("Segoe UI", 9), bg=C["panel"],
+                                      fg=C["text_dim"], cursor="hand2", padx=12)
+        self._discord_dot.pack(side="right")
+        self._discord_dot.bind("<Button-1>", lambda e: self._discord_setup_prompt())
+
         # Body: left nav + content pane
         body = tk.Frame(self, bg=C["bg"])
         body.pack(fill="both", expand=True)
@@ -1167,10 +1292,10 @@ class CHSuite(tk.Tk):
         # Icons are drawn in a fixed-width Label so text always starts at
         # the same x position regardless of glyph width.
         nav_items = [
-            ("bgchanger", "◈", "BG Changer"),
-            ("namegen",   "✦", "Name Generator"),
-            ("cleaner",   "⊘", "Bad Songs Cleaner"),
-            ("patcher",   "⚙", "Launcher Patcher"),
+            ("bgchanger", "◈", "CHMenuChanger"),
+            ("namegen",   "✦", "CHNameGen"),
+            ("cleaner",   "⊘", "CHCleaner"),
+            ("patcher",   "⚙", "CHPatcher"),
         ]
         for page_id, icon, label in nav_items:
             # Outer frame acts as the clickable "button"
@@ -1208,7 +1333,7 @@ class CHSuite(tk.Tk):
 
         # Version at bottom
         tk.Frame(self._nav, bg=C["sidebar"]).pack(fill="y", expand=True)
-        tk.Label(self._nav, text="CHSuite v1.0", font=("Segoe UI", 8),
+        tk.Label(self._nav, text="CHSuite v1.1.1", font=("Segoe UI", 8),
                  fg=C["text_dim"], bg=C["sidebar"]).pack(pady=(0, 12))
 
     def _nav_hover(self, frame, icon_lbl, text_lbl, entering: bool):
@@ -1243,6 +1368,9 @@ class CHSuite(tk.Tk):
                                 font=("Segoe UI", 11))
                 text_lbl.config(bg=C["sidebar"], fg=C["text_mid"],
                                 font=("Segoe UI", 10))
+        # Update Discord activity whenever the active tab changes
+        if hasattr(self, "_drpc"):
+            self._update_discord_rpc()
 
     # ══════════════════════════════════════════════════════════════════════════
     #  PAGE 1 — BG CHANGER
@@ -1396,12 +1524,10 @@ class CHSuite(tk.Tk):
             dlg = SetupDialog(self)
             self.wait_window(dlg.win)
             if dlg.result:
-                # Apply the chosen data path to the current profile and save
                 self._data_v.set(dlg.result)
                 if not self._is_default_profile():
                     self._active_prof["data_path"] = dlg.result
                     _save_profiles(self._profiles)
-                # Also persist as the suite-level default for future profiles
                 self._cfg["default_data_path"] = dlg.result
             self._cfg["setup_done"] = True
             _save_json(CONFIG_FILE, self._cfg)
@@ -1625,6 +1751,9 @@ class CHSuite(tk.Tk):
         self._sel_lbl.config(text=f"Selected: {bg}")
         self._req_lbl.config(text=f"{'Exact' if exact else 'Min'}: {w}×{h}")
         self._bg_refresh_panels()
+        # Update Discord activity to reflect the selected background
+        if hasattr(self, "_drpc"):
+            self._update_discord_rpc()
 
     def _bg_refresh_panels(self):
         bg = self._selected_bg()
@@ -1989,7 +2118,7 @@ class CHSuite(tk.Tk):
             canvas.itemconfig(win_id, width=canvas.winfo_width())))
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
 
-        tk.Label(frame, text="Gradient Name Generator",
+        tk.Label(frame, text="CHNameGen — Gradient",
                  font=("Segoe UI", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w", pady=(0,16))
 
         self._grad_start_var  = tk.StringVar(value="#8044AB")
@@ -2124,7 +2253,7 @@ class CHSuite(tk.Tk):
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
         self._indiv_canvas = canvas
 
-        tk.Label(frame, text="Per-Letter Name Generator",
+        tk.Label(frame, text="CHNameGen — Per-Letter",
                  font=("Segoe UI", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w", pady=(0,16))
 
         self._indiv_size_var  = tk.StringVar()
@@ -2288,7 +2417,7 @@ class CHSuite(tk.Tk):
         inner = tk.Frame(page, bg=C["bg"], padx=24, pady=20)
         inner.pack(fill="both", expand=True)
 
-        tk.Label(inner, text="Bad Songs Cleaner",
+        tk.Label(inner, text="CHCleaner",
                  font=("Segoe UI", 18, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w")
         tk.Label(inner, text="Load your badsongs.txt, review ERROR folders, and delete them.",
                  font=FT, fg=C["text_dim"], bg=C["bg"]).pack(anchor="w", pady=(2, 16))
@@ -2448,7 +2577,7 @@ class CHSuite(tk.Tk):
         inner = tk.Frame(page, bg=C["bg"], padx=24, pady=20)
         inner.pack(fill="both", expand=True)
 
-        tk.Label(inner, text="Launcher Patcher",
+        tk.Label(inner, text="CHPatcher",
                  font=("Segoe UI", 18, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w")
         tk.Label(inner,
                  text="Mark installs as Manual so the launcher stops overwriting your game files.",
@@ -2655,8 +2784,150 @@ class CHSuite(tk.Tk):
         messagebox.showinfo("Unpatch complete", "\n".join(results), parent=self)
         self._pt_refresh()
 
+    # ── Discord Rich Presence ─────────────────────────────────────────────────
+    def _update_discord_dot(self):
+        """Update the titlebar dot colour: green = connected, grey = off."""
+        if not hasattr(self, "_discord_dot"):
+            return
+        if self._drpc._running:
+            self._discord_dot.config(fg=C["success"], text="⬤  Discord")
+        elif self._cfg.get("discord_client_id", ""):
+            # ID is set but connection failed (Discord closed, bad ID, etc.)
+            self._discord_dot.config(fg=C["error"], text="⬤  Discord")
+        else:
+            # No ID configured yet — prompt the user
+            self._discord_dot.config(fg=C["text_dim"], text="⬤  Discord")
+
+    def _discord_setup_prompt(self):
+        """Show Discord Rich Presence connection status (read-only)."""
+        win = tk.Toplevel(self)
+        win.title("Discord Rich Presence")
+        win.configure(bg=C["bg"])
+        win.resizable(False, False)
+        win.grab_set()
+
+        inner = tk.Frame(win, bg=C["bg"], padx=28, pady=24)
+        inner.pack(fill="both")
+
+        tk.Label(inner, text="Discord Rich Presence", font=("Segoe UI", 14, "bold"),
+                 fg=C["text"], bg=C["bg"]).pack(anchor="w")
+        tk.Label(inner, text="CHSuite activity is shown on your Discord profile.",
+                 font=FT, fg=C["text_dim"], bg=C["bg"]).pack(anchor="w", pady=(2, 16))
+
+        # Status card
+        card = tk.Frame(inner, bg=C["card"],
+                        highlightbackground=C["border"], highlightthickness=1,
+                        padx=16, pady=14)
+        card.pack(fill="x")
+
+        status_text = "✓  Connected" if self._drpc._running else "✗  Not connected — make sure Discord is open."
+        status_fg   = C["success"] if self._drpc._running else C["error"]
+        status_lbl  = tk.Label(card, text=status_text, font=(FT[0], FT[1], "bold"),
+                               fg=status_fg, bg=C["card"])
+        status_lbl.pack(anchor="w")
+
+        # Progress bar — hidden until reconnect starts
+        bar = ttk.Progressbar(card, mode="indeterminate", length=260)
+
+        foot = tk.Frame(win, bg=C["panel"], padx=20, pady=12)
+        foot.pack(fill="x")
+
+        close_btn = tk.Button(foot, text="Close", command=win.destroy,
+                              bg=C["border"], fg=C["text_dim"], relief="flat",
+                              font=FT, padx=12, pady=5, cursor="hand2")
+        close_btn.pack(side="right")
+
+        reconnect_btn = tk.Button(foot, text="Reconnect",
+                                  bg=C["accent"], fg="white", relief="flat",
+                                  font=FTB, padx=14, pady=5, cursor="hand2")
+        reconnect_btn.pack(side="right", padx=(0, 6))
+
+        def _reconnect():
+            reconnect_btn.config(state="disabled", cursor="arrow")
+            close_btn.config(state="disabled", cursor="arrow")
+            status_lbl.config(text="Reconnecting…", fg=C["text_dim"])
+            bar.pack(anchor="w", pady=(10, 0))
+            bar.start(12)
+            win.update_idletasks()
+
+            def _worker():
+                self._drpc.close()
+                _client_id = self._cfg.get("discord_client_id", DISCORD_CLIENT_ID_DEFAULT)
+                self._drpc = _DiscordRPC(_client_id)
+
+            def _done():
+                bar.stop()
+                bar.pack_forget()
+                self._update_discord_rpc()
+                self._update_discord_dot()
+                win.destroy()
+                self._status("Discord Rich Presence reconnected." if self._drpc._running
+                             else "Discord RPC: could not connect — is Discord open?")
+
+            t = threading.Thread(target=_worker, daemon=True)
+            t.start()
+            def _poll():
+                if t.is_alive():
+                    win.after(100, _poll)
+                else:
+                    _done()
+            win.after(100, _poll)
+
+        reconnect_btn.config(command=_reconnect)
+
+        # Centre on main window
+        win.update_idletasks()
+        rw = self.winfo_width();  rh = self.winfo_height()
+        rx = self.winfo_rootx();  ry = self.winfo_rooty()
+        dw = win.winfo_reqwidth(); dh = win.winfo_reqheight()
+        win.geometry(f"+{rx+(rw-dw)//2}+{ry+(rh-dh)//2}")
+
+    def _update_discord_rpc(self):
+        """Schedule a Discord presence update, debounced by 600 ms.
+
+        Discord enforces a 15-second rate limit between updates.  Calling
+        update() too soon raises an exception that pypresence swallows
+        silently, which is why CHCleaner / CHPatcher never appeared —
+        the user switched tabs within the rate-limit window.
+
+        We cancel any pending scheduled call and re-schedule 600 ms out,
+        so only the *last* tab switch in a burst actually fires.  After the
+        first update on launch we also enforce a 15-second cooldown.
+        """
+        # Cancel any already-pending debounce job
+        job = getattr(self, "_drpc_pending", None)
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+
+        def _do_update():
+            self._drpc_pending = None
+            import time
+            now = time.monotonic()
+            last = getattr(self, "_drpc_last_update", 0)
+            # If we're still inside the 15 s window, reschedule for when it ends
+            gap = now - last
+            if gap < 15 and last != 0:
+                wait_ms = int((15 - gap) * 1000) + 100
+                self._drpc_pending = self.after(wait_ms, _do_update)
+                return
+            page = getattr(self, "_current_page", "bgchanger") or "bgchanger"
+            tool = _PAGE_DISPLAY_NAMES.get(page, "CHSuite")
+            if page == "bgchanger":
+                details = f"Editing: {self._selected_bg()}"
+                self._drpc.update(tool, details)
+            else:
+                self._drpc.update(tool)
+            self._drpc_last_update = time.monotonic()
+
+        self._drpc_pending = self.after(600, _do_update)
+
     # ── Close ─────────────────────────────────────────────────────────────────
     def _on_close(self):
+        if hasattr(self, "_drpc"):
+            self._drpc.close()
         _save_json(CONFIG_FILE, self._cfg)
         _save_profiles(self._profiles)
         self.destroy()

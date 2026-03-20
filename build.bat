@@ -101,6 +101,9 @@ if !errorlevel! neq 0 ( echo  [ERROR] Native dependency install failed. & goto :
 pip install requests
 if !errorlevel! neq 0 ( echo  [ERROR] requests install failed. & goto :fail )
 
+pip install pypresence
+if !errorlevel! neq 0 ( echo  [ERROR] pypresence install failed. & goto :fail )
+
 pip install "pyinstaller==6.10.0"
 if !errorlevel! neq 0 ( echo  [ERROR] PyInstaller install failed. & goto :fail )
 
@@ -125,6 +128,9 @@ if !errorlevel! neq 0 ( echo  [ERROR] Pillow import failed. & goto :fail )
 
 python -c "import requests; print('  requests         OK  v' + requests.__version__)"
 if !errorlevel! neq 0 ( echo  [ERROR] requests import failed. & goto :fail )
+
+python -c "import pypresence; print('  pypresence       OK  v' + pypresence.__version__)"
+if !errorlevel! neq 0 ( echo  [ERROR] pypresence import failed. & goto :fail )
 
 echo.
 

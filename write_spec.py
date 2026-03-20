@@ -1,6 +1,7 @@
 """
 write_spec.py  --  writes CHSuite.spec to the current directory.
 Called by build.bat during the build process.
+All project files live in E:\\Downloads\\JURMR CHSuite
 """
 import sys
 import os
@@ -44,7 +45,7 @@ except Exception:
 # ---------------------------------------------------------------------------
 # Icon path  (update if your icon lives elsewhere)
 # ---------------------------------------------------------------------------
-ICON_PATH = r"JURMRWEED.ico"
+ICON_PATH = r"E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
 if not os.path.isfile(ICON_PATH):
     print(f"  WARNING: icon not found at {ICON_PATH!r} -- building without icon.")
     icon_line = "    # icon not found at build time"
@@ -99,6 +100,9 @@ pyfmod_d,     pyfmod_b,       pyfmod_h     = _safe_collect("pyfmodex")
 # -- Requests (used by Name Generator for update checks) ----------------------
 req_d,        req_b,          req_h        = _safe_collect("requests")
 
+# -- Discord Rich Presence ----------------------------------------------------
+discord_d,    discord_b,      discord_h    = _safe_collect("pypresence")
+
 # -- Explicit top-level .pyd copies -------------------------------------------
 _t2d_forced    = {_t2d_binaries_repr}
 _etcpak_forced = {_etcpak_binaries_repr}
@@ -109,7 +113,7 @@ all_datas = (
     brotli_d + brotlicffi_d + lz4_d +
     t2d_d + etcpak_d + archspec_d +
     fmod_d + pyfmod_d +
-    req_d
+    req_d + discord_d
 )
 
 all_binaries = (
@@ -117,7 +121,7 @@ all_binaries = (
     brotli_b + brotlicffi_b + lz4_b +
     t2d_b + etcpak_b + archspec_b +
     fmod_b + pyfmod_b +
-    req_b +
+    req_b + discord_b +
     _t2d_forced +
     _etcpak_forced
 )
@@ -156,6 +160,11 @@ all_hidden = list(set(
     collect_submodules("certifi") +
     collect_submodules("charset_normalizer") +
     collect_submodules("idna") +
+
+    # Discord Rich Presence
+    collect_submodules("pypresence") +
+    ["pypresence", "pypresence.presence", "pypresence.baseclient",
+     "pypresence.exceptions", "pypresence.payloads", "pypresence.utils"] +
 
     # Compression
     [
