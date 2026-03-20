@@ -1,7 +1,6 @@
 """
 write_spec.py  --  writes CHSuite.spec to the current directory.
 Called by build.bat during the build process.
-All project files live in E:\\Downloads\\JURMR CHSuite
 """
 import sys
 import os
