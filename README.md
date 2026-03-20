@@ -59,6 +59,21 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted.
 
+## 🔄 Updating (Direct)
+
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuite_Setup.exe).
+2. Double-click **CHSuite_Setup.exe** to run the installer.
+3. By default it installs to `C:\CHSuite`. If installed somewhere else, choose that directory.
+4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
+5. All of your old configs will work with newer versions. If you already set up CHSuite with an older version, you don't need to reset it all back up.
+
+## 🔄 Updating (Portable)
+
+1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuite.zip). 
+2. Extract the ZIP where your old CHSuite.exe directory is.
+3. Double-click **CHSuite.exe**.
+4. All of your old configs will work with newer versions. If you already set up CHSuite with an older version, you don't need to reset it all back up.
+
 ---
 
 ## 🎨 Suite Menu
