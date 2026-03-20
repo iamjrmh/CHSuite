@@ -166,6 +166,16 @@ if !errorlevel! neq 0 (
     goto :fail
 )
 
+:: ── Hide _internal folder ─────────────────────────────────────────────────────
+echo  Hiding _internal folder...
+if exist "dist\CHSuite\_internal" (
+    attrib +h "dist\CHSuite\_internal"
+    echo  dist\CHSuite\_internal is now hidden.
+) else (
+    echo  [WARNING] dist\CHSuite\_internal not found -- skipping attrib.
+)
+echo.
+
 :: ── Done ─────────────────────────────────────────────────────────────────────
 echo.
 echo  =============================================================

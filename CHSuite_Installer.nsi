@@ -57,8 +57,8 @@ VIAddVersionKey     "LegalCopyright"  "JURMR"
 ; UI settings
 ; ---------------------------------------------------------------------------
 !define MUI_ABORTWARNING
-!define MUI_ICON                    "JURMRWEED.ico"
-!define MUI_UNICON                  "JURMRWEED.ico"
+!define MUI_ICON                    "E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
+!define MUI_UNICON                  "E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
 !define MUI_HEADERIMAGE
 !define MUI_HEADERIMAGE_RIGHT
 !define MUI_WELCOMEFINISHPAGE_BITMAP_NOSTRETCH
@@ -98,6 +98,9 @@ Section "CHSuite" SecMain
 
     ; Copy everything from the build output
     File /r "dist\CHSuite\*.*"
+
+    ; Hide the _internal folder so users don't see it
+    SetFileAttributes "$INSTDIR\_internal" HIDDEN
 
     ; Write install dir to registry
     WriteRegStr HKCU "Software\CHSuite" "InstallDir" "$INSTDIR"
