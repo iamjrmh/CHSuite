@@ -46,7 +46,7 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 ## 📁 Direct Install (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite_Setup.exe).
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuite_Setup.exe).
 2. Double-click **CHSuite_Setup.exe** to run the installer.
 3. By default it installs to `C:\CHSuite`. Change it if you prefer.
 4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
@@ -54,7 +54,7 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 ## 🚀 Portable Install
 
-1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page.
+1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuite.zip).
 2. Extract the ZIP anywhere on your PC.
 3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted.
