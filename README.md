@@ -80,22 +80,22 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 <h3 align="center">CHMenuChanger</h3>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite1.png">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite1.png">
 </p>
 
 <h3 align="center">CHNameGen</h3>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite2.png">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite2.png">
 </p>
 
 <h3 align="center">CHCleaner</h3>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite3.png">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite3.png">
 </p>
 
 <h3 align="center">CHPatcher</h3>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite4.png">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite4.png">
 </p>
 
 ---
