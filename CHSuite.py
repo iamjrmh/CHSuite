@@ -2088,6 +2088,16 @@ class CHSuite(tk.Tk):
         self.minsize(1200, 780)
         self.geometry("1350x860")
 
+        # Set window icon from JURMRWEED.png if present
+        try:
+            _icon_path = _app_dir() / "JURMRWEED.png"
+            if _icon_path.is_file() and _PIL_OK:
+                _icon_img = ImageTk.PhotoImage(Image.open(str(_icon_path)))
+                self.iconphoto(True, _icon_img)
+                self._icon_img = _icon_img  # keep reference so GC doesn't destroy it
+        except Exception:
+            pass
+
         self._cfg      = _load_json(CONFIG_FILE, {})
         self._profiles = _load_profiles()
 
