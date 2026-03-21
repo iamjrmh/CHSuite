@@ -100,7 +100,7 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 <h3 align="center">CHPatcher</h3>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite4.png">
+  <img src="https://i.imgur.com/vwUTFPr.png">
 </p>
 
 <h3 align="center">CHManager</h3>
