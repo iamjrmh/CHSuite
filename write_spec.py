@@ -43,6 +43,17 @@ except Exception:
     _etcpak_binaries_repr = "[]"
 
 # ---------------------------------------------------------------------------
+# Images folder — bundle alongside the exe so NoteGen finds its templates
+# ---------------------------------------------------------------------------
+IMAGES_DIR = r"E:\Downloads\JURMR CHSuite\Images"
+if os.path.isdir(IMAGES_DIR):
+    images_datas = [(IMAGES_DIR, "Images")]
+    print(f"  Images folder: {IMAGES_DIR}")
+else:
+    images_datas = []
+    print(f"  WARNING: Images folder not found at {IMAGES_DIR!r} -- NoteGen templates won't be bundled.")
+
+# ---------------------------------------------------------------------------
 # Icon path  (update if your icon lives elsewhere)
 # ---------------------------------------------------------------------------
 ICON_PATH = r"E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
@@ -107,13 +118,17 @@ discord_d,    discord_b,      discord_h    = _safe_collect("pypresence")
 _t2d_forced    = {_t2d_binaries_repr}
 _etcpak_forced = {_etcpak_binaries_repr}
 
+# -- Images folder (NoteGen templates) — value baked in at spec-generation time
+_images_datas_repr = {repr(images_datas)}
+
 # -- Merge all collected pieces ------------------------------------------------
 all_datas = (
     up_datas + pil_datas +
     brotli_d + brotlicffi_d + lz4_d +
     t2d_d + etcpak_d + archspec_d +
     fmod_d + pyfmod_d +
-    req_d + discord_d
+    req_d + discord_d +
+    _images_datas_repr
 )
 
 all_binaries = (
@@ -198,6 +213,8 @@ all_hidden = list(set(
         "re",
         "json",
         "copy",
+        "colorsys",
+        "math",
     ] +
 
     # tkinter

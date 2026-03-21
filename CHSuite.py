@@ -1,11 +1,13 @@
 """
-CHSuite  by JURMR
-=================
+CHSuite  by JURMR  v2.0
+=======================
 All-in-one Clone Hero utility suite.
 
   • CHMenuChanger  — swap in-game menu backgrounds via UnityPy
-  • Name Generator — gradient / per-letter Clone Hero name tags
-  • Bad Songs Cleaner — parse badsongs.txt and delete ERROR folders
+  • CHNameGen      — gradient / per-letter Clone Hero name tags
+  • CHNoteGen      — note/color profile editor with live highway preview
+  • CHCleaner      — parse badsongs.txt and delete ERROR folders
+  • CHPatcher      — patch the launcher so it stops resetting game files
 
 Dependencies (CHMenuChanger tab only):
     pip install Pillow UnityPy
@@ -19,6 +21,8 @@ import sys
 import re
 import json
 import copy
+import math
+import colorsys
 import shutil
 import threading
 import subprocess
@@ -30,7 +34,7 @@ from pathlib import Path
 
 # ── tkinter ────────────────────────────────────────────────────────────────────
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, colorchooser, simpledialog, scrolledtext
+from tkinter import ttk, filedialog, messagebox, simpledialog, scrolledtext
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  GLOBAL COLOUR / FONT CONSTANTS  (defined early — used by the dep bootstrap)
@@ -313,10 +317,12 @@ DISCORD_CLIENT_ID_DEFAULT = "1484437105164943421"
 
 # Map internal page IDs → display names shown in Discord
 _PAGE_DISPLAY_NAMES = {
-    "bgchanger": "CHMenuChanger",
-    "namegen":   "CHNameGen",
-    "cleaner":   "CHCleaner",
-    "patcher":   "CHPatcher",
+    "bgchanger":   "CHMenuChanger",
+    "namegen":     "CHNameGen",
+    "notegen":     "CHNoteGen",
+    "cleaner":     "CHCleaner",
+    "patcher":     "CHPatcher",
+    "gamemanager": "CHManager",
 }
 
 # The large_image key must match an Art Asset uploaded in the Discord
@@ -1060,14 +1066,14 @@ GITHUB_RELEASE_API  = (
 UPDATE_ZIP_FILENAME = "CloneHeroColorGen.zip"
 
 
-def _hex_to_rgb(hex_color: str) -> tuple:
-    """Pure-Python hex → (r, g, b) in 0.0–1.0 range."""
+def _ng_hex_to_rgb_f(hex_color: str) -> tuple:
+    """Pure-Python hex → (r, g, b) in 0.0–1.0 range (for gradient interpolation)."""
     h = hex_color.lstrip("#")
     if len(h) == 3:
-        h = h[0]*2 + h[1]*2 + h[2]*2   # expand shorthand #RGB → #RRGGBB
+        h = h[0]*2 + h[1]*2 + h[2]*2
     return tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
 
-def _rgb_to_hex(rgb: tuple) -> str:
+def _ng_rgb_f_to_hex(rgb: tuple) -> str:
     """Pure-Python (r, g, b) 0.0–1.0 → '#RRGGBB' string."""
     return "#{:02X}{:02X}{:02X}".format(
         min(255, max(0, int(round(rgb[0] * 255)))),
@@ -1076,7 +1082,7 @@ def _rgb_to_hex(rgb: tuple) -> str:
     )
 
 def _interpolate_colors(hex_colors: list, steps: int) -> list:
-    rgb_colors = [_hex_to_rgb(c) for c in hex_colors if c]
+    rgb_colors = [_ng_hex_to_rgb_f(c) for c in hex_colors if c]
     if len(rgb_colors) < 2:
         raise ValueError("At least a start and end color are required.")
     segments = len(rgb_colors) - 1
@@ -1091,7 +1097,7 @@ def _interpolate_colors(hex_colors: list, steps: int) -> list:
             r = start[0] + (end[0] - start[0]) * t
             g = start[1] + (end[1] - start[1]) * t
             b = start[2] + (end[2] - start[2]) * t
-            result.append(_rgb_to_hex((r, g, b)))
+            result.append(_ng_rgb_f_to_hex((r, g, b)))
     return result[:steps]
 
 def _generate_gradient_name(name, colors, bold=False, italic=False,
@@ -1125,8 +1131,923 @@ def _generate_individual_name(letters_data, global_size=None, global_spacing=Non
     return result, colors
 
 
+
+
 # ──────────────────────────────────────────────────────────────────────────────
-#  SECTION 3 — BAD SONGS CLEANER
+#  SECTION 3 — NOTEGEN  (ported from CHNoteGen by JURMR)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Storage paths for NoteGen (alongside the exe / script)
+_NG_PROFILES_FILE = _app_dir() / "ch_notegen_profiles.json"
+_NG_CONFIG_FILE   = _app_dir() / "ch_notegen_config.json"
+_NG_DEFAULT_INI   = _app_dir() / "DefaultColors.ini"
+_NG_IMAGES_DIR    = _app_dir() / "Images"
+_NG_DEFAULT_PROFILE_NAME = "Default (Read-Only)"
+
+_NOTE_FILE_MAP = [
+    ("green",  "note_green",  "Green.png"),
+    ("red",    "note_red",    "Red.png"),
+    ("yellow", "note_yellow", "Yellow.png"),
+    ("blue",   "note_blue",   "Blue.png"),
+    ("orange", "note_orange", "Orange.png"),
+]
+_TEMPLATE_NAMES = ["grayscale metallic.png", "MonoNote.png", "monenote.png"]
+_SECTION_ORDER  = ["sixfret", "drums", "other", "guitar"]
+
+# ── Default colours ───────────────────────────────────────────────────────────
+
+_NG_DEFAULT_COLORS: dict = {
+    "guitar": {
+        "striker_base_orange":"#FFFFFF","striker_base_blue":"#FFFFFF",
+        "striker_base_yellow":"#FFFFFF","striker_base_red":"#FFFFFF",
+        "striker_base_green":"#FFFFFF",
+        "striker_head_light_open":"#FFCE86","striker_head_light_orange":"#FFB300",
+        "striker_head_light_blue":"#0089FF","striker_head_light_yellow":"#FFFF00",
+        "striker_head_light_red":"#FF0000","striker_head_light_green":"#00FF00",
+        "striker_head_cover_orange":"#FFB300","striker_head_cover_blue":"#0089FF",
+        "striker_head_cover_yellow":"#FFFF00","striker_head_cover_red":"#FF0000",
+        "striker_head_cover_green":"#00FF00",
+        "striker_cover_orange":"#FFB300","striker_cover_blue":"#0089FF",
+        "striker_cover_yellow":"#FFFF00","striker_cover_red":"#FF0000",
+        "striker_cover_green":"#00FF00",
+        "sustain_sp_active":"#00FFFF","sustain_sp_phrase_active":"#00FFFF",
+        "sustain_sp_phrase":"#00FFFF","sustain_open":"#DB33F9",
+        "sustain_orange":"#FFD23B","sustain_blue":"#00C5FF",
+        "sustain_yellow":"#FFFF00","sustain_red":"#FF0000","sustain_green":"#00FF00",
+        "note_anim_sp_active":"#51FFFF","note_anim_sp_phrase_active":"#FFFFFF",
+        "note_anim_sp_phrase":"#51FFFF","note_anim_open":"#FFFFFF",
+        "note_anim_orange":"#FFBE28","note_anim_blue":"#77D1FF",
+        "note_anim_yellow":"#FFFF57","note_anim_red":"#FF8B8B","note_anim_green":"#00FF00",
+        "note_sp_active":"#00FFFF","note_sp_phrase_active":"#00FFFF",
+        "note_sp_phrase":"#00FFFF","note_open":"#BA00FF",
+        "note_orange":"#FFB300","note_blue":"#0089FF",
+        "note_yellow":"#FFFF00","note_red":"#FF0000","note_green":"#00FF00",
+    },
+    "drums": {
+        "drums_striker_base_green":"#FFFFFF","drums_striker_base_blue":"#FFFFFF",
+        "drums_striker_base_yellow":"#FFFFFF","drums_striker_base_red":"#FFFFFF",
+        "drums_striker_head_light_kick":"#FFCE86","drums_striker_head_light_green":"#00FF00",
+        "drums_striker_head_light_blue":"#0089FF","drums_striker_head_light_yellow":"#FFFF00",
+        "drums_striker_head_light_red":"#FF0000",
+        "drums_striker_head_cover_green":"#00FF00","drums_striker_head_cover_blue":"#0089FF",
+        "drums_striker_head_cover_yellow":"#FFFF00","drums_striker_head_cover_red":"#FF0000",
+        "drums_striker_cover_green":"#00FF00","drums_striker_cover_blue":"#0089FF",
+        "drums_striker_cover_yellow":"#FFFF00","drums_striker_cover_red":"#FF0000",
+        "note_anim_kick_sp_active":"#00FFFF","note_overlay_kick_sp_phrase":"#00D7D7",
+        "note_anim_kick_sp_phrase_active":"#FFFFFF","note_anim_kick_sp_phrase":"#FFFF00",
+        "note_kick_sp_active":"#009178","note_kick_sp_phrase_active":"#FFFFFF",
+        "note_kick_sp_phrase":"#FF4600","note_anim_kick":"#FFFF00","note_kick":"#FF4600",
+        "cym_anim_sp_active":"#7CFFD6","cym_anim_sp_phrase_active":"#FFFFFF",
+        "cym_anim_sp_phrase":"#7CFFD6","cym_anim_blue":"#609EFF","cym_anim_yellow":"#FFEF5B",
+        "cym_anim_red":"#FF8B8B","cym_anim_green":"#A5FF7B",
+        "cym_sp_active":"#7CFFD6","cym_sp_phrase_active":"#7CFFD6","cym_sp_phrase":"#7CFFD6",
+        "cym_blue":"#1D63FF","cym_yellow":"#FFE531","cym_red":"#FF4663","cym_green":"#0CFF0C",
+        "tom_anim_sp_active":"#51FFFF","tom_anim_sp_phrase_active":"#FFFFFF",
+        "tom_anim_sp_phrase":"#51FFFF","tom_anim_blue":"#2685FF","tom_anim_yellow":"#FFFF26",
+        "tom_anim_red":"#FF2F2F","tom_anim_green":"#19FF19",
+        "tom_sp_active":"#00FFFF","tom_sp_phrase_active":"#00FFFF","tom_sp_phrase":"#00FFFF",
+        "tom_blue":"#0089FF","tom_yellow":"#FFFF00","tom_red":"#FF0000","tom_green":"#00FF00",
+    },
+    "sixfret": {
+        "sf_note_hopo":"#00FFFF",
+        "sf_striker_base_white_right":"#FFFFFF","sf_striker_base_white_mid":"#FFFFFF",
+        "sf_striker_base_white_left":"#FFFFFF","sf_striker_base_black_right":"#3F3F3F",
+        "sf_striker_base_black_mid":"#3F3F3F","sf_striker_base_black_left":"#3F3F3F",
+        "sf_sustain_sp_active":"#00FFFF","sf_sustain_sp_phrase_active":"#00FFFF",
+        "sf_sustain_sp_phrase":"#00FFFF","sf_sustain_open":"#FFFFFF",
+        "sf_sustain_right":"#FFFFFF","sf_sustain_mid":"#FFFFFF","sf_sustain_left":"#FFFFFF",
+        "sf_note_tap_open":"#BA00FF","sf_note_tap_white_right":"#BA00FF",
+        "sf_note_tap_white_mid":"#BA00FF","sf_note_tap_white_left":"#BA00FF",
+        "sf_note_tap_black_right":"#BA00FF","sf_note_tap_black_mid":"#BA00FF",
+        "sf_note_tap_black_left":"#BA00FF",
+        "sf_note_sp_active":"#00FFFF","sf_note_sp_phrase_active":"#00FFFF",
+        "sf_note_sp_phrase":"#00FFFF","sf_note_open":"#FFFFFF",
+        "sf_note_white_right":"#FFFFFF","sf_note_white_mid":"#FFFFFF","sf_note_white_left":"#FFFFFF",
+        "sf_note_black_right":"#3F3F3F","sf_note_black_mid":"#3F3F3F","sf_note_black_left":"#3F3F3F",
+    },
+    "other": {
+        "combo_sp_active_glow":"#FFFFFF","combo_four_glow":"#E8B1FF",
+        "combo_three_glow":"#F0FFF0","combo_two_glow":"#FFFF00",
+        "combo_sp_active":"#00CCCC","combo_four":"#874E9E","combo_three":"#00FF00",
+        "combo_two":"#D55800","combo_one":"#FFDD00",
+        "striker_hold_spark_sp_active":"#FF1200","striker_hold_spark":"#FF1200",
+        "striker_hit_particles_sp_active":"#00FFFF","striker_hit_particles":"#FF5000",
+        "striker_hit_flame_sp_active":"#00FFFF","striker_hit_flame":"#FFB76D",
+        "striker_hit_flame_kick":"#FFB300","striker_hit_flame_open":"#BA00FF",
+        "sp_bar_arrow":"#7FFFFF","sp_bar_elec":"#B2B2B2","sp_bar_color":"#004848",
+        "sp_act_animation":"#00C1E5","sp_act_flash":"#0029BF",
+        "general_sp_active":"#FFFFFF","general_sp":"#00FFFF",
+    },
+}
+
+_NG_FRIENDLY: dict = {
+    "note_green":"Note · Green","note_red":"Note · Red","note_yellow":"Note · Yellow",
+    "note_blue":"Note · Blue","note_orange":"Note · Orange","note_open":"Note · Open",
+    "note_sp_active":"Note · SP Active","note_sp_phrase":"Note · SP Phrase",
+    "note_sp_phrase_active":"Note · SP Phrase Active",
+    "note_anim_green":"Note Anim · Green","note_anim_red":"Note Anim · Red",
+    "note_anim_yellow":"Note Anim · Yellow","note_anim_blue":"Note Anim · Blue",
+    "note_anim_orange":"Note Anim · Orange","note_anim_open":"Note Anim · Open",
+    "note_anim_sp_active":"Note Anim · SP Active","note_anim_sp_phrase":"Note Anim · SP Phrase",
+    "note_anim_sp_phrase_active":"Note Anim · SP Phrase Active",
+    "sustain_green":"Sustain · Green","sustain_red":"Sustain · Red",
+    "sustain_yellow":"Sustain · Yellow","sustain_blue":"Sustain · Blue",
+    "sustain_orange":"Sustain · Orange","sustain_open":"Sustain · Open",
+    "sustain_sp_active":"Sustain · SP Active","sustain_sp_phrase":"Sustain · SP Phrase",
+    "sustain_sp_phrase_active":"Sustain · SP Phrase Active",
+    "striker_base_green":"Strikeline Base · Green","striker_base_red":"Strikeline Base · Red",
+    "striker_base_yellow":"Strikeline Base · Yellow","striker_base_blue":"Strikeline Base · Blue",
+    "striker_base_orange":"Strikeline Base · Orange",
+    "striker_head_light_green":"Strikeline Head Light · Green",
+    "striker_head_light_red":"Strikeline Head Light · Red",
+    "striker_head_light_yellow":"Strikeline Head Light · Yellow",
+    "striker_head_light_blue":"Strikeline Head Light · Blue",
+    "striker_head_light_orange":"Strikeline Head Light · Orange",
+    "striker_head_light_open":"Strikeline Head Light · Open",
+    "striker_head_cover_green":"Strikeline Head Cover · Green",
+    "striker_head_cover_red":"Strikeline Head Cover · Red",
+    "striker_head_cover_yellow":"Strikeline Head Cover · Yellow",
+    "striker_head_cover_blue":"Strikeline Head Cover · Blue",
+    "striker_head_cover_orange":"Strikeline Head Cover · Orange",
+    "striker_cover_green":"Strikeline Cover · Green","striker_cover_red":"Strikeline Cover · Red",
+    "striker_cover_yellow":"Strikeline Cover · Yellow","striker_cover_blue":"Strikeline Cover · Blue",
+    "striker_cover_orange":"Strikeline Cover · Orange",
+    "note_kick":"Kick Note","note_anim_kick":"Kick Note Anim",
+    "note_kick_sp_active":"Kick · SP Active","note_kick_sp_phrase":"Kick · SP Phrase",
+    "note_kick_sp_phrase_active":"Kick · SP Phrase Active",
+    "note_anim_kick_sp_active":"Kick Anim · SP Active","note_anim_kick_sp_phrase":"Kick Anim · SP Phrase",
+    "note_anim_kick_sp_phrase_active":"Kick Anim · SP Phrase Active",
+    "note_overlay_kick_sp_phrase":"Kick Overlay · SP Phrase",
+    "cym_green":"Cymbal · Green","cym_red":"Cymbal · Red","cym_yellow":"Cymbal · Yellow","cym_blue":"Cymbal · Blue",
+    "cym_anim_green":"Cymbal Anim · Green","cym_anim_red":"Cymbal Anim · Red",
+    "cym_anim_yellow":"Cymbal Anim · Yellow","cym_anim_blue":"Cymbal Anim · Blue",
+    "cym_sp_active":"Cymbal · SP Active","cym_sp_phrase":"Cymbal · SP Phrase","cym_sp_phrase_active":"Cymbal · SP Phrase Active",
+    "cym_anim_sp_active":"Cymbal Anim · SP Active","cym_anim_sp_phrase":"Cymbal Anim · SP Phrase",
+    "cym_anim_sp_phrase_active":"Cymbal Anim · SP Phrase Active",
+    "tom_green":"Tom · Green","tom_red":"Tom · Red","tom_yellow":"Tom · Yellow","tom_blue":"Tom · Blue",
+    "tom_anim_green":"Tom Anim · Green","tom_anim_red":"Tom Anim · Red",
+    "tom_anim_yellow":"Tom Anim · Yellow","tom_anim_blue":"Tom Anim · Blue",
+    "tom_sp_active":"Tom · SP Active","tom_sp_phrase":"Tom · SP Phrase","tom_sp_phrase_active":"Tom · SP Phrase Active",
+    "tom_anim_sp_active":"Tom Anim · SP Active","tom_anim_sp_phrase":"Tom Anim · SP Phrase",
+    "tom_anim_sp_phrase_active":"Tom Anim · SP Phrase Active",
+    "drums_striker_base_green":"Drum Strikeline Base · Green","drums_striker_base_red":"Drum Strikeline Base · Red",
+    "drums_striker_base_yellow":"Drum Strikeline Base · Yellow","drums_striker_base_blue":"Drum Strikeline Base · Blue",
+    "drums_striker_head_light_kick":"Drum Strikeline Head Light · Kick",
+    "drums_striker_head_light_green":"Drum Strikeline Head Light · Green",
+    "drums_striker_head_light_red":"Drum Strikeline Head Light · Red",
+    "drums_striker_head_light_yellow":"Drum Strikeline Head Light · Yellow",
+    "drums_striker_head_light_blue":"Drum Strikeline Head Light · Blue",
+    "drums_striker_head_cover_green":"Drum Strikeline Head Cover · Green",
+    "drums_striker_head_cover_red":"Drum Strikeline Head Cover · Red",
+    "drums_striker_head_cover_yellow":"Drum Strikeline Head Cover · Yellow",
+    "drums_striker_head_cover_blue":"Drum Strikeline Head Cover · Blue",
+    "drums_striker_cover_green":"Drum Strikeline Cover · Green",
+    "drums_striker_cover_red":"Drum Strikeline Cover · Red",
+    "drums_striker_cover_yellow":"Drum Strikeline Cover · Yellow",
+    "drums_striker_cover_blue":"Drum Strikeline Cover · Blue",
+    "sf_note_hopo":"Six-Fret Note · HOPO","sf_note_open":"Six-Fret Note · Open",
+    "sf_note_white_left":"Six-Fret Note · White Left","sf_note_white_mid":"Six-Fret Note · White Mid",
+    "sf_note_white_right":"Six-Fret Note · White Right","sf_note_black_left":"Six-Fret Note · Black Left",
+    "sf_note_black_mid":"Six-Fret Note · Black Mid","sf_note_black_right":"Six-Fret Note · Black Right",
+    "sf_note_sp_active":"Six-Fret Note · SP Active","sf_note_sp_phrase":"Six-Fret Note · SP Phrase",
+    "sf_note_sp_phrase_active":"Six-Fret Note · SP Phrase Active",
+    "sf_note_tap_open":"Six-Fret Tap · Open","sf_note_tap_white_left":"Six-Fret Tap · White Left",
+    "sf_note_tap_white_mid":"Six-Fret Tap · White Mid","sf_note_tap_white_right":"Six-Fret Tap · White Right",
+    "sf_note_tap_black_left":"Six-Fret Tap · Black Left","sf_note_tap_black_mid":"Six-Fret Tap · Black Mid",
+    "sf_note_tap_black_right":"Six-Fret Tap · Black Right",
+    "sf_sustain_open":"Six-Fret Sustain · Open","sf_sustain_left":"Six-Fret Sustain · Left",
+    "sf_sustain_mid":"Six-Fret Sustain · Mid","sf_sustain_right":"Six-Fret Sustain · Right",
+    "sf_sustain_sp_active":"Six-Fret Sustain · SP Active","sf_sustain_sp_phrase":"Six-Fret Sustain · SP Phrase",
+    "sf_sustain_sp_phrase_active":"Six-Fret Sustain · SP Phrase Active",
+    "sf_striker_base_white_left":"Six-Fret Strikeline Base · White Left",
+    "sf_striker_base_white_mid":"Six-Fret Strikeline Base · White Mid",
+    "sf_striker_base_white_right":"Six-Fret Strikeline Base · White Right",
+    "sf_striker_base_black_left":"Six-Fret Strikeline Base · Black Left",
+    "sf_striker_base_black_mid":"Six-Fret Strikeline Base · Black Mid",
+    "sf_striker_base_black_right":"Six-Fret Strikeline Base · Black Right",
+    "combo_one":"Multiplier · x1","combo_two":"Multiplier · x2","combo_three":"Multiplier · x3",
+    "combo_four":"Multiplier · x4","combo_sp_active":"Multiplier · SP Active",
+    "combo_two_glow":"Multiplier Glow · x2","combo_three_glow":"Multiplier Glow · x3",
+    "combo_four_glow":"Multiplier Glow · x4","combo_sp_active_glow":"Multiplier Glow · SP Active",
+    "striker_hit_flame":"Hit Flame","striker_hit_flame_sp_active":"Hit Flame · SP Active",
+    "striker_hit_flame_kick":"Hit Flame · Kick","striker_hit_flame_open":"Hit Flame · Open",
+    "striker_hit_particles":"Hit Particles","striker_hit_particles_sp_active":"Hit Particles · SP Active",
+    "striker_hold_spark":"Hold Spark","striker_hold_spark_sp_active":"Hold Spark · SP Active",
+    "sp_bar_color":"SP Bar · Color","sp_bar_arrow":"SP Bar · Arrow","sp_bar_elec":"SP Bar · Electric",
+    "sp_act_animation":"SP Activation · Animation","sp_act_flash":"SP Activation · Flash",
+    "general_sp":"General SP Color","general_sp_active":"General SP Active Color",
+}
+
+_NG_GROUPS: dict = {
+    "guitar": [
+        ("Notes", ["note_green","note_red","note_yellow","note_blue","note_orange","note_open",
+                   "note_sp_phrase","note_sp_active","note_sp_phrase_active"]),
+        ("Note Animations", ["note_anim_green","note_anim_red","note_anim_yellow","note_anim_blue",
+                             "note_anim_orange","note_anim_open",
+                             "note_anim_sp_phrase","note_anim_sp_active","note_anim_sp_phrase_active"]),
+        ("Sustains", ["sustain_green","sustain_red","sustain_yellow","sustain_blue",
+                      "sustain_orange","sustain_open",
+                      "sustain_sp_phrase","sustain_sp_active","sustain_sp_phrase_active"]),
+        ("Strikeline Head Light", ["striker_head_light_green","striker_head_light_red",
+                                   "striker_head_light_yellow","striker_head_light_blue",
+                                   "striker_head_light_orange","striker_head_light_open"]),
+        ("Strikeline Head Cover", ["striker_head_cover_green","striker_head_cover_red",
+                                   "striker_head_cover_yellow","striker_head_cover_blue",
+                                   "striker_head_cover_orange"]),
+        ("Strikeline Cover", ["striker_cover_green","striker_cover_red","striker_cover_yellow",
+                              "striker_cover_blue","striker_cover_orange"]),
+    ],
+}
+
+_NG_GUITAR_LANES = ["green","red","yellow","blue","orange"]
+_NG_DRUM_LANES   = ["red","yellow","blue","green"]
+_NG_SF_LANES     = [("black","left"),("white","left"),("black","mid"),
+                    ("white","mid"),("black","right"),("white","right")]
+
+
+def _ng_friendly(key: str) -> str:
+    return _NG_FRIENDLY.get(key, key.replace("_"," ").title())
+
+def _ng_valid_hex(s: str) -> bool:
+    return bool(re.match(r'^#[0-9A-Fa-f]{6}$', s.strip()))
+
+def _ng_hex_to_rgb(h: str):
+    """int-based hex→(r,g,b) for NoteGen colorization."""
+    h = h.lstrip("#")
+    return int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+
+def _ng_rgb_to_hex(r:int, g:int, b:int) -> str:
+    return "#{:02X}{:02X}{:02X}".format(max(0,min(255,r)),max(0,min(255,g)),max(0,min(255,b)))
+
+def _ng_darken(h:str, f:float=0.4) -> str:
+    r,g,b = _ng_hex_to_rgb(h); return _ng_rgb_to_hex(int(r*f),int(g*f),int(b*f))
+
+def _ng_lighten(h:str, f:float=1.6) -> str:
+    r,g,b = _ng_hex_to_rgb(h); return _ng_rgb_to_hex(int(r*f),int(g*f),int(b*f))
+
+def _ng_lerp_hex(a:str, b:str, t:float) -> str:
+    ar,ag,ab_ = _ng_hex_to_rgb(a); br,bg_,bb = _ng_hex_to_rgb(b)
+    return _ng_rgb_to_hex(int(ar+(br-ar)*t),int(ag+(bg_-ag)*t),int(ab_+(bb-ab_)*t))
+
+def _ng_alpha_blend(h:str, bg:str, alpha:float) -> str:
+    r1,g1,b1 = _ng_hex_to_rgb(h); r2,g2,b2 = _ng_hex_to_rgb(bg)
+    return _ng_rgb_to_hex(int(r1*alpha+r2*(1-alpha)),int(g1*alpha+g2*(1-alpha)),int(b1*alpha+b2*(1-alpha)))
+
+def _ng_load_profiles() -> dict:
+    try:
+        if _NG_PROFILES_FILE.is_file():
+            return json.loads(_NG_PROFILES_FILE.read_text(encoding="utf-8"))
+    except Exception: pass
+    return {}
+
+def _ng_save_profiles(profiles: dict):
+    try: _NG_PROFILES_FILE.write_text(json.dumps(profiles,indent=2),encoding="utf-8")
+    except Exception as e: print(f"[ng_save_profiles] {e}")
+
+def _ng_fresh_colors() -> dict:
+    return copy.deepcopy(_NG_DEFAULT_COLORS)
+
+def _ng_parse_ini(path:str) -> dict:
+    cfg = configparser.ConfigParser(allow_no_value=True); cfg.optionxform = str
+    cfg.read(path, encoding="utf-8"); result = {}
+    for section in cfg.sections():
+        result[section.lower()] = {}
+        for key, val in cfg.items(section):
+            if val and val.strip():
+                result[section.lower()][key.lower()] = val.strip().upper()
+    return result
+
+def _ng_generate_ini(colors:dict) -> str:
+    lines = []
+    for section in _SECTION_ORDER:
+        if section not in colors: continue
+        lines.append(f"[{section}]")
+        for key, val in colors[section].items(): lines.append(f"{key} = {val}")
+        lines.append("")
+    return "\n".join(lines)
+
+def _ng_find_template():
+    for name in _TEMPLATE_NAMES:
+        p = _NG_IMAGES_DIR / name
+        if p.is_file(): return p
+        p2 = _app_dir() / name
+        if p2.is_file(): return p2
+    return None
+
+def _ng_find_mask():
+    for d in (_NG_IMAGES_DIR, _app_dir()):
+        p = d / "mask.png"
+        if p.is_file(): return p
+    return None
+
+def _ng_rgb_to_hsl(r,g,b):
+    r,g,b = r/255.,g/255.,b/255.; cmax,cmin=max(r,g,b),min(r,g,b); delta=cmax-cmin
+    l=(cmax+cmin)/2.; s=0. if delta==0 else delta/(1-abs(2*l-1))
+    if delta==0: h=0.
+    elif cmax==r: h=60.*(((g-b)/delta)%6)
+    elif cmax==g: h=60.*(((b-r)/delta)+2)
+    else: h=60.*(((r-g)/delta)+4)
+    return h,s,l
+
+def _ng_hsl_to_rgb(h,s,l):
+    c=(1-abs(2*l-1))*s; x=c*(1-abs((h/60)%2-1)); m=l-c/2
+    if h<60:   r1,g1,b1=c,x,0.
+    elif h<120:r1,g1,b1=x,c,0.
+    elif h<180:r1,g1,b1=0.,c,x
+    elif h<240:r1,g1,b1=0.,x,c
+    elif h<300:r1,g1,b1=x,0.,c
+    else:      r1,g1,b1=c,0.,x
+    return int((r1+m)*255),int((g1+m)*255),int((b1+m)*255)
+
+def _ng_colorize_pil(img, hex_color:str):
+    try:
+        import numpy as np
+        _NP = True
+    except ImportError:
+        _NP = False
+    rgba = img.convert("RGBA")
+    if not _NP:
+        hue,sat,_ = _ng_rgb_to_hsl(*_ng_hex_to_rgb(hex_color))
+        r_lut,g_lut,b_lut=[],[],[]
+        for L in range(256):
+            if L<=40: w=0.
+            elif L<=85: w=(L-40)/45.
+            elif L<=210: w=1.
+            elif L<=240: w=1.-(L-210)/30.
+            else: w=0.
+            w=w*w*(3-2*w)
+            rc,gc,bc=_ng_hsl_to_rgb(hue,sat,L/255.)
+            r_lut.append(max(0,min(255,int(L*(1-w)+rc*w))))
+            g_lut.append(max(0,min(255,int(L*(1-w)+gc*w))))
+            b_lut.append(max(0,min(255,int(L*(1-w)+bc*w))))
+        r_ch,g_ch,b_ch,a_ch=rgba.split(); gray=r_ch
+        from PIL import Image as _PI
+        return _PI.merge("RGBA",(gray.point(r_lut),gray.point(g_lut),gray.point(b_lut),a_ch))
+    import numpy as np
+    arr=np.array(rgba,dtype=np.float32); H,W=arr.shape[:2]
+    R,G,B,A=arr[:,:,0],arr[:,:,1],arr[:,:,2],arr[:,:,3]
+    lum=0.299*R+0.587*G+0.114*B
+    mask_path=_ng_find_mask()
+    if mask_path:
+        from PIL import Image as _PI
+        mi=_PI.open(str(mask_path)).convert("L").resize((W,H),_PI.LANCZOS)
+        weight=np.array(mi,dtype=np.float32)/255.*(A/255.)
+    else:
+        weight=A/255.
+    tr,tg,tb=_ng_hex_to_rgb(hex_color)
+    scale=lum/128.
+    r_col=np.clip(scale*tr,0.,255.); g_col=np.clip(scale*tg,0.,255.); b_col=np.clip(scale*tb,0.,255.)
+    orig=arr[:,:,:3]
+    r_o=np.clip(orig[:,:,0]*(1.-weight)+r_col*weight,0,255).astype(np.uint8)
+    g_o=np.clip(orig[:,:,1]*(1.-weight)+g_col*weight,0,255).astype(np.uint8)
+    b_o=np.clip(orig[:,:,2]*(1.-weight)+b_col*weight,0,255).astype(np.uint8)
+    a_o=arr[:,:,3].astype(np.uint8)
+    from PIL import Image as _PI
+    return _PI.fromarray(np.stack([r_o,g_o,b_o,a_o],axis=2),"RGBA")
+
+def _ng_generate_note_images(guitar_colors:dict):
+    if not _PIL_OK: return [],["Pillow is not installed."]
+    tpl=_ng_find_template()
+    if tpl is None: return [],[f"Template not found. Place one of {_TEMPLATE_NAMES} in {_NG_IMAGES_DIR}"]
+    try:
+        from PIL import Image as _PI
+        base=_PI.open(str(tpl))
+    except Exception as e: return [],[f"Could not open template: {e}"]
+    _NG_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    saved,errors=[],[]
+    for lane,ini_key,filename in _NOTE_FILE_MAP:
+        hex_color=guitar_colors.get(ini_key,"#FFFFFF")
+        try:
+            colored=_ng_colorize_pil(base,hex_color)
+            out=_NG_IMAGES_DIR/filename; colored.save(str(out)); saved.append(filename)
+        except Exception as e: errors.append(f"{filename}: {e}")
+    return saved,errors
+
+
+# ── NoteGen custom HSV colour picker ─────────────────────────────────────────
+
+class _ColorPickerDialog(tk.Toplevel):
+    """Full HSV square + hue bar colour picker — replaces tkinter's colorchooser."""
+    _SQ = 220
+    _HH = 20
+
+    def __init__(self, parent, initial_hex:str, title:str="Pick Color"):
+        super().__init__(parent)
+        self.title(title); self.resizable(False,False)
+        self.configure(bg=C["bg"]); self.transient(parent); self.grab_set()
+        self.result = None
+        try: ri,gi,bi = _ng_hex_to_rgb(initial_hex)
+        except Exception: ri,gi,bi = 255,255,255
+        h,s,v = colorsys.rgb_to_hsv(ri/255,gi/255,bi/255)
+        self._h,self._s,self._v = h,s,v
+        self._orig = _ng_rgb_to_hex(ri,gi,bi).upper()
+        self._r=tk.IntVar(value=ri); self._g=tk.IntVar(value=gi); self._b=tk.IntVar(value=bi)
+        self._hex_var=tk.StringVar(value=self._orig)
+        self._busy=False; self._sq_cur_ids=[]; self._hue_cur_ids=[]
+        self._sq_photo=None
+        self._build_ui(); self._render_sq(); self._render_hue()
+        self._refresh_cursors(); self._update_preview()
+        self.update_idletasks()
+        pw,ph=parent.winfo_width(),parent.winfo_height()
+        px,py=parent.winfo_rootx(),parent.winfo_rooty()
+        ww,wh=self.winfo_reqwidth(),self.winfo_reqheight()
+        self.geometry(f"+{px+(pw-ww)//2}+{py+(ph-wh)//2}")
+        self.wait_window()
+
+    def _build_ui(self):
+        SQ=self._SQ
+        outer=tk.Frame(self,bg=C["bg"],padx=18,pady=16); outer.pack()
+        left=tk.Frame(outer,bg=C["bg"]); left.pack(side="left",padx=(0,20))
+        sq_wrap=tk.Frame(left,bg="#252845",padx=1,pady=1); sq_wrap.pack()
+        self._sq_cv=tk.Canvas(sq_wrap,width=SQ,height=SQ,highlightthickness=0,cursor="crosshair")
+        self._sq_cv.pack()
+        self._sq_cv.bind("<Button-1>",self._sq_drag)
+        self._sq_cv.bind("<B1-Motion>",self._sq_drag)
+        tk.Frame(left,bg=C["border"],height=1).pack(fill="x",pady=(10,0))
+        hue_wrap=tk.Frame(left,bg="#252845",padx=1,pady=1); hue_wrap.pack(pady=(8,0))
+        self._hue_cv=tk.Canvas(hue_wrap,width=SQ,height=self._HH,highlightthickness=0,cursor="sb_h_double_arrow")
+        self._hue_cv.pack()
+        self._hue_cv.bind("<Button-1>",self._hue_drag)
+        self._hue_cv.bind("<B1-Motion>",self._hue_drag)
+        right=tk.Frame(outer,bg=C["bg"]); right.pack(side="left",fill="both")
+        pv=tk.Frame(right,bg=C["bg"]); pv.pack(fill="x",pady=(0,14))
+        tk.Label(pv,text="BEFORE",bg=C["bg"],fg=C["text_dim"],font=("Segoe UI",7,"bold")).pack(side="left")
+        self._sw_old=tk.Frame(pv,bg=self._orig,width=54,height=36); self._sw_old.pack(side="left",padx=(5,2)); self._sw_old.pack_propagate(False)
+        self._sw_new=tk.Frame(pv,bg=self._orig,width=54,height=36); self._sw_new.pack(side="left",padx=(2,5)); self._sw_new.pack_propagate(False)
+        tk.Label(pv,text="AFTER",bg=C["bg"],fg=C["text_dim"],font=("Segoe UI",7,"bold")).pack(side="left")
+        for label,var,trough in [("R",self._r,"#5c1212"),("G",self._g,"#124a22"),("B",self._b,"#12265c")]:
+            row=tk.Frame(right,bg=C["bg"]); row.pack(fill="x",pady=3)
+            tk.Label(row,text=label,bg=C["bg"],fg=C["text"],font=FTB,width=2).pack(side="left")
+            tk.Scale(row,variable=var,from_=0,to=255,orient="horizontal",length=200,showvalue=True,
+                     bg=C["bg"],fg=C["text_mid"],troughcolor=trough,highlightthickness=0,bd=0,
+                     sliderrelief="flat",font=("Segoe UI",8),command=lambda _v: self._on_rgb()).pack(side="left",padx=(4,0))
+        tk.Frame(right,bg=C["border"],height=1).pack(fill="x",pady=(10,8))
+        hx=tk.Frame(right,bg=C["bg"]); hx.pack(fill="x",pady=(0,4))
+        tk.Label(hx,text="HEX",bg=C["bg"],fg=C["text_dim"],font=("Segoe UI",7,"bold")).pack(side="left",padx=(0,8))
+        self._hex_entry=tk.Entry(hx,textvariable=self._hex_var,font=("Consolas",10),width=9,
+                                  bg="#0a0c16",fg=C["accent"],insertbackground=C["accent"],
+                                  relief="flat",bd=0,highlightthickness=1,
+                                  highlightbackground=C["border"],highlightcolor=C["accent"])
+        self._hex_entry.pack(side="left",ipady=4,padx=4)
+        self._hex_entry.bind("<Return>",self._on_hex); self._hex_entry.bind("<FocusOut>",self._on_hex)
+        hsv_row=tk.Frame(right,bg=C["bg"]); hsv_row.pack(fill="x",pady=(8,0))
+        self._lh=tk.Label(hsv_row,text="H: 0°",bg=C["bg"],fg=C["text_dim"],font=FTS)
+        self._ls=tk.Label(hsv_row,text="S: 0%",bg=C["bg"],fg=C["text_dim"],font=FTS)
+        self._lv=tk.Label(hsv_row,text="V: 100%",bg=C["bg"],fg=C["text_dim"],font=FTS)
+        for lbl in (self._lh,self._ls,self._lv): lbl.pack(side="left",padx=(0,10))
+        btn_row=tk.Frame(right,bg=C["bg"]); btn_row.pack(fill="x",pady=(18,0))
+        tk.Button(btn_row,text="Cancel",font=FT,bg=C["card2"],fg=C["text_mid"],
+                  activebackground=C["border2"] if "border2" in C else C["border"],
+                  activeforeground=C["text"],relief="flat",bd=0,padx=12,pady=7,cursor="hand2",
+                  command=self.destroy).pack(side="right",padx=(4,0))
+        tk.Button(btn_row,text="✓  Apply",font=FTB,bg=C["accent"],fg="#fff",
+                  activebackground=C["accent_dim"],activeforeground="#fff",
+                  relief="flat",bd=0,padx=16,pady=7,cursor="hand2",
+                  command=self._ok).pack(side="right")
+
+    def _render_sq(self):
+        SQ=self._SQ
+        try:
+            import numpy as np
+            from PIL import Image as _PI
+            from PIL import ImageTk as _ITk
+            xs=np.linspace(0,1,SQ); ys=np.linspace(1,0,SQ)
+            S,V=np.meshgrid(xs,ys); h=self._h
+            hi=np.floor(h*6).astype(int)%6; f=h*6-np.floor(h*6)
+            p=V*(1-S); q=V*(1-f*S); t_=V*(1-(1-f)*S)
+            cR=np.select([hi==0,hi==1,hi==2,hi==3,hi==4],[V,q,p,p,t_],V)
+            cG=np.select([hi==0,hi==1,hi==2,hi==3,hi==4],[t_,V,V,q,p],p)
+            cB=np.select([hi==0,hi==1,hi==2,hi==3,hi==4],[p,p,t_,V,V],q)
+            rgb=(np.stack([cR,cG,cB],axis=2)*255).astype(np.uint8)
+            photo=_ITk.PhotoImage(_PI.fromarray(rgb,"RGB"))
+        except Exception:
+            photo=tk.PhotoImage(width=SQ,height=SQ)
+            rows=[]
+            for y in range(SQ):
+                v=1.-y/max(SQ-1,1)
+                cols=[_ng_rgb_to_hex(*[int(c*255) for c in colorsys.hsv_to_rgb(self._h,x/max(SQ-1,1),v)]) for x in range(SQ)]
+                rows.append("{"+' '.join(cols)+"}")
+            photo.put(' '.join(rows))
+        self._sq_photo=photo
+        self._sq_cv.delete("all")
+        self._sq_cv.create_image(0,0,anchor="nw",image=photo)
+
+    def _render_hue(self):
+        SQ=self._SQ; HH=self._HH
+        try:
+            import numpy as np
+            from PIL import Image as _PI
+            from PIL import ImageTk as _ITk
+            xs=np.linspace(0,1,SQ)
+            r,g,b=np.vectorize(lambda h: colorsys.hsv_to_rgb(h,1,1))(xs)
+            row=(np.stack([r,g,b],axis=1)*255).astype(np.uint8)
+            arr=np.tile(row[np.newaxis,:,:],(HH,1,1))
+            photo=_ITk.PhotoImage(_PI.fromarray(arr,"RGB"))
+        except Exception:
+            photo=tk.PhotoImage(width=SQ,height=HH)
+            rows=[]
+            for _ in range(HH):
+                cols=[_ng_rgb_to_hex(*[int(c*255) for c in colorsys.hsv_to_rgb(x/max(SQ-1,1),1,1)]) for x in range(SQ)]
+                rows.append("{"+' '.join(cols)+"}")
+            photo.put(' '.join(rows))
+        self._hue_photo=photo
+        self._hue_cv.delete("all")
+        self._hue_cv.create_image(0,0,anchor="nw",image=photo)
+
+    def _refresh_cursors(self):
+        for iid in self._sq_cur_ids: self._sq_cv.delete(iid)
+        for iid in self._hue_cur_ids: self._hue_cv.delete(iid)
+        self._sq_cur_ids=[]; self._hue_cur_ids=[]
+        SQ=self._SQ; cx=int(self._s*(SQ-1)); cy=int((1.-self._v)*(SQ-1)); cr=8
+        self._sq_cur_ids=[self._sq_cv.create_oval(cx-cr,cy-cr,cx+cr,cy+cr,outline="#ffffff",width=2),
+                          self._sq_cv.create_oval(cx-cr+2,cy-cr+2,cx+cr-2,cy+cr-2,outline="#000000",width=1)]
+        hx=int(self._h*(SQ-1))
+        self._hue_cur_ids=[self._hue_cv.create_line(hx,0,hx,self._HH,fill="#ffffff",width=2),
+                           self._hue_cv.create_line(hx,0,hx,self._HH,fill="#000000",width=1,dash=(3,3))]
+
+    def _update_preview(self):
+        hx=_ng_rgb_to_hex(self._r.get(),self._g.get(),self._b.get())
+        self._sw_new.config(bg=hx); self._hex_var.set(hx.upper())
+        self._lh.config(text=f"H: {int(self._h*360)}°")
+        self._ls.config(text=f"S: {int(self._s*100)}%")
+        self._lv.config(text=f"V: {int(self._v*100)}%")
+
+    def _sq_drag(self,ev):
+        SQ=self._SQ; self._s=max(0.,min(1.,ev.x/(SQ-1))); self._v=max(0.,min(1.,1.-ev.y/(SQ-1)))
+        self._sq_cv.delete("all"); self._sq_cv.create_image(0,0,anchor="nw",image=self._sq_photo)
+        cx=int(self._s*(SQ-1)); cy=int((1.-self._v)*(SQ-1)); cr=8
+        self._sq_cv.create_oval(cx-cr,cy-cr,cx+cr,cy+cr,outline="#ffffff",width=2)
+        self._sq_cv.create_oval(cx-cr+2,cy-cr+2,cx+cr-2,cy+cr-2,outline="#000000",width=1)
+        r,g,b=colorsys.hsv_to_rgb(self._h,self._s,self._v)
+        self._busy=True; self._r.set(int(r*255+.5)); self._g.set(int(g*255+.5)); self._b.set(int(b*255+.5))
+        self._busy=False; self._update_preview()
+
+    def _hue_drag(self,ev):
+        self._h=max(0.,min(1.,ev.x/(self._SQ-1)))
+        self._render_sq(); self._refresh_cursors()
+        r,g,b=colorsys.hsv_to_rgb(self._h,self._s,self._v)
+        self._busy=True; self._r.set(int(r*255+.5)); self._g.set(int(g*255+.5)); self._b.set(int(b*255+.5))
+        self._busy=False; self._update_preview()
+
+    def _on_rgb(self):
+        if self._busy: return
+        self._busy=True
+        self._h,self._s,self._v=colorsys.rgb_to_hsv(self._r.get()/255,self._g.get()/255,self._b.get()/255)
+        self._render_sq(); self._render_hue(); self._refresh_cursors(); self._update_preview()
+        self._busy=False
+
+    def _on_hex(self,_=None):
+        val=self._hex_var.get().strip().lstrip("#")
+        if len(val)==6:
+            try: ri,gi,bi=int(val[0:2],16),int(val[2:4],16),int(val[4:6],16)
+            except ValueError: return
+            if self._busy: return
+            self._busy=True; self._r.set(ri); self._g.set(gi); self._b.set(bi)
+            self._h,self._s,self._v=colorsys.rgb_to_hsv(ri/255,gi/255,bi/255)
+            self._render_sq(); self._render_hue(); self._refresh_cursors(); self._update_preview()
+            self._busy=False
+
+    def _ok(self):
+        self.result=_ng_rgb_to_hex(self._r.get(),self._g.get(),self._b.get()).upper()
+        self.destroy()
+
+
+# ── NoteGen scrollable frame ──────────────────────────────────────────────────
+
+class _NgScrollFrame(tk.Frame):
+    def __init__(self,parent,bg="",**kw):
+        bg=bg or C["card"]
+        super().__init__(parent,bg=bg,**kw)
+        self._cv=tk.Canvas(self,bg=bg,highlightthickness=0,bd=0)
+        self._vsb=ttk.Scrollbar(self,orient="vertical",command=self._cv.yview)
+        self._cv.configure(yscrollcommand=self._vsb.set)
+        self._vsb.pack(side="right",fill="y"); self._cv.pack(side="left",fill="both",expand=True)
+        self.inner=tk.Frame(self._cv,bg=bg)
+        self._win=self._cv.create_window((0,0),window=self.inner,anchor="nw")
+        self.inner.bind("<Configure>",self._on_inner)
+        self._cv.bind("<Configure>",self._on_canvas)
+        self._cv.bind("<Enter>",lambda _: self._cv.bind_all("<MouseWheel>",self._scroll))
+        self._cv.bind("<Leave>",lambda _: self._cv.unbind_all("<MouseWheel>"))
+
+    def _on_inner(self,_=None): self._cv.configure(scrollregion=self._cv.bbox("all"))
+    def _on_canvas(self,ev): self._cv.itemconfig(self._win,width=ev.width)
+    def _scroll(self,ev): self._cv.yview_scroll(int(-1*(ev.delta/120)),"units")
+    def scroll_top(self): self._cv.yview_moveto(0)
+
+
+# ── NoteGen collapsible group header ─────────────────────────────────────────
+
+class _NgGroupHeader(tk.Frame):
+    _BG="#080a16"; _HOV="#0e1024"
+    def __init__(self,parent,text,count=0,**kw):
+        super().__init__(parent,bg=self._BG,cursor="hand2",**kw)
+        self._expanded=True; self._children=None
+        row=tk.Frame(self,bg=self._BG); row.pack(fill="x")
+        tk.Frame(row,bg=C["accent"],width=3).pack(side="left",fill="y")
+        self._chev=tk.Label(row,text="▾",bg=self._BG,fg=C["accent"],font=("Segoe UI",10))
+        self._chev.pack(side="left",padx=(8,4))
+        self._title=tk.Label(row,text=text,font=("Segoe UI",8,"bold"),bg=self._BG,fg=C["accent"],pady=8,anchor="w")
+        self._title.pack(side="left",fill="x",expand=True)
+        if count:
+            badge=tk.Frame(row,bg=C["accent_dim"]); badge.pack(side="right",padx=(0,10))
+            tk.Label(badge,text=f" {count} ",font=("Segoe UI",7,"bold"),bg=C["accent_dim"],fg=C["accent"]).pack(padx=2,pady=2)
+        tk.Frame(self,bg="#141830",height=1).pack(fill="x")
+        for w in (self,row,self._chev,self._title):
+            w.bind("<Enter>",self._h_on); w.bind("<Leave>",self._h_off); w.bind("<Button-1>",self._toggle)
+
+    def _h_on(self,_=None):
+        for w in (self,self._chev,self._title):
+            try: w.config(bg=self._HOV)
+            except: pass
+    def _h_off(self,_=None):
+        for w in (self,self._chev,self._title):
+            try: w.config(bg=self._BG)
+            except: pass
+    def _toggle(self,_=None):
+        self._expanded=not self._expanded; self._chev.config(text="▾" if self._expanded else "▸")
+        if self._children:
+            (self._children.pack if self._expanded else self._children.pack_forget)(fill="x") if self._expanded else self._children.pack_forget()
+    def attach(self,frame): self._children=frame
+
+
+# ── NoteGen colour row ────────────────────────────────────────────────────────
+
+class _NgColorRow(tk.Frame):
+    _IDLE_ODD="#0c0e1d"; _IDLE_EVEN="#090b17"; _HOV="#161930"; _ACT="#1e2145"; _STEPS=8
+
+    def __init__(self,parent,section,key,notegen_page,row_idx):
+        idle=self._IDLE_ODD if row_idx%2 else self._IDLE_EVEN
+        super().__init__(parent,bg=idle,cursor="hand2")
+        self._section=section; self._key=key; self._page=notegen_page
+        self._idle=idle; self._muted=False; self._anim_id=None; self._t=0.; self._going=0
+        tk.Frame(self,bg="#0f1228",height=1).pack(side="bottom",fill="x")
+        self._sw=tk.Canvas(self,width=50,height=28,highlightthickness=0,bg="#000",cursor="hand2")
+        self._sw.pack(side="left",padx=(12,10),pady=6)
+        self._lbl=tk.Label(self,text=_ng_friendly(key),bg=idle,fg=C["text_mid"],font=FTS,anchor="w")
+        self._lbl.pack(side="left",fill="x",expand=True,padx=(0,6))
+        pill=tk.Frame(self,bg="#0a0d1e",highlightthickness=1,highlightbackground="#222545")
+        pill.pack(side="right",padx=(0,12),pady=6)
+        self._var=tk.StringVar(value="#000000")
+        self._entry=tk.Entry(pill,textvariable=self._var,font=("Consolas",9),width=8,
+                             bg="#0a0d1e",fg="#8a7fff",insertbackground=C["accent"],
+                             relief="flat",bd=4,highlightthickness=0,cursor="hand2",
+                             state="readonly",readonlybackground="#0a0d1e")
+        self._entry.pack()
+        self._entry.bind("<FocusIn>",lambda e: pill.config(highlightbackground=C["accent"]))
+        self._entry.bind("<FocusOut>",lambda e: pill.config(highlightbackground="#222545"))
+        self._entry.bind("<Button-1>",self._copy_hex)
+        self._pill=pill
+        self._pick_btn=tk.Button(self,text="Pick Color",font=("Segoe UI",8),bg="#1a1d36",fg=C["text_mid"],
+                                  relief="flat",activebackground=C["accent"],activeforeground="#fff",
+                                  cursor="hand2",bd=0,padx=8,pady=3,command=self._open_picker)
+        self._pick_btn.pack(side="right",padx=(0,4))
+        self._pick_btn.bind("<Enter>",lambda e: self._pick_btn.config(bg=C["accent"],fg="#fff"))
+        self._pick_btn.bind("<Leave>",lambda e: self._pick_btn.config(bg="#1a1d36",fg=C["text_mid"]))
+        self._copied_lbl=tk.Label(self,text="Copied!",font=("Segoe UI",8,"bold"),bg=self._idle,fg=C["success"],padx=4)
+        for w in (self,self._lbl,self._sw):
+            w.bind("<Enter>",self._h_in); w.bind("<Leave>",self._h_out); w.bind("<Button-1>",self._click)
+        self._var.trace_add("write",self._on_write)
+
+    def _draw_sw(self,col):
+        self._sw.delete("all"); self._sw.create_rectangle(0,0,50,28,fill=col,outline="")
+        try: self._sw.create_rectangle(3,2,28,7,fill=_ng_lighten(col,1.8),outline="")
+        except: pass
+        self._sw.create_rectangle(0,0,49,27,outline=_ng_darken(col,0.5),fill="")
+
+    def _animate(self):
+        self._t=max(0.,min(1.,self._t+self._going/self._STEPS)); t=self._t*self._t*(3-2*self._t)
+        bg=_ng_lerp_hex(self._idle,self._HOV,t); fg=_ng_lerp_hex(C["text_mid"],C["text"],t)
+        self.config(bg=bg); self._lbl.config(bg=bg,fg=fg)
+        if 0.<self._t<1.: self._anim_id=self.after(16,self._animate)
+        else: self._anim_id=None
+
+    def _h_in(self,_=None):
+        self._going=+1
+        if not self._anim_id: self._animate()
+    def _h_out(self,_=None):
+        self._going=-1
+        if not self._anim_id: self._animate()
+    def _click(self,_=None):
+        self.config(bg=self._ACT); self._lbl.config(bg=self._ACT)
+        self.after(80,self._h_in); self._open_picker()
+
+    def _copy_hex(self,e=None):
+        col=self.get_color()
+        try: self.clipboard_clear(); self.clipboard_append(col)
+        except: pass
+        self._pill.config(highlightbackground=C["success"])
+        self._copied_lbl.config(bg=self.cget("bg"))
+        self._copied_lbl.pack(side="right",before=self._pill)
+        def _hide():
+            self._copied_lbl.pack_forget(); self._pill.config(highlightbackground="#222545")
+        if hasattr(self,"_copy_after_id"):
+            try: self.after_cancel(self._copy_after_id)
+            except: pass
+        self._copy_after_id=self.after(900,_hide)
+        return "break"
+
+    def set_color(self,hex_str:str):
+        self._muted=True; self._var.set(hex_str.upper())
+        if _ng_valid_hex(hex_str): self._draw_sw(hex_str)
+        self._muted=False
+
+    def get_color(self): return self._var.get().strip().upper()
+
+    def set_readonly(self,readonly):
+        self._entry.config(state="disabled" if readonly else "readonly",
+                           fg=C["text_dim"] if readonly else "#8a7fff",
+                           readonlybackground="#0a0d1e",disabledbackground="#0a0d1e",
+                           disabledforeground=C["text_dim"])
+        self._pick_btn.config(state="disabled" if readonly else "normal",
+                              bg=C["border"] if readonly else "#1a1d36",
+                              fg=C["text_dim"] if readonly else C["text_mid"])
+        cur="" if readonly else "hand2"
+        for w in (self,self._lbl,self._sw):
+            w.config(cursor=cur)
+            if readonly: w.unbind("<Enter>"); w.unbind("<Leave>"); w.unbind("<Button-1>")
+            else:
+                w.bind("<Enter>",self._h_in); w.bind("<Leave>",self._h_out)
+                w.bind("<Button-1>",self._click)
+
+    def _on_write(self,*_):
+        if self._muted: return
+        val=self._var.get().strip()
+        if not val.startswith("#"): val="#"+val
+        if _ng_valid_hex(val):
+            self._draw_sw(val); self._page.on_color_changed(self._section,self._key,val.upper())
+
+    def _open_picker(self,*_):
+        cur=self.get_color()
+        if not _ng_valid_hex(cur): cur="#FFFFFF"
+        dlg=_ColorPickerDialog(self.winfo_toplevel(),cur,title=_ng_friendly(self._key))
+        if dlg.result:
+            self.set_color(dlg.result); self._page.on_color_changed(self._section,self._key,dlg.result)
+
+
+# ── NoteGen section editor ────────────────────────────────────────────────────
+
+class _NgSectionEditor(tk.Frame):
+    def __init__(self,parent,section,notegen_page,**kw):
+        super().__init__(parent,bg="#07090e",**kw)
+        self._rows: dict = {}
+        self._sf=_NgScrollFrame(self,bg="#07090e"); self._sf.pack(fill="both",expand=True)
+        groups=_NG_GROUPS.get(section,[])
+        if not groups: groups=[("All",list(_NG_DEFAULT_COLORS.get(section,{}).keys()))]
+        row_idx=0
+        for group_name,keys in groups:
+            valid=[k for k in keys if k in _NG_DEFAULT_COLORS.get(section,{})]
+            if not valid: continue
+            hdr=_NgGroupHeader(self._sf.inner,group_name,count=len(valid)); hdr.pack(fill="x")
+            cf=tk.Frame(self._sf.inner,bg="#07090e"); cf.pack(fill="x"); hdr.attach(cf)
+            for key in valid:
+                row=_NgColorRow(cf,section,key,notegen_page,row_idx)
+                row.pack(fill="x"); self._rows[key]=row; row_idx+=1
+
+    def push(self,color_dict):
+        for key,row in self._rows.items(): row.set_color(color_dict.get(key,"#FFFFFF"))
+        self._sf.scroll_top()
+
+    def set_readonly(self,readonly):
+        for row in self._rows.values(): row.set_readonly(readonly)
+
+
+# ── NoteGen highway preview ───────────────────────────────────────────────────
+
+class _NgHighwayPreview(tk.Frame):
+    """
+    Live guitar highway preview — 1:1 port of CHNoteGen's _HighwayPreview.
+    Notes at the bottom, sustains running full-height to the top edge,
+    SP stripe across the very top.
+    """
+    def __init__(self, parent, notegen_page, **kw):
+        super().__init__(parent, bg=C["panel"], **kw)
+        self._page = notegen_page
+        self._photo_cache: dict = {}
+        self._cv = tk.Canvas(self, bg="#07090e", highlightthickness=1,
+                             highlightbackground=C["border"])
+        self._cv.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+        self._cv.bind("<Configure>", lambda _: self.refresh())
+
+    # ── public ─────────────────────────────────────────────────────────────────
+    def refresh(self):
+        self._cv.delete("all")
+        w, h = self._cv.winfo_width(), self._cv.winfo_height()
+        if w < 20 or h < 20:
+            return
+        self._draw_guitar(w, h)
+
+    def clear_photo_cache(self, hex_color=None):
+        if hex_color is None:
+            self._photo_cache.clear()
+        else:
+            for k in [k for k in self._photo_cache if k[0] == hex_color]:
+                del self._photo_cache[k]
+
+    # ── note image loader ───────────────────────────────────────────────────────
+    def _get_note_photo(self, hex_color: str, pixel_size: int):
+        if not _PIL_OK:
+            return None
+        key = (hex_color.upper(), pixel_size)
+        if key in self._photo_cache:
+            return self._photo_cache[key]
+        tpl = _ng_find_template()
+        if tpl is None:
+            return None
+        try:
+            from PIL import Image as _PI, ImageTk as _ITk
+            base    = _PI.open(str(tpl))
+            colored = _ng_colorize_pil(base, hex_color)
+            colored = colored.resize((pixel_size, pixel_size), _PI.LANCZOS)
+            photo   = _ITk.PhotoImage(colored)
+            self._photo_cache[key] = photo
+            return photo
+        except Exception:
+            return None
+
+    # ── dome note shape (1:1 from CHNoteGen) ───────────────────────────────────
+    def _draw_dome_note(self, cv, cx: int, cy: int, col: str, nr: int):
+        sh = int(nr * 0.22)
+        cv.create_oval(cx - nr, cy + sh, cx + nr, cy + sh + int(nr * 0.42),
+                       fill="#000000", outline="")
+        sk_h = int(nr * 0.30); sk_y = cy + int(nr * 0.20)
+        cv.create_oval(cx - nr, sk_y - sk_h, cx + nr, sk_y + sk_h,
+                       fill=_ng_darken(col, 0.50), outline="")
+        dw = int(nr * 0.82); dh = int(nr * 0.72)
+        cv.create_oval(cx - dw, cy - dh, cx + dw, cy + int(nr * 0.26),
+                       fill=col, outline="")
+        cv.create_oval(cx - dw, cy + int(nr * 0.10), cx + dw, cy + int(nr * 0.36),
+                       fill=_ng_darken(col, 0.72), outline="")
+        hl_w = int(nr * 0.44); hl_h = int(nr * 0.26)
+        hl_x = cx - int(nr * 0.14); hl_y = cy - int(nr * 0.42)
+        cv.create_oval(hl_x - hl_w, hl_y - hl_h, hl_x + hl_w, hl_y + hl_h,
+                       fill=_ng_lighten(col, 1.85), outline="")
+        gr = max(3, int(nr * 0.20)); gy = cy - int(nr * 0.10)
+        cv.create_oval(cx - gr, gy - gr, cx + gr, gy + gr, fill="#FFFFFF", outline="")
+
+    # ── lane backgrounds with beat lines (1:1 from CHNoteGen) ──────────────────
+    def _draw_lanes(self, cv, w: int, h: int, n: int, lane_tints: list):
+        lw = w / n
+        for i in range(n):
+            x1, x2 = int(i * lw), int((i + 1) * lw)
+            bg = _ng_alpha_blend(lane_tints[i], "#07090e", 0.10)
+            cv.create_rectangle(x1, 0, x2, h, fill=bg, outline="")
+            if i > 0:
+                cv.create_line(x1, 0, x1, h, fill=C["border"], width=1)
+        for frac in [0.25, 0.42, 0.58, 0.74]:
+            y = int(h * frac)
+            cv.create_line(0, y, w, y, fill=C["border"], width=1, dash=(2, 12))
+
+    # ── sustain bar with rounded caps (1:1 from CHNoteGen) ─────────────────────
+    def _draw_sustain(self, cv, cx: int, top: int, bottom: int,
+                      col: str, sw: int):
+        cv.create_rectangle(cx - sw, top + sw, cx + sw, bottom - sw,
+                            fill=col, outline="")
+        cv.create_oval(cx - sw, top,            cx + sw, top    + sw * 2, fill=col, outline="")
+        cv.create_oval(cx - sw, bottom - sw * 2, cx + sw, bottom,         fill=col, outline="")
+
+    # ── guitar highway (1:1 from CHNoteGen) ────────────────────────────────────
+    def _draw_guitar(self, w: int, h: int):
+        cv  = self._cv
+        gc  = self._page._ng_active_colors().get("guitar", {})
+        n   = len(_NG_GUITAR_LANES)
+        lw  = w / n
+
+        nr      = max(18, int(lw * 0.40))
+        note_y  = h - nr - 14
+        sw      = max(4, int(lw * 0.10))
+        sus_top = -sw          # bleed above canvas so sustains reach the very top
+        sus_bot = note_y
+
+        self._draw_lanes(cv, w, h, n,
+                         [gc.get(f"note_{l}", "#333") for l in _NG_GUITAR_LANES])
+
+        # Sustains drawn before notes so notes sit on top
+        for i, lane in enumerate(_NG_GUITAR_LANES):
+            cx  = int(i * lw + lw / 2)
+            col = gc.get(f"sustain_{lane}", "#888")
+            self._draw_sustain(cv, cx, sus_top, sus_bot, col, sw)
+
+        # SP stripe across the top (drawn over sustains as visual cutoff)
+        cv.create_rectangle(0, 0, w, 4,
+                            fill=gc.get("note_sp_active", "#00FFFF"), outline="")
+
+        # Notes
+        img_size = nr * 2
+        for i, lane in enumerate(_NG_GUITAR_LANES):
+            cx    = int(i * lw + lw / 2)
+            col   = gc.get(f"note_{lane}", "#888")
+            photo = self._get_note_photo(col, img_size)
+            if photo is not None:
+                cv.create_image(cx, note_y, image=photo, anchor="center")
+            else:
+                self._draw_dome_note(cv, cx, note_y, col, nr)
+
+        cv.create_text(w // 2, h - 5, text="Guitar Highway",
+                       font=("Segoe UI", 8), fill=C["text_dim"])
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  SECTION 4 — BAD SONGS CLEANER
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _deep_clean_path(path_str: str) -> str:
@@ -1191,6 +2112,12 @@ class CHSuite(tk.Tk):
         self._song_vars     = {}
         self._log_entries   = []
 
+        # ── NoteGen state ─────────────────────────────────────────────────────
+        self._ng_profiles: dict = _ng_load_profiles()
+        self._ng_active_name: str = _NG_DEFAULT_PROFILE_NAME
+        self._ng_active_colors_data: dict = _ng_fresh_colors()
+        self._ng_editors: dict = {}
+
         self.withdraw()
         self.update_idletasks()
         self._apply_styles()
@@ -1243,15 +2170,25 @@ class CHSuite(tk.Tk):
                  bg=C["panel"], fg=C["accent"]).pack(side="left", padx=(0, 10))
         tk.Label(inner_tb, text="CHSuite",
                  font=FTT, bg=C["panel"], fg=C["text"]).pack(side="left")
-        tk.Label(inner_tb, text="  by JURMR",
+        tk.Label(inner_tb, text="  by JURMR  v2.0",
                  font=("Segoe UI", 13), bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(6,0))
 
-        # Discord status dot — click to set / re-enter Client ID
+        # Discord status dot
         self._discord_dot = tk.Label(inner_tb, text="⬤  Discord",
                                       font=("Segoe UI", 9), bg=C["panel"],
                                       fg=C["text_dim"], cursor="hand2", padx=12)
         self._discord_dot.pack(side="right")
         self._discord_dot.bind("<Button-1>", lambda e: self._discord_setup_prompt())
+
+        # Launch Clone Hero button — always visible in titlebar
+        self._launch_btn = tk.Button(
+            inner_tb, text="▶  Launch Clone Hero",
+            command=self._launch_clone_hero,
+            bg=C["success"], fg="#000000",
+            activebackground="#1aaa50", activeforeground="#000000",
+            relief="flat", font=("Segoe UI", 9, "bold"),
+            padx=14, pady=5, cursor="hand2")
+        self._launch_btn.pack(side="right", padx=(0, 8))
 
         # Body: left nav + content pane
         body = tk.Frame(self, bg=C["bg"])
@@ -1273,8 +2210,10 @@ class CHSuite(tk.Tk):
         self._build_nav()
         self._build_page_bgchanger()
         self._build_page_namegen()
+        self._build_page_notegen()
         self._build_page_cleaner()
         self._build_page_patcher()
+        self._build_page_gamemanager()
 
         self._show_page("bgchanger")
 
@@ -1292,10 +2231,12 @@ class CHSuite(tk.Tk):
         # Icons are drawn in a fixed-width Label so text always starts at
         # the same x position regardless of glyph width.
         nav_items = [
-            ("bgchanger", "◈", "CHMenuChanger"),
-            ("namegen",   "✦", "CHNameGen"),
-            ("cleaner",   "⊘", "CHCleaner"),
-            ("patcher",   "⚙", "CHPatcher"),
+            ("bgchanger",    "◈", "CHMenuChanger"),
+            ("namegen",      "✦", "CHNameGen"),
+            ("notegen",      "♪", "CHNoteGen"),
+            ("cleaner",      "⊘", "CHCleaner"),
+            ("patcher",      "⚙", "CHPatcher"),
+            ("gamemanager",  "▦", "CHManager"),
         ]
         for page_id, icon, label in nav_items:
             # Outer frame acts as the clickable "button"
@@ -1333,7 +2274,7 @@ class CHSuite(tk.Tk):
 
         # Version at bottom
         tk.Frame(self._nav, bg=C["sidebar"]).pack(fill="y", expand=True)
-        tk.Label(self._nav, text="CHSuite v1.1.1", font=("Segoe UI", 8),
+        tk.Label(self._nav, text="CHSuite v2.0", font=("Segoe UI", 8),
                  fg=C["text_dim"], bg=C["sidebar"]).pack(pady=(0, 12))
 
     def _nav_hover(self, frame, icon_lbl, text_lbl, entering: bool):
@@ -2100,8 +3041,46 @@ class CHSuite(tk.Tk):
         return e
 
     def _pick_color(self, var):
-        code = colorchooser.askcolor(title="Choose color", color=var.get())
-        if code[1]: var.set(code[1].upper())
+        """Open CHNoteGen's custom HSV picker; update var with the chosen hex."""
+        current = var.get().strip()
+        if not current.startswith("#") or len(current) != 7:
+            current = "#FFFFFF"
+        dlg = _ColorPickerDialog(self, current, title="Pick Color")
+        if dlg.result:
+            var.set(dlg.result)
+
+    # ── Scroll-wheel helper ───────────────────────────────────────────────────
+    @staticmethod
+    def _bind_mousewheel_to_canvas(canvas: tk.Canvas):
+        """Enable scroll-wheel scrolling on a Canvas.
+
+        Uses bind_all so the wheel works even when the pointer is over a child
+        widget (Entry, Label, Frame…) inside the canvas.  Binding is activated
+        on <Enter> and released on <Leave> so it never hijacks the wheel from
+        other scrollable areas.
+        """
+        def _scroll(event):
+            # Windows / macOS: event.delta is ±120 (or multiples).
+            # Linux: Button-4 = scroll up, Button-5 = scroll down.
+            if event.num == 4:
+                canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                canvas.yview_scroll(1, "units")
+            else:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _on_enter(_event):
+            canvas.bind_all("<MouseWheel>", _scroll)   # Windows / macOS
+            canvas.bind_all("<Button-4>",   _scroll)   # Linux scroll up
+            canvas.bind_all("<Button-5>",   _scroll)   # Linux scroll down
+
+        def _on_leave(_event):
+            canvas.unbind_all("<MouseWheel>")
+            canvas.unbind_all("<Button-4>")
+            canvas.unbind_all("<Button-5>")
+
+        canvas.bind("<Enter>", _on_enter)
+        canvas.bind("<Leave>", _on_leave)
 
     # ── Gradient sub-page ─────────────────────────────────────────────────────
     def _build_ng_gradient(self, parent):
@@ -2117,6 +3096,7 @@ class CHSuite(tk.Tk):
             canvas.configure(scrollregion=canvas.bbox("all")),
             canvas.itemconfig(win_id, width=canvas.winfo_width())))
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
+        self._bind_mousewheel_to_canvas(canvas)
 
         tk.Label(frame, text="CHNameGen — Gradient",
                  font=("Segoe UI", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w", pady=(0,16))
@@ -2252,6 +3232,7 @@ class CHSuite(tk.Tk):
             canvas.itemconfig(win_id, width=canvas.winfo_width())))
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
         self._indiv_canvas = canvas
+        self._bind_mousewheel_to_canvas(canvas)
 
         tk.Label(frame, text="CHNameGen — Per-Letter",
                  font=("Segoe UI", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w", pady=(0,16))
@@ -2409,7 +3390,310 @@ class CHSuite(tk.Tk):
             messagebox.showerror("Export Error", f"Failed to save profiles.ini: {e}")
 
     # ══════════════════════════════════════════════════════════════════════════
-    #  PAGE 3 — BAD SONGS CLEANER
+    #  PAGE 3 — NOTEGEN (CHNoteGen)
+    # ══════════════════════════════════════════════════════════════════════════
+    def _build_page_notegen(self):
+        page = tk.Frame(self._content, bg=C["bg"])
+        self._pages["notegen"] = page
+
+        BG_TITLE = "#06080c"
+        BG_PROF  = "#0a0c16"
+
+        # ── Title bar ─────────────────────────────────────────────────────────
+        title = tk.Frame(page, bg=BG_TITLE); title.pack(fill="x")
+        tk.Frame(title, bg=C["accent"], height=2).pack(fill="x", side="bottom")
+        left_t = tk.Frame(title, bg=BG_TITLE); left_t.pack(side="left", padx=18, pady=11)
+        tk.Label(left_t, text="CH", font=("Segoe UI",18,"bold"),
+                 bg=BG_TITLE, fg=C["accent"]).pack(side="left")
+        tk.Label(left_t, text="NoteGen", font=("Segoe UI",18,"bold"),
+                 bg=BG_TITLE, fg=C["text"]).pack(side="left")
+        tk.Label(left_t, text="  Guitar Color Editor",
+                 font=("Segoe UI",9), bg=BG_TITLE, fg=C["text_dim"]).pack(side="left", pady=(5,0))
+        tk.Label(title, text="Ctrl+S  Export",
+                 font=("Segoe UI",8), bg=BG_TITLE, fg=C["text_dim"]).pack(side="right", padx=18)
+
+        # ── Profile bar ───────────────────────────────────────────────────────
+        pbar = tk.Frame(page, bg=BG_PROF); pbar.pack(fill="x")
+        tk.Frame(pbar, bg="#181c38", height=1).pack(fill="x", side="bottom")
+        pi = tk.Frame(pbar, bg=BG_PROF); pi.pack(fill="x", padx=14, pady=8)
+
+        pw = tk.Frame(pi, bg=BG_PROF); pw.pack(side="left")
+        tk.Label(pw, text="PROFILE", font=("Segoe UI",7,"bold"),
+                 bg=BG_PROF, fg=C["text_dim"]).pack(anchor="w")
+        self._ng_prof_var = tk.StringVar()
+        self._ng_prof_cb  = ttk.Combobox(pw, textvariable=self._ng_prof_var,
+                                          state="readonly", width=22, font=FT)
+        self._ng_prof_cb.pack()
+        self._ng_prof_cb.bind("<<ComboboxSelected>>", self._ng_on_prof_selected)
+
+        tk.Frame(pi, bg="#181c38", width=1, height=28).pack(side="left", padx=12)
+
+        def _pb(text, cmd, style="ghost"):
+            styles = {"ghost":("#11142a",C["text_mid"],"#1b1f40",C["text"]),
+                      "accent":(C["accent"],"#fff",C["accent_dim"],"#fff"),
+                      "danger":("#1a0808","#d45555","#2c0f0f","#ff8080")}
+            bg,fg,hbg,hfg = styles[style]
+            b = tk.Button(pi, text=text, font=("Segoe UI",8), bg=bg, fg=fg,
+                          relief="flat", activebackground=hbg, activeforeground=hfg,
+                          cursor="hand2", command=cmd, bd=0, padx=10, pady=5)
+            b.pack(side="left", padx=2)
+            b.bind("<Enter>", lambda _: b.config(bg=hbg, fg=hfg))
+            b.bind("<Leave>", lambda _: b.config(bg=bg,  fg=fg))
+            return b
+
+        _pb("+ New",        self._ng_prof_new)
+        _pb("⎘ Duplicate",  self._ng_prof_duplicate)
+        self._ng_rename_btn = _pb("✎ Rename", self._ng_prof_rename)
+        self._ng_delete_btn = _pb("✕ Delete", self._ng_prof_delete, "danger")
+        tk.Frame(pi, bg="#181c38", width=1, height=28).pack(side="left", padx=12)
+        _pb("↑ Import .ini", self._ng_import_ini)
+        _pb("↓ Export .ini", self._ng_export_ini, "accent")
+
+        self._ng_status_var = tk.StringVar(value="")
+        self._ng_status_lbl = tk.Label(pi, textvariable=self._ng_status_var,
+                                        font=("Segoe UI",8), bg=BG_PROF, fg=C["text_dim"])
+        self._ng_status_lbl.pack(side="right", padx=6)
+
+        # ── Read-only banner ──────────────────────────────────────────────────
+        self._ng_ro_bar = tk.Frame(page, bg="#0e0828"); ro_i = tk.Frame(self._ng_ro_bar, bg="#0e0828")
+        ro_i.pack(fill="x", padx=14, pady=6)
+        tk.Label(ro_i, text="🔒  Read-only profile", font=("Segoe UI",8,"bold"),
+                 bg="#0e0828", fg=C["accent"]).pack(side="left")
+        tk.Label(ro_i, text=" — duplicate or create a new profile to edit colours.",
+                 font=("Segoe UI",8), bg="#0e0828", fg="#6b4faa").pack(side="left")
+        tk.Button(ro_i, text="⎘ Duplicate now", font=("Segoe UI",8), bg=C["accent"], fg="#fff",
+                  relief="flat", activebackground=C["accent_dim"], activeforeground="#fff",
+                  cursor="hand2", command=self._ng_prof_duplicate, bd=0, padx=8, pady=3
+                  ).pack(side="right")
+
+        # ── Main body: paned (editor left, preview right) ─────────────────────
+        body = tk.PanedWindow(page, orient="horizontal",
+                              bg="#0d1020", sashwidth=4, sashrelief="flat", handlesize=0)
+        body.pack(fill="both", expand=True)
+        left  = tk.Frame(body, bg="#07090e")
+        right = tk.Frame(body, bg=C["panel"])
+        body.add(left,  minsize=380, width=640, stretch="always")
+        body.add(right, minsize=300, width=480, stretch="always")
+
+        # ── Editor (Guitar + Effects tabs) ────────────────────────────────────
+        TABS = [("🎸  Guitar","guitar"), ("✨  Effects","other")]
+        self._ng_tab_lbls = {}; self._ng_active_tab = "guitar"
+        BG = "#07090e"
+        tab_bar = tk.Frame(left, bg=BG); tab_bar.pack(fill="x", side="top")
+        self._ng_ind_cv = tk.Canvas(tab_bar, height=2, bg=BG, highlightthickness=0)
+        self._ng_ind_cv.pack(fill="x", side="bottom")
+        self._ng_ind_rect = self._ng_ind_cv.create_rectangle(0,0,0,2,fill=C["accent"],outline="")
+        self._ng_ind_x0 = self._ng_ind_x1 = 0.
+        self._ng_ind_tx0= self._ng_ind_tx1= 0.
+        self._ng_ind_aid= None
+        tab_row = tk.Frame(tab_bar, bg=BG); tab_row.pack(fill="x")
+        self._ng_tab_bounds = {}
+        content = tk.Frame(left, bg=BG); content.pack(fill="both", expand=True)
+
+        def _ng_switch(section):
+            self._ng_active_tab = section
+            for s,lbl in self._ng_tab_lbls.items():
+                lbl.config(fg=C["text"] if s==section else C["text_dim"],
+                           font=("Segoe UI",9,"bold") if s==section else ("Segoe UI",9))
+            if section in self._ng_tab_bounds:
+                x0,x1=self._ng_tab_bounds[section]; self._ng_slide_to(x0,x1)
+            for s,ed in self._ng_editors.items(): ed.pack_forget()
+            self._ng_editors[section].pack(fill="both", expand=True, in_=content)
+
+        for tab_label, section in TABS:
+            lbl = tk.Label(tab_row, text=tab_label, font=("Segoe UI",9), bg=BG,
+                           fg=C["text_dim"], padx=18, pady=12, cursor="hand2")
+            lbl.pack(side="left"); self._ng_tab_lbls[section] = lbl
+            def _bind(l,s):
+                l.bind("<Enter>", lambda e,_s=s: l.config(fg=C["text_mid"]) if self._ng_active_tab!=_s else None)
+                l.bind("<Leave>", lambda e,_s=s: l.config(fg=C["text_dim"]) if self._ng_active_tab!=_s else None)
+                l.bind("<Button-1>", lambda e,sec=s: _ng_switch(sec))
+            _bind(lbl, section)
+        tk.Frame(tab_bar, bg="#151830", height=1).pack(fill="x", side="bottom")
+
+        def _init_bounds(_=None):
+            tab_row.update_idletasks()
+            for s,lbl in self._ng_tab_lbls.items():
+                x0=lbl.winfo_x(); x1=x0+lbl.winfo_width(); self._ng_tab_bounds[s]=(x0,x1)
+            x0,x1=self._ng_tab_bounds.get("guitar",(0,120))
+            self._ng_ind_x0=self._ng_ind_x1=x0; self._ng_ind_tx0=self._ng_ind_tx1=x1
+            self._ng_ind_cv.coords(self._ng_ind_rect,x0,0,x1,2)
+        tab_row.bind("<Configure>", _init_bounds)
+
+        for _, section in TABS:
+            ed = _NgSectionEditor(content, section, self)
+            self._ng_editors[section] = ed
+        _ng_switch("guitar")
+        self._ng_tab_lbls["guitar"].config(fg=C["text"], font=("Segoe UI",9,"bold"))
+
+        # ── Preview ───────────────────────────────────────────────────────────
+        hdr_r = tk.Frame(right, bg=C["panel"]); hdr_r.pack(fill="x", padx=8, pady=(8,2))
+        tk.Label(hdr_r, text="LIVE PREVIEW", font=FTB,
+                 bg=C["panel"], fg=C["accent2"]).pack(side="left")
+        self._ng_preview = _NgHighwayPreview(right, self)
+        self._ng_preview.pack(fill="both", expand=True)
+
+        # ── Init profiles ─────────────────────────────────────────────────────
+        page.bind("<Control-s>", lambda _: self._ng_export_ini())
+        self._ng_refresh_profile_list()
+        self._ng_select_profile(_NG_DEFAULT_PROFILE_NAME)
+
+    # ── NoteGen tab slider ────────────────────────────────────────────────────
+    def _ng_slide_to(self, tx0, tx1):
+        self._ng_ind_tx0=tx0; self._ng_ind_tx1=tx1
+        if self._ng_ind_aid: self.after_cancel(self._ng_ind_aid); self._ng_ind_aid=None
+        self._ng_do_slide()
+
+    def _ng_do_slide(self):
+        sp=0.20
+        self._ng_ind_x0 += (self._ng_ind_tx0-self._ng_ind_x0)*sp
+        self._ng_ind_x1 += (self._ng_ind_tx1-self._ng_ind_x1)*sp
+        self._ng_ind_cv.coords(self._ng_ind_rect,self._ng_ind_x0,0,self._ng_ind_x1,2)
+        if abs(self._ng_ind_tx0-self._ng_ind_x0)>0.5 or abs(self._ng_ind_tx1-self._ng_ind_x1)>0.5:
+            self._ng_ind_aid=self.after(13,self._ng_do_slide)
+        else:
+            self._ng_ind_x0,self._ng_ind_x1=self._ng_ind_tx0,self._ng_ind_tx1
+            self._ng_ind_cv.coords(self._ng_ind_rect,self._ng_ind_x0,0,self._ng_ind_x1,2)
+            self._ng_ind_aid=None
+
+    # ── NoteGen helpers called by child widgets ───────────────────────────────
+    def _ng_active_colors(self) -> dict:
+        return self._ng_active_colors_data
+
+    def on_color_changed(self, section:str, key:str, hex_val:str):
+        """Called by _NgColorRow when a colour is picked — mirrors CHNoteGen's App method."""
+        if self._ng_active_name == _NG_DEFAULT_PROFILE_NAME: return
+        if not _ng_valid_hex(hex_val): return
+        old_val = self._ng_active_colors_data.get(section,{}).get(key,"")
+        self._ng_active_colors_data.setdefault(section,{})[key] = hex_val.upper()
+        self._ng_profiles[self._ng_active_name] = copy.deepcopy(self._ng_active_colors_data)
+        _ng_save_profiles(self._ng_profiles)
+        if section=="guitar" and key.startswith("note_") and old_val:
+            self._ng_preview.clear_photo_cache(old_val.upper())
+        self._ng_preview.refresh()
+
+    # ── NoteGen profile management ────────────────────────────────────────────
+    def _ng_is_default(self): return self._ng_active_name == _NG_DEFAULT_PROFILE_NAME
+
+    def _ng_refresh_profile_list(self):
+        names=[_NG_DEFAULT_PROFILE_NAME]+sorted(self._ng_profiles.keys())
+        self._ng_prof_cb["values"]=names
+        if self._ng_prof_var.get() not in names: self._ng_prof_var.set(_NG_DEFAULT_PROFILE_NAME)
+
+    def _ng_select_profile(self, name:str):
+        self._ng_active_name=name; self._ng_prof_var.set(name)
+        if name==_NG_DEFAULT_PROFILE_NAME:
+            self._ng_active_colors_data=_ng_fresh_colors()
+        else:
+            saved=self._ng_profiles.get(name,{}); colors=_ng_fresh_colors()
+            for section in colors:
+                if section in saved: colors[section].update(saved[section])
+            self._ng_active_colors_data=colors
+        is_ro=self._ng_is_default()
+        if is_ro: self._ng_ro_bar.pack(fill="x")
+        else: self._ng_ro_bar.pack_forget()
+        self._ng_rename_btn.config(state="normal" if not is_ro else "disabled",
+                                    fg="#fff" if not is_ro else C["text_dim"])
+        self._ng_delete_btn.config(state="normal" if not is_ro else "disabled",
+                                    fg="#fff" if not is_ro else C["text_dim"])
+        for section,ed in self._ng_editors.items():
+            ed.push(self._ng_active_colors_data.get(section,{}))
+            ed.set_readonly(is_ro)
+        self.after(80, self._ng_preview.refresh)
+        self._ng_status(f"Profile: {name}")
+
+    def _ng_on_prof_selected(self,_=None): self._ng_select_profile(self._ng_prof_var.get())
+
+    def _ng_prof_new(self):
+        name=simpledialog.askstring("New Profile","Profile name:",parent=self)
+        if not name: return
+        name=name.strip()
+        if name==_NG_DEFAULT_PROFILE_NAME:
+            messagebox.showwarning("Reserved","That name is reserved.",parent=self); return
+        if name in self._ng_profiles:
+            messagebox.showwarning("Exists",f"'{name}' already exists.",parent=self); return
+        self._ng_profiles[name]=copy.deepcopy(self._ng_active_colors_data)
+        _ng_save_profiles(self._ng_profiles); self._ng_refresh_profile_list()
+        self._ng_select_profile(name); self._ng_status(f"Created '{name}'.")
+
+    def _ng_prof_duplicate(self):
+        name=simpledialog.askstring("Duplicate Profile",
+                                     f"New name (duplicating '{self._ng_active_name}'):",parent=self)
+        if not name: return
+        name=name.strip()
+        if not name or name==_NG_DEFAULT_PROFILE_NAME: return
+        if name in self._ng_profiles:
+            messagebox.showwarning("Exists",f"'{name}' already exists.",parent=self); return
+        self._ng_profiles[name]=copy.deepcopy(self._ng_active_colors_data)
+        _ng_save_profiles(self._ng_profiles); self._ng_refresh_profile_list()
+        self._ng_select_profile(name); self._ng_status(f"Duplicated as '{name}'.")
+
+    def _ng_prof_rename(self):
+        if self._ng_is_default(): return
+        new=simpledialog.askstring("Rename Profile",f"Rename '{self._ng_active_name}' to:",parent=self)
+        if not new: return
+        new=new.strip()
+        if not new or new==_NG_DEFAULT_PROFILE_NAME: return
+        if new in self._ng_profiles:
+            messagebox.showwarning("Exists",f"'{new}' already exists.",parent=self); return
+        old=self._ng_active_name; self._ng_profiles[new]=self._ng_profiles.pop(old)
+        _ng_save_profiles(self._ng_profiles); self._ng_active_name=new
+        self._ng_refresh_profile_list(); self._ng_prof_var.set(new)
+        self._ng_status(f"Renamed to '{new}'.")
+
+    def _ng_prof_delete(self):
+        if self._ng_is_default(): return
+        if not messagebox.askyesno("Delete Profile",f"Delete '{self._ng_active_name}'?",parent=self): return
+        self._ng_profiles.pop(self._ng_active_name,None)
+        _ng_save_profiles(self._ng_profiles); self._ng_refresh_profile_list()
+        self._ng_select_profile(_NG_DEFAULT_PROFILE_NAME)
+
+    def _ng_import_ini(self):
+        path=filedialog.askopenfilename(title="Import Colors .ini",
+                                        filetypes=[("INI files","*.ini"),("All files","*.*")],parent=self)
+        if not path: return
+        parsed=_ng_parse_ini(path)
+        if not any(parsed.get(s) for s in _NG_DEFAULT_COLORS):
+            messagebox.showerror("Parse Error","No recognisable colour sections found.",parent=self); return
+        name=simpledialog.askstring("Import .ini",f"Importing '{Path(path).name}'\n\nSave as profile name:",parent=self)
+        if name is None: return
+        name=name.strip()
+        if not name:
+            if self._ng_is_default():
+                messagebox.showwarning("Read-Only","Cannot overwrite the Default profile.",parent=self); return
+            target=self._ng_active_name
+        else:
+            target=name
+        colors=_ng_fresh_colors()
+        for section in colors:
+            if section in parsed: colors[section].update(parsed[section])
+        self._ng_profiles[target]=copy.deepcopy(colors)
+        _ng_save_profiles(self._ng_profiles); self._ng_refresh_profile_list()
+        self._ng_select_profile(target); self._ng_status(f"Imported '{Path(path).name}' → '{target}'.")
+
+    def _ng_export_ini(self,_=None):
+        ini_str=_ng_generate_ini(self._ng_active_colors_data)
+        default_file=("DefaultColors.ini" if self._ng_is_default()
+                      else self._ng_active_name.replace(" ","_")+".ini")
+        path=filedialog.asksaveasfilename(title="Export Colors .ini",defaultextension=".ini",
+                                          filetypes=[("INI files","*.ini"),("All files","*.*")],
+                                          initialfile=default_file,parent=self)
+        if not path: return
+        try:
+            Path(path).write_text(ini_str,encoding="utf-8")
+            self._ng_status(f"Exported → '{Path(path).name}'.")
+            messagebox.showinfo("Exported",
+                f"Profile exported to:\n{path}\n\nCopy to your Clone Hero  Custom/Colors  folder.",parent=self)
+        except Exception as e: messagebox.showerror("Export Error",str(e),parent=self)
+
+    def _ng_status(self, msg:str):
+        self._ng_status_var.set(msg)
+        self._ng_status_lbl.config(fg=C["accent"])
+        self.after(2000, lambda: self._ng_status_lbl.config(fg=C["text_dim"])
+                   if hasattr(self,"_ng_status_lbl") else None)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  PAGE 4 — BAD SONGS CLEANER
     # ══════════════════════════════════════════════════════════════════════════
     def _build_page_cleaner(self):
         page = tk.Frame(self._content, bg=C["bg"])
@@ -2633,6 +3917,12 @@ class CHSuite(tk.Tk):
             self._pt_unpatch_selected, C["border"], C["hover"], height=46)
         self._pt_unpatch_btn.pack(side="left", fill="x", expand=True)
 
+        btn_row2 = tk.Frame(inner, bg=C["bg"]); btn_row2.pack(fill="x", pady=(0, 8))
+        self._pt_remove_btn = RoundedButton(
+            btn_row2, "✕  Remove Selected Entry from JSON",
+            self._pt_remove_selected, "#3d1a1a", "#5a2020", height=38)
+        self._pt_remove_btn.pack(fill="x")
+
         # Warning note
         warn_card = tk.Frame(inner, bg="#2a1f0a",
                              highlightbackground=C["warn"], highlightthickness=1,
@@ -2701,13 +3991,58 @@ class CHSuite(tk.Tk):
             inner_row = tk.Frame(row, bg=C["card"], padx=14, pady=10)
             inner_row.pack(fill="x")
 
-            # Checkbox
-            var = tk.BooleanVar(value=True)
+            # ── Custom toggle indicator ───────────────────────────────────────
+            # tk.Checkbutton's dark-theme indicator is invisible on Windows.
+            # Use a small colored Canvas square instead — bulletproof on all
+            # Windows/tkinter versions.
+            var = tk.BooleanVar(self, value=True)
             self._pt_vars[path] = var
-            tk.Checkbutton(inner_row, variable=var,
-                           bg=C["card"], activebackground=C["card"],
-                           selectcolor=C["bg"], relief="flat",
-                           cursor="hand2").pack(side="left", padx=(0, 8))
+
+            IND_SIZE = 20
+            # highlightthickness=0 and bd=0 remove the system focus box entirely.
+            # We draw our own border as part of the canvas content so it's
+            # always pixel-perfect and never shows OS-themed artifacts.
+            ind_cv = tk.Canvas(inner_row, width=IND_SIZE, height=IND_SIZE,
+                               bg=C["card"], highlightthickness=0, bd=0,
+                               cursor="hand2")
+            ind_cv.pack(side="left", padx=(0, 10))
+
+            def _draw_ind(cv=ind_cv, v=var):
+                cv.delete("all")
+                if v.get():
+                    # Filled accent rounded square
+                    r = 4
+                    cv.create_polygon(
+                        r, 0,  IND_SIZE-r, 0,
+                        IND_SIZE, r,  IND_SIZE, IND_SIZE-r,
+                        IND_SIZE-r, IND_SIZE,  r, IND_SIZE,
+                        0, IND_SIZE-r,  0, r,
+                        fill=C["accent"], outline="", smooth=True)
+                    # Checkmark: short leg then long diagonal
+                    cv.create_line(
+                        4, IND_SIZE//2 + 1,
+                        IND_SIZE//2 - 1, IND_SIZE - 4,
+                        IND_SIZE - 3, 4,
+                        fill="white", width=2,
+                        joinstyle="round", capstyle="round")
+                else:
+                    # Empty rounded square with subtle border
+                    r = 4
+                    cv.create_polygon(
+                        r, 0,  IND_SIZE-r, 0,
+                        IND_SIZE, r,  IND_SIZE, IND_SIZE-r,
+                        IND_SIZE-r, IND_SIZE,  r, IND_SIZE,
+                        0, IND_SIZE-r,  0, r,
+                        fill=C["card"], outline=C["border2"], smooth=True)
+
+            _draw_ind()
+
+            def _toggle(event=None, v=var, draw=_draw_ind):
+                v.set(not v.get())
+                draw()
+                self._pt_update_count()
+
+            ind_cv.bind("<Button-1>", _toggle)
 
             # Info
             info = tk.Frame(inner_row, bg=C["card"]); info.pack(side="left", fill="x", expand=True)
@@ -2729,8 +4064,24 @@ class CHSuite(tk.Tk):
                 badge_text, badge_fg, badge_bg = "✓ Manual", C["success"], "#0d2e1a"
             else:
                 badge_text, badge_fg, badge_bg = "⚙ Launcher", C["warn"], "#2a1f0a"
-            tk.Label(inner_row, text=badge_text, font=("Segoe UI", 9, "bold"),
-                     fg=badge_fg, bg=badge_bg, padx=8, pady=3).pack(side="right")
+            badge_lbl = tk.Label(inner_row, text=badge_text, font=("Segoe UI", 9, "bold"),
+                                 fg=badge_fg, bg=badge_bg, padx=8, pady=3)
+            badge_lbl.pack(side="right")
+
+            # Bind click on every part of the row so it's easy to select
+            for widget in (inner_row, info, tag_row, badge_lbl):
+                widget.bind("<Button-1>", _toggle)
+                widget.config(cursor="hand2")
+            for child in info.winfo_children() + tag_row.winfo_children():
+                try:
+                    child.bind("<Button-1>", _toggle)
+                    child.config(cursor="hand2")
+                except Exception:
+                    pass
+
+    def _pt_update_count(self):
+        """Update any count label — currently a no-op placeholder for future use."""
+        pass
 
     def _pt_patch_selected(self):
         """Patch all checked installs as Manual."""
@@ -2782,6 +4133,48 @@ class CHSuite(tk.Tk):
             results.append(f"{'✓' if msg.startswith('Unpatch applied') else '✗'}  {os.path.basename(p)}: {msg}")
             _log("[patcher] " + msg)
         messagebox.showinfo("Unpatch complete", "\n".join(results), parent=self)
+        self._pt_refresh()
+
+    def _pt_remove_selected(self):
+        """Remove selected entries entirely from game_installs.json."""
+        selected = [p for p, v in self._pt_vars.items() if v.get()]
+        if not selected:
+            messagebox.showinfo("Nothing selected",
+                                "Tick at least one install to remove.", parent=self)
+            return
+        names = "\n".join(f"  • {os.path.basename(p)}" for p in selected)
+        if not messagebox.askyesno(
+                "Remove entries",
+                f"Remove {len(selected)} entry/entries from game_installs.json?\n\n"
+                f"{names}\n\n"
+                "This only removes them from the launcher's registry — "
+                "it does NOT delete any files on disk.",
+                parent=self):
+            return
+        if not _INSTALLS_FILE.is_file():
+            messagebox.showerror("Error", "game_installs.json not found.", parent=self)
+            return
+        try:
+            shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
+            data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+            before = len(data.get("installs", []))
+            norm = {os.path.normcase(os.path.normpath(p)) for p in selected}
+            data["installs"] = [
+                inst for inst in data.get("installs", [])
+                if os.path.normcase(os.path.normpath(
+                    inst.get("directoryPath", ""))) not in norm
+            ]
+            removed = before - len(data["installs"])
+            _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            _log(f"[patcher] Removed {removed} entry/entries from game_installs.json")
+            messagebox.showinfo(
+                "Removed",
+                f"Removed {removed} entry/entries.\n\n"
+                "A backup was saved as game_installs.json.bak",
+                parent=self)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not remove entries:\n{e}", parent=self)
+            _log(f"[patcher] Remove failed: {e}")
         self._pt_refresh()
 
     # ── Discord Rich Presence ─────────────────────────────────────────────────
@@ -2916,13 +4309,921 @@ class CHSuite(tk.Tk):
             page = getattr(self, "_current_page", "bgchanger") or "bgchanger"
             tool = _PAGE_DISPLAY_NAMES.get(page, "CHSuite")
             if page == "bgchanger":
-                details = f"Editing: {self._selected_bg()}"
+                profile = getattr(self, "_active_name", "") or ""
+                bg      = self._selected_bg()
+                details = f"Profile: {profile}  ·  {bg}" if profile else f"Editing: {bg}"
+                self._drpc.update(tool, details)
+            elif page == "notegen":
+                profile = getattr(self, "_ng_active_name", "") or ""
+                details = f"Profile: {profile}" if profile else ""
                 self._drpc.update(tool, details)
             else:
                 self._drpc.update(tool)
             self._drpc_last_update = time.monotonic()
 
         self._drpc_pending = self.after(600, _do_update)
+
+    # ── Launch Clone Hero ─────────────────────────────────────────────────────
+    def _launch_clone_hero(self):
+        """Launch from the default install (titlebar button)."""
+        default_dir = self._cfg.get("ch_default_install", "") or self._cfg.get("ch_install_dir", "")
+
+        # Fall back to first registered install if nothing saved
+        if not default_dir or not os.path.isdir(default_dir):
+            installs = _read_installs()
+            if installs:
+                default_dir = installs[0].get("directoryPath", "")
+
+        exe = self._find_ch_exe(default_dir) if default_dir else None
+
+        if not exe:
+            answer = messagebox.askyesno(
+                "Clone Hero not found",
+                "CHSuite doesn't know which Clone Hero to launch.\n\n"
+                "Go to the CHManager tab to set a default install,\n"
+                "or browse to Clone Hero.exe now?",
+                parent=self)
+            if not answer:
+                return
+            exe = filedialog.askopenfilename(
+                title="Select Clone Hero.exe",
+                filetypes=[("Executable", "*.exe"), ("All files", "*.*")],
+                initialdir=default_dir or str(Path.home()))
+            if not exe:
+                return
+            found_dir = str(Path(exe).parent)
+            self._cfg["ch_default_install"] = found_dir
+            self._cfg["ch_install_dir"]     = found_dir
+            _save_json(CONFIG_FILE, self._cfg)
+
+        self._do_launch_exe(exe)
+
+    @staticmethod
+    def _find_ch_exe(directory: str):
+        """Return path to Clone Hero.exe in directory, or None."""
+        if not directory or not os.path.isdir(directory):
+            return None
+        for candidate in ("Clone Hero.exe", "clonehero.exe", "CloneHero.exe"):
+            p = Path(directory) / candidate
+            if p.is_file():
+                return str(p)
+        for p in Path(directory).glob("*.exe"):
+            if "clone" in p.stem.lower() and "hero" in p.stem.lower():
+                return str(p)
+        return None
+
+    def _do_launch_exe(self, exe_path: str):
+        """
+        Launch Clone Hero, minimize CHSuite to the taskbar while it runs,
+        and restore automatically when Clone Hero exits.
+        """
+        try:
+            proc = subprocess.Popen([exe_path], cwd=str(Path(exe_path).parent))
+        except Exception as e:
+            messagebox.showerror("Launch failed",
+                                 f"Could not launch Clone Hero:\n{e}", parent=self)
+            return
+
+        self._status(f"Launched: {Path(exe_path).name}")
+
+        # Minimize to taskbar
+        self.iconify()
+
+        def _watch():
+            proc.wait()          # blocks until CH exits
+            self.after(0, self._restore_from_taskbar)
+
+        threading.Thread(target=_watch, daemon=True).start()
+
+    def _restore_from_taskbar(self):
+        """Bring CHSuite back to the foreground after Clone Hero closes."""
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        self._status("Clone Hero closed — welcome back!")
+
+    def _gm_set_default_install(self, path: str):
+        """Save path as the default Clone Hero install and refresh the list."""
+        self._cfg["ch_default_install"] = path
+        self._cfg["ch_install_dir"]     = path
+        _save_json(CONFIG_FILE, self._cfg)
+        self._gm_refresh_installs()
+        self._gm_status(f"Default set: {os.path.basename(path)}")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  PAGE 6 — GAME MANAGER
+    # ══════════════════════════════════════════════════════════════════════════
+    def _build_page_gamemanager(self):
+        page = tk.Frame(self._content, bg=C["bg"])
+        self._pages["gamemanager"] = page
+
+        inner = tk.Frame(page, bg=C["bg"], padx=24, pady=20)
+        inner.pack(fill="both", expand=True)
+
+        tk.Label(inner, text="CHManager",
+                 font=("Segoe UI", 18, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w")
+        tk.Label(inner,
+                 text="Manage Clone Hero installations, download new versions, and patch installs.",
+                 font=FT, fg=C["text_dim"], bg=C["bg"]).pack(anchor="w", pady=(2, 16))
+
+        # ── Split: left = installs, right = download ──────────────────────────
+        split = tk.Frame(inner, bg=C["bg"])
+        split.pack(fill="both", expand=True)
+        split.columnconfigure(0, weight=3)
+        split.columnconfigure(1, weight=2)
+        split.rowconfigure(0, weight=1)
+
+        # ── LEFT: Local Installs ──────────────────────────────────────────────
+        left_card = tk.Frame(split, bg=C["card"],
+                             highlightbackground=C["border"], highlightthickness=1)
+        left_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+
+        lh = tk.Frame(left_card, bg=C["card"], padx=14, pady=10); lh.pack(fill="x")
+        tk.Label(lh, text="LOCAL INSTALLS", font=("Segoe UI", 8, "bold"),
+                 fg=C["text_dim"], bg=C["card"]).pack(side="left")
+        tk.Button(lh, text="↺ Refresh", command=self._gm_refresh_installs,
+                  bg=C["border"], fg=C["text"], relief="flat",
+                  font=FTS, padx=8, pady=2, cursor="hand2").pack(side="right")
+        _sep(left_card, bg=C["border"]).pack(fill="x")
+
+        inst_scroll = tk.Frame(left_card, bg=C["card"])
+        inst_scroll.pack(fill="both", expand=True)
+        vsb_inst = ttk.Scrollbar(inst_scroll, orient="vertical")
+        vsb_inst.pack(side="right", fill="y")
+        self._gm_inst_canvas = tk.Canvas(inst_scroll, bg=C["card"],
+                                          highlightthickness=0,
+                                          yscrollcommand=vsb_inst.set)
+        self._gm_inst_canvas.pack(side="left", fill="both", expand=True)
+        vsb_inst.config(command=self._gm_inst_canvas.yview)
+        self._gm_inst_inner = tk.Frame(self._gm_inst_canvas, bg=C["card"])
+        _inst_win = self._gm_inst_canvas.create_window((0, 0), window=self._gm_inst_inner, anchor="nw")
+        def _inst_configure(e):
+            bbox = self._gm_inst_canvas.bbox("all")
+            if bbox:
+                cw = self._gm_inst_canvas.winfo_height()
+                h  = max(bbox[3], cw)
+                self._gm_inst_canvas.configure(scrollregion=(0, 0, bbox[2], h))
+        self._gm_inst_inner.bind("<Configure>", _inst_configure)
+        self._gm_inst_canvas.bind("<Configure>", lambda e: self._gm_inst_canvas.itemconfig(
+            _inst_win, width=e.width))
+        def _inst_wheel(event):
+            self._gm_inst_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self._inst_wheel = _inst_wheel
+        self._gm_inst_canvas.bind("<MouseWheel>", _inst_wheel)
+        self._gm_inst_inner.bind("<MouseWheel>", _inst_wheel)
+
+        # Add install buttons
+        add_row = tk.Frame(left_card, bg=C["card"], padx=12, pady=8); add_row.pack(fill="x")
+        tk.Button(add_row, text="+ Add Existing Install",
+                  command=self._gm_add_install,
+                  bg=C["accent_dim"], fg=C["text"], relief="flat",
+                  font=FT, padx=10, pady=4, cursor="hand2").pack(side="left")
+
+        # ── RIGHT: Download ───────────────────────────────────────────────────
+        right_col = tk.Frame(split, bg=C["bg"])
+        right_col.grid(row=0, column=1, sticky="nsew")
+
+        dl_card = tk.Frame(right_col, bg=C["card"],
+                           highlightbackground=C["border"], highlightthickness=1)
+        dl_card.pack(fill="both", expand=True)
+
+        dh = tk.Frame(dl_card, bg=C["card"], padx=14, pady=10); dh.pack(fill="x")
+        tk.Label(dh, text="DOWNLOAD", font=("Segoe UI", 8, "bold"),
+                 fg=C["text_dim"], bg=C["card"]).pack(side="left")
+        tk.Button(dh, text="↺ Check", command=self._gm_check_releases,
+                  bg=C["border"], fg=C["text"], relief="flat",
+                  font=FTS, padx=8, pady=2, cursor="hand2").pack(side="right")
+        _sep(dl_card, bg=C["border"]).pack(fill="x")
+
+        dl_inner = tk.Frame(dl_card, bg=C["card"], padx=14, pady=12)
+        dl_inner.pack(fill="both", expand=True)
+
+        self._gm_release_lbl = tk.Label(
+            dl_inner,
+            text="Click  ↺ Check  to load releases from GitHub.",
+            font=FT, fg=C["text_dim"], bg=C["card"], justify="left")
+        self._gm_release_lbl.pack(anchor="w", pady=(0, 8))
+
+        # ── Tabbed download panel (Release / PTB) ─────────────────────────────
+        _nb_style = ttk.Style()
+        _nb_style.configure("DL.TNotebook",        background=C["card"], borderwidth=0)
+        _nb_style.configure("DL.TNotebook.Tab",    background=C["border"], foreground=C["text_dim"],
+                            padding=[10, 4], font=("Segoe UI", 9, "bold"))
+        _nb_style.map("DL.TNotebook.Tab",
+                      background=[("selected", C["accent_dim"])],
+                      foreground=[("selected", C["text"])])
+
+        dl_nb = ttk.Notebook(dl_inner, style="DL.TNotebook")
+        dl_nb.pack(fill="both", expand=True, pady=(0, 6))
+
+        tab_rel = tk.Frame(dl_nb, bg=C["card"])
+        tab_ptb = tk.Frame(dl_nb, bg=C["card"])
+        dl_nb.add(tab_rel, text="  Release  ")
+        dl_nb.add(tab_ptb, text="  PTB  ")
+
+        def _make_scrollable_tab(parent):
+            vsb = ttk.Scrollbar(parent, orient="vertical")
+            vsb.pack(side="right", fill="y")
+            cv = tk.Canvas(parent, bg=C["card"], highlightthickness=0,
+                           yscrollcommand=vsb.set)
+            cv.pack(side="left", fill="both", expand=True)
+            vsb.config(command=cv.yview)
+            inner_f = tk.Frame(cv, bg=C["card"])
+            cv.create_window((0, 0), window=inner_f, anchor="nw")
+            inner_f.bind("<Configure>", lambda e: cv.configure(
+                scrollregion=cv.bbox("all")))
+            def _on_wheel(event, _cv=cv):
+                _cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            cv.bind("<MouseWheel>", _on_wheel)
+            inner_f.bind("<MouseWheel>", _on_wheel)
+            return inner_f
+
+        self._gm_rel_frame = _make_scrollable_tab(tab_rel)
+        self._gm_ptb_frame = _make_scrollable_tab(tab_ptb)
+
+        # Progress bar (hidden until download starts)
+        self._gm_progress_var = tk.DoubleVar(value=0)
+        self._gm_progress = ttk.Progressbar(
+            dl_inner, variable=self._gm_progress_var,
+            maximum=100, length=260)
+        self._gm_progress_lbl = tk.Label(dl_inner, text="", font=FTM,
+                                          fg=C["text_dim"], bg=C["card"])
+
+        # Status line
+        self._gm_status_lbl = tk.Label(dl_inner, text="", font=FTM,
+                                        fg=C["text_dim"], bg=C["card"], anchor="w")
+        self._gm_status_lbl.pack(fill="x", pady=(4, 0))
+
+        # Internal state
+        self._gm_releases = []      # list of release dicts from GitHub API
+        self._gm_dl_thread = None
+
+        self._gm_refresh_installs()
+
+    # ── Game Manager helpers ──────────────────────────────────────────────────
+
+    def _gm_refresh_installs(self):
+        """Rebuild the local installs list from game_installs.json."""
+        for w in self._gm_inst_inner.winfo_children():
+            w.destroy()
+        self._gm_inst_canvas.yview_moveto(0)
+
+        installs = _read_installs()
+        if not installs:
+            tk.Label(self._gm_inst_inner,
+                     text="No installs found in game_installs.json.\n"
+                          "Run the Clone Hero Launcher at least once,\n"
+                          "or add an install manually below.",
+                     font=FT, fg=C["text_dim"], bg=C["card"],
+                     justify="left").pack(padx=14, pady=14, anchor="w")
+            return
+
+        default_dir = os.path.normcase(os.path.normpath(
+            self._cfg.get("ch_default_install", "") or
+            self._cfg.get("ch_install_dir", "")))
+
+        # Auto-remove entries whose exe is missing
+        valid_installs = []
+        removed_any = False
+        for inst in installs:
+            p = inst.get("directoryPath", "")
+            if p and not (Path(p) / "Clone Hero.exe").is_file():
+                # Remove from game_installs.json silently
+                try:
+                    data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+                    norm = os.path.normcase(os.path.normpath(p))
+                    data["installs"] = [
+                        i for i in data.get("installs", [])
+                        if os.path.normcase(os.path.normpath(
+                            i.get("directoryPath", ""))) != norm
+                    ]
+                    _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                    removed_any = True
+                    _log(f"[gm] Auto-removed missing install: {p}")
+                except Exception as e:
+                    _log(f"[gm] Could not remove missing entry: {e}")
+            else:
+                valid_installs.append(inst)
+        installs = valid_installs
+
+        if not installs:
+            tk.Label(self._gm_inst_inner,
+                     text="No installs found in game_installs.json.\n"
+                          "Run the Clone Hero Launcher at least once,\n"
+                          "or add an install manually below.",
+                     font=FT, fg=C["text_dim"], bg=C["card"],
+                     justify="left").pack(padx=14, pady=14, anchor="w")
+            return
+
+        for inst in installs:
+            path     = inst.get("directoryPath", "?")
+            ver      = inst.get("version") or "?"
+            is_man   = inst.get("isFromLauncher") is False
+            disabled = inst.get("disabled", False)
+            exe_path = Path(path) / "Clone Hero.exe"
+            exe_ok   = exe_path.is_file()
+            is_def   = os.path.normcase(os.path.normpath(path)) == default_dir
+
+            row_bg = C["card2"] if is_def else C["card"]
+
+            row = tk.Frame(self._gm_inst_inner, bg=row_bg)
+            row.pack(fill="x")
+            _sep(row, bg=C["accent"] if is_def else C["border"]).pack(fill="x")
+            ri = tk.Frame(row, bg=row_bg, padx=14, pady=10)
+            ri.pack(fill="x")
+            # Propagate mousewheel from row widgets
+            for _w in (row, ri):
+                _w.bind("<MouseWheel>", self._inst_wheel)
+
+            # Left info
+            info = tk.Frame(ri, bg=row_bg); info.pack(side="left", fill="x", expand=True)
+            name_fg = C["text_dim"] if disabled else C["text"]
+            name_row = tk.Frame(info, bg=row_bg); name_row.pack(anchor="w")
+
+            # Default star badge
+            if is_def:
+                tk.Label(name_row, text="★", font=("Segoe UI", 12),
+                         fg=C["warn"], bg=row_bg).pack(side="left", padx=(0, 5))
+            tk.Label(name_row, text=os.path.basename(path), font=FTB,
+                     fg=name_fg, bg=row_bg).pack(side="left")
+
+            tk.Label(info, text=path, font=FTM, fg=C["text_dim"],
+                     bg=row_bg).pack(anchor="w")
+
+            tag_r = tk.Frame(info, bg=row_bg); tag_r.pack(anchor="w", pady=(2, 0))
+            tk.Label(tag_r, text=f"v{ver}", font=FTS, fg=C["text_dim"],
+                     bg=row_bg).pack(side="left", padx=(0, 8))
+            if is_man:
+                tk.Label(tag_r, text="Manual", font=FTS, fg=C["success"],
+                         bg="#0d2e1a", padx=4).pack(side="left", padx=(0, 4))
+            else:
+                tk.Label(tag_r, text="Launcher", font=FTS, fg=C["warn"],
+                         bg="#2a1f0a", padx=4).pack(side="left", padx=(0, 4))
+            if is_def:
+                tk.Label(tag_r, text="default", font=FTS, fg=C["warn"],
+                         bg="#2a1200", padx=4).pack(side="left", padx=(0, 4))
+            if disabled:
+                tk.Label(tag_r, text="disabled", font=FTS, fg=C["error"],
+                         bg="#3a1f1f", padx=4).pack(side="left")
+
+            # Right: buttons
+            # ── Buttons: 2-column grid, uniform width ────────────────────────
+            btn_col = tk.Frame(ri, bg=row_bg)
+            btn_col.pack(side="right", padx=(8, 0))
+
+            # Shared kwargs for all small buttons
+            _bs = dict(relief="flat", font=FTS, cursor="hand2", width=10, pady=2)
+
+            # Row 0: Set as Default (spans both cols, only if not default)
+            if not is_def:
+                tk.Button(btn_col, text="★ Default",
+                          command=lambda p=path: self._gm_set_default_install(p),
+                          bg="#2a1f0a", fg=C["warn"], **_bs
+                          ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 3))
+
+            # Row 1: Launch | Open folder
+            if exe_ok:
+                launch_bg = C["success"] if is_def else C["border"]
+                launch_fg = "#000" if is_def else C["text"]
+                tk.Button(btn_col, text="▶ Launch",
+                          command=lambda p=str(exe_path): self._do_launch_exe(p),
+                          bg=launch_bg, fg=launch_fg,
+                          relief="flat", font=("Segoe UI", 9, "bold"),
+                          cursor="hand2", width=10, pady=3
+                          ).grid(row=1, column=0, sticky="ew", padx=(0, 3))
+            else:
+                tk.Label(btn_col, text="missing", font=FTS,
+                         fg=C["error"], bg=row_bg, width=10
+                         ).grid(row=1, column=0, padx=(0, 3))
+            tk.Button(btn_col, text="📂 Folder",
+                      command=lambda p=path: self._gm_open_folder(p),
+                      bg=C["border"], fg=C["text"], **_bs
+                      ).grid(row=1, column=1, sticky="ew")
+
+            # Row 2: Patch | Unpatch
+            tk.Button(btn_col, text="⚙ Patch",
+                      command=lambda p=path: self._gm_patch_install(p),
+                      bg="#1a2a1a", fg=C["success"], **_bs
+                      ).grid(row=2, column=0, sticky="ew", padx=(0, 3), pady=(3, 0))
+            tk.Button(btn_col, text="↺ Unpatch",
+                      command=lambda p=path: self._gm_unpatch_install(p),
+                      bg="#2a1f0a", fg=C["warn"], **_bs
+                      ).grid(row=2, column=1, sticky="ew", pady=(3, 0))
+
+            # Row 3: Delete (spans both cols)
+            tk.Button(btn_col, text="🗑 Delete",
+                      command=lambda p=path: self._gm_delete_install(p),
+                      bg="#3a1f1f", fg=C["error"], **_bs
+                      ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(3, 0))
+
+    def _gm_launch_exe(self, exe_path: str):
+        """Kept for compatibility — delegates to shared _do_launch_exe."""
+        self._do_launch_exe(exe_path)
+
+    def _gm_open_folder(self, path: str):
+        try:
+            if sys.platform == "win32":
+                os.startfile(path)
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except Exception as e:
+            messagebox.showerror("Error", str(e), parent=self)
+
+    def _gm_patch_install(self, path: str):
+        """Patch a single install (mark as Manual so the launcher won't overwrite files)."""
+        if _launcher_is_running():
+            if _kill_launcher():
+                _log("[gm] Launcher force-closed before patch")
+                self.after(600, lambda: self._gm_patch_install(path))
+                return
+        msg = _silent_patch_as_manual(path)
+        ok  = msg.startswith("Launcher patch")
+        messagebox.showinfo("Patch complete" if ok else "Patch failed",
+                            f"{'✓' if ok else '✗'}  {os.path.basename(path)}\n\n{msg}",
+                            parent=self)
+        if ok:
+            self._gm_status(f"Patched: {os.path.basename(path)}")
+        self._gm_refresh_installs()
+
+    def _gm_unpatch_install(self, path: str):
+        """Unpatch a single install (restore Launcher-managed mode)."""
+        if _launcher_is_running():
+            if _kill_launcher():
+                _log("[gm] Launcher force-closed before unpatch")
+                self.after(600, lambda: self._gm_unpatch_install(path))
+                return
+        msg = _unpatch_as_launcher(path)
+        ok  = msg.startswith("Unpatch applied")
+        messagebox.showinfo("Unpatch complete" if ok else "Unpatch failed",
+                            f"{'✓' if ok else '✗'}  {os.path.basename(path)}\n\n{msg}",
+                            parent=self)
+        if ok:
+            self._gm_status(f"Unpatched: {os.path.basename(path)}")
+        self._gm_refresh_installs()
+
+    def _gm_delete_install(self, path: str):
+        """Delete the install folder and remove its entry from game_installs.json."""
+        if not messagebox.askyesno(
+                "Delete install",
+                f"This will permanently delete:\n\n{path}\n\n"
+                "and all its contents. This cannot be undone.\n\nContinue?",
+                icon="warning", parent=self):
+            return
+        # Remove folder
+        try:
+            shutil.rmtree(path, ignore_errors=False)
+        except Exception as e:
+            messagebox.showerror("Delete failed",
+                                 f"Could not delete folder:\n{e}", parent=self)
+            return
+        # Remove from game_installs.json
+        if _INSTALLS_FILE.is_file():
+            try:
+                data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+                norm = os.path.normcase(os.path.normpath(path))
+                data["installs"] = [
+                    i for i in data.get("installs", [])
+                    if os.path.normcase(os.path.normpath(
+                        i.get("directoryPath", ""))) != norm
+                ]
+                _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            except Exception as e:
+                _log(f"[gm] Could not update game_installs.json after delete: {e}")
+        # If deleted install was the default, clear it
+        for key in ("ch_default_install", "ch_install_dir"):
+            if os.path.normcase(os.path.normpath(
+                    self._cfg.get(key, ""))) == os.path.normcase(
+                    os.path.normpath(path)):
+                self._cfg.pop(key, None)
+        _save_json(CONFIG_FILE, self._cfg)
+        self._gm_status(f"Deleted: {os.path.basename(path)}")
+        self._gm_refresh_installs()
+
+    def _gm_add_install(self):
+        """Browse to a Clone Hero install folder and register it in game_installs.json."""
+        folder = filedialog.askdirectory(
+            title="Select Clone Hero install folder",
+            initialdir=str(Path.home()))
+        if not folder:
+            return
+
+        exe = Path(folder) / "Clone Hero.exe"
+        if not exe.is_file():
+            if not messagebox.askyesno(
+                    "Exe not found",
+                    f"Clone Hero.exe was not found in:\n{folder}\n\n"
+                    "Add it anyway?", parent=self):
+                return
+
+        if not _INSTALLS_FILE.is_file():
+            messagebox.showerror(
+                "Launcher not found",
+                "game_installs.json doesn't exist yet.\n"
+                "Run the Clone Hero Launcher at least once first.", parent=self)
+            return
+
+        try:
+            shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
+            data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+            existing = [os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
+                        for i in data.get("installs", [])]
+            norm = os.path.normcase(os.path.normpath(folder))
+            if norm in existing:
+                messagebox.showinfo("Already registered",
+                                    "That folder is already in game_installs.json.", parent=self)
+                return
+            data.setdefault("installs", []).append({
+                "directoryPath": folder,
+                "isFromLauncher": False,
+                "version": None,
+                "manifestVersion": None,
+                "manifestDate": None,
+                "releaseChannel": "stable",
+                "disabled": False,
+            })
+            _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            self._gm_status(f"Added: {os.path.basename(folder)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not update game_installs.json:\n{e}", parent=self)
+        self._gm_refresh_installs()
+
+    def _gm_check_releases(self):
+        """Fetch the latest Clone Hero releases from the GitHub API in a thread."""
+        if not _REQUESTS_OK:
+            messagebox.showerror("Missing dependency",
+                                 "The 'requests' library is required to check for releases.",
+                                 parent=self)
+            return
+        self._gm_release_lbl.config(text="Checking GitHub…", fg=C["text_mid"])
+        for frame in (self._gm_rel_frame, self._gm_ptb_frame):
+            for w in frame.winfo_children():
+                w.destroy()
+
+        def _worker():
+            try:
+                url = "https://api.github.com/repos/clonehero-game/releases/releases?per_page=50"
+                resp = requests.get(url, timeout=15,
+                                    headers={"Accept": "application/vnd.github+json"})
+                resp.raise_for_status()
+                releases = resp.json()
+                self._gm_releases = releases
+                self.after(0, self._gm_populate_releases)
+            except Exception as e:
+                self.after(0, lambda: self._gm_release_lbl.config(
+                    text=f"Could not fetch releases:\n{e}", fg=C["error"]))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _gm_populate_releases(self):
+        """Populate the Release and PTB download tabs with fetched release data."""
+        for frame in (self._gm_rel_frame, self._gm_ptb_frame):
+            for w in frame.winfo_children():
+                w.destroy()
+
+        if not self._gm_releases:
+            self._gm_release_lbl.config(text="No releases found.", fg=C["text_dim"])
+            return
+
+        # Split by release type
+        full_rels = [r for r in self._gm_releases if not r.get("prerelease", False)]
+        ptb_rels  = [r for r in self._gm_releases if r.get("prerelease", False)]
+
+        # Sort newest → oldest by version number extracted from tag_name,
+        # falling back to published_at date as a tiebreaker.
+        def _ver_key(r):
+            tag = r.get("tag_name", "") or r.get("name", "") or ""
+            # Extract all numeric parts from the tag, e.g. "v0.9.3-PTB1" → (0, 9, 3, 1)
+            parts = tuple(int(x) for x in re.findall(r"\d+", tag))
+            date  = r.get("published_at") or r.get("created_at") or ""
+            return (parts, date)
+
+        full_rels.sort(key=_ver_key, reverse=True)
+        ptb_rels.sort(key=_ver_key,  reverse=True)
+
+        # Detect host architecture
+        _machine = platform.machine().lower()
+        _is_64   = _machine in ("amd64", "x86_64") or (
+            _machine == "x86" and platform.architecture()[0] == "64bit")
+
+        arch_str = "x64" if _is_64 else "x32"
+        self._gm_release_lbl.config(
+            text=f"Found {len(full_rels)} release(s)  ·  {len(ptb_rels)} PTB  ·  showing {arch_str}",
+            fg=C["text"])
+
+        def _win_asset(release):
+            """Return the Windows asset matching the host architecture."""
+            WIN_EXTS = (".exe", ".7z", ".zip")
+            arch_tag   = "64" if _is_64 else "32"
+            anti_tag   = "32" if _is_64 else "64"
+            candidates = []
+            fallback   = []
+            for a in release.get("assets", []):
+                n = a["name"].lower()
+                if not any(n.endswith(ext) for ext in WIN_EXTS):
+                    continue
+                if not ("win" in n or "windows" in n):
+                    continue
+                if anti_tag in n:
+                    continue          # wrong bitness — skip entirely
+                if arch_tag in n:
+                    candidates.append(a)
+                else:
+                    fallback.append(a)   # win asset with no explicit bitness tag
+            pool = candidates if candidates else fallback
+            # Prefer .exe → .7z → .zip
+            def _ext_rank(a):
+                n = a["name"].lower()
+                for i, ext in enumerate(WIN_EXTS):
+                    if n.endswith(ext):
+                        return i
+                return 99
+            pool.sort(key=_ext_rank)
+            return pool[0] if pool else None
+
+        def _populate_frame(frame, releases):
+            if not releases:
+                tk.Label(frame, text="No releases found.", font=FT,
+                         fg=C["text_dim"], bg=C["card"]).pack(padx=8, pady=8, anchor="w")
+                return
+
+            # Grab the canvas ancestor so we can re-bind wheel on new widgets
+            cv = frame.master
+
+            def _on_wheel(event, _cv=cv):
+                _cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+            for rel in releases:
+                asset = _win_asset(rel)
+                if not asset:
+                    continue
+                rtag    = rel.get("tag_name", "?")
+                rname   = rel.get("name", rtag)
+                pub     = rel.get("published_at", "")[:10]
+                size_mb = asset.get("size", 0) / 1_048_576
+
+                row = tk.Frame(frame, bg=C["card"])
+                row.pack(fill="x", pady=(0, 6), padx=4)
+                for w in (row,):
+                    w.bind("<MouseWheel>", _on_wheel)
+
+                lbl_name = tk.Label(row, text=rname, font=FTB, fg=C["text"], bg=C["card"])
+                lbl_name.pack(anchor="w")
+                lbl_name.bind("<MouseWheel>", _on_wheel)
+
+                lbl_info = tk.Label(row,
+                    text=f"{pub}  ·  {size_mb:.1f} MB  ·  {asset['name']}",
+                    font=FTS, fg=C["text_dim"], bg=C["card"])
+                lbl_info.pack(anchor="w")
+                lbl_info.bind("<MouseWheel>", _on_wheel)
+
+                tk.Button(row, text="⬇ Download & Install",
+                          command=lambda a=asset, r=rtag: self._gm_start_download(a, r),
+                          bg=C["accent"], fg="white", relief="flat",
+                          font=("Segoe UI", 9, "bold"), padx=10, pady=4,
+                          cursor="hand2").pack(anchor="w", pady=(4, 0))
+
+        _populate_frame(self._gm_rel_frame, full_rels)
+        _populate_frame(self._gm_ptb_frame, ptb_rels)
+
+    def _gm_start_download(self, asset: dict, tag: str):
+        """Download a release zip and extract it to the chosen destination."""
+        if not _REQUESTS_OK:
+            return
+
+        # Ask the user where to install
+        initial = self._cfg.get("ch_install_dir", str(Path.home() / "Documents" / "Clone Hero"))
+        dest_base = filedialog.askdirectory(
+            title=f"Choose install folder for Clone Hero {tag}",
+            initialdir=initial,
+            parent=self)
+        if not dest_base:
+            return  # user cancelled
+
+        dest_dir = Path(dest_base)
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not create folder:\n{e}", parent=self)
+            return
+
+        url      = asset["browser_download_url"]
+        filename = asset["name"]
+        zip_path = dest_dir / filename
+        total    = asset.get("size", 0)
+
+        # Show progress bar
+        self._gm_progress_var.set(0)
+        self._gm_progress.pack(anchor="w", pady=(8, 2))
+        self._gm_progress_lbl.config(text="Starting download…")
+        self._gm_progress_lbl.pack(anchor="w")
+        self.update_idletasks()
+
+        # Disable buttons during download
+        for frame in (self._gm_rel_frame, self._gm_ptb_frame):
+            for w in frame.winfo_children():
+                for child in w.winfo_children():
+                    try: child.config(state="disabled")
+                    except Exception: pass
+
+        def _worker():
+            try:
+                _log(f"[gm] Downloading {filename} from {url}")
+                with requests.get(url, stream=True, timeout=30) as r:
+                    r.raise_for_status()
+                    downloaded = 0
+                    with open(zip_path, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=65536):
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total > 0:
+                                pct = downloaded / total * 100
+                                self.after(0, lambda p=pct: (
+                                    self._gm_progress_var.set(p),
+                                    self._gm_progress_lbl.config(
+                                        text=f"Downloading…  {downloaded/1_048_576:.1f} / "
+                                             f"{total/1_048_576:.1f} MB")))
+
+                self.after(0, lambda: self._gm_progress_lbl.config(text="Extracting…"))
+                fname_lower = filename.lower()
+                if fname_lower.endswith(".exe"):
+                    _log(f"[gm] Running Inno Setup silent install: {zip_path}")
+                    self.after(0, lambda: self._gm_progress_lbl.config(
+                        text="Running installer… (this may take a moment)"))
+
+                    # Watcher thread: auto-click Yes on any popup during install
+                    # (e.g. the Portable Mode confirmation dialog).
+                    _stop_watcher = threading.Event()
+                    def _dialog_watcher(stop_evt=_stop_watcher, _proc=None):
+                        if sys.platform != "win32":
+                            return
+                        import ctypes, ctypes.wintypes
+                        user32    = ctypes.windll.user32
+                        kernel32  = ctypes.windll.kernel32
+                        BM_CLICK  = 0x00F5
+                        GW_CHILD  = 5
+                        GW_HWNDNEXT = 2
+                        SMTO_ABORTIFHUNG = 0x0002
+
+                        def _get_text(hwnd):
+                            buf = ctypes.create_unicode_buffer(256)
+                            user32.GetWindowTextW(hwnd, buf, 256)
+                            return buf.value
+
+                        def _get_class(hwnd):
+                            buf = ctypes.create_unicode_buffer(256)
+                            user32.GetClassNameW(hwnd, buf, 256)
+                            return buf.value
+
+                        def _find_yes_in(parent):
+                            child = user32.GetWindow(parent, GW_CHILD)
+                            while child:
+                                cls = _get_class(child)
+                                txt = _get_text(child).replace("&","").strip().lower()
+                                if cls == "Button" and txt == "yes":
+                                    return child
+                                child = user32.GetWindow(child, GW_HWNDNEXT)
+                            return None
+
+                        EnumWindowsProc = ctypes.WINFUNCTYPE(
+                            ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+
+                        clicked = set()
+                        while not stop_evt.is_set():
+                            wins = []
+                            def _cb(hwnd, _, _lst=wins):
+                                _lst.append(hwnd)
+                                return True
+                            user32.EnumWindows(EnumWindowsProc(_cb), 0)
+
+                            for hwnd in wins:
+                                if hwnd in clicked:
+                                    continue
+                                # Only act on dialog-class windows
+                                if _get_class(hwnd) != "#32770":
+                                    continue
+                                # Try control ID 6 (IDYES from MB_YESNO MessageBox)
+                                yes_btn = user32.GetDlgItem(hwnd, 6)
+                                # Also try scanning children for a "Yes" Button
+                                if not yes_btn:
+                                    yes_btn = _find_yes_in(hwnd)
+                                if yes_btn:
+                                    _log("[gm] Auto-clicking Yes on installer dialog")
+                                    clicked.add(hwnd)
+                                    user32.SetForegroundWindow(hwnd)
+                                    # Use PostMessage so the button processes the click
+                                    user32.PostMessageW(yes_btn, BM_CLICK, 0, 0)
+                            stop_evt.wait(0.1)
+
+                    watcher = threading.Thread(target=_dialog_watcher, daemon=True)
+                    watcher.start()
+                    try:
+                        result = subprocess.run(
+                            [str(zip_path), "/VERYSILENT", "/CURRENTUSER",
+                             "/TYPE=portable", f"/DIR={dest_dir}"],
+                            timeout=300)
+                    finally:
+                        _stop_watcher.set()
+                    zip_path.unlink(missing_ok=True)
+                    if result.returncode != 0:
+                        raise RuntimeError(
+                            f"Installer exited with code {result.returncode}.")
+                elif fname_lower.endswith(".7z"):
+                    _log(f"[gm] Extracting .7z {zip_path} → {dest_dir}")
+                    # Try py7zr first, fall back to system 7z/7za
+                    try:
+                        import py7zr
+                        with py7zr.SevenZipFile(zip_path, mode="r") as z:
+                            z.extractall(path=dest_dir)
+                    except ImportError:
+                        # Try system 7z binary
+                        found_7z = None
+                        for cmd in ("7z", "7za", r"C:\Program Files\7-Zip\7z.exe"):
+                            try:
+                                subprocess.run([cmd, "i"], capture_output=True, timeout=5)
+                                found_7z = cmd
+                                break
+                            except Exception:
+                                pass
+                        if found_7z:
+                            subprocess.run(
+                                [found_7z, "x", str(zip_path), f"-o{dest_dir}", "-y"],
+                                check=True)
+                        else:
+                            raise RuntimeError(
+                                "Cannot extract .7z: install py7zr (pip install py7zr) "
+                                "or 7-Zip.")
+                    zip_path.unlink(missing_ok=True)
+                else:
+                    _log(f"[gm] Extracting .zip {zip_path} → {dest_dir}")
+                    import zipfile
+                    with zipfile.ZipFile(zip_path, "r") as zf:
+                        zf.extractall(dest_dir)
+                    zip_path.unlink(missing_ok=True)
+
+                # Register in game_installs.json if launcher JSON exists
+                self.after(0, lambda: self._gm_post_install(str(dest_dir), tag))
+
+            except Exception as e:
+                _log(f"[gm] Download failed: {e}")
+                self.after(0, lambda err=str(e): (
+                    self._gm_progress.pack_forget(),
+                    self._gm_progress_lbl.pack_forget(),
+                    messagebox.showerror("Download failed", err, parent=self),
+                    self._gm_refresh_installs()))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _gm_post_install(self, install_dir: str, tag: str):
+        """After a successful download+extract, register and patch the new install."""
+        self._gm_progress.pack_forget()
+        self._gm_progress_lbl.pack_forget()
+
+        # Look for the actual game folder inside dest (zip may have a subfolder)
+        actual = install_dir
+        for item in Path(install_dir).iterdir():
+            if item.is_dir() and (item / "Clone Hero.exe").is_file():
+                actual = str(item)
+                break
+
+        # Register in game_installs.json as Manual
+        if _INSTALLS_FILE.is_file():
+            try:
+                shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
+                data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+                existing = {os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
+                            for i in data.get("installs", [])}
+                if os.path.normcase(os.path.normpath(actual)) not in existing:
+                    data.setdefault("installs", []).append({
+                        "directoryPath": actual,
+                        "isFromLauncher": False,
+                        "version": tag.lstrip("v"),
+                        "manifestVersion": None,
+                        "manifestDate": None,
+                        "releaseChannel": "stable",
+                        "disabled": False,
+                    })
+                    _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                    _log(f"[gm] Registered {actual} in game_installs.json")
+            except Exception as e:
+                _log(f"[gm] Could not register install: {e}")
+
+        # Save as default install dir
+        self._cfg["ch_install_dir"] = actual
+        _save_json(CONFIG_FILE, self._cfg)
+
+        self._gm_status(f"Installed {tag} → {actual}")
+        messagebox.showinfo(
+            "Installation complete",
+            f"Clone Hero {tag} installed to:\n{actual}\n\n"
+            "It has been added to your installs list.",
+            parent=self)
+        self._gm_refresh_installs()
+
+    def _gm_status(self, msg: str):
+        if hasattr(self, "_gm_status_lbl"):
+            self._gm_status_lbl.config(text=msg, fg=C["accent"])
+            self.after(4000, lambda: self._gm_status_lbl.config(
+                text="", fg=C["text_dim"]) if hasattr(self, "_gm_status_lbl") else None)
 
     # ── Close ─────────────────────────────────────────────────────────────────
     def _on_close(self):

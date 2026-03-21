@@ -182,6 +182,18 @@ if exist "dist\CHSuite\_internal" (
 )
 echo.
 
+:: ── Copy and hide Images folder ───────────────────────────────────────────────
+echo  Copying Images folder to dist\CHSuite...
+if exist "Images\" (
+    xcopy /E /I /Y "Images" "dist\CHSuite\Images" >nul
+    attrib +h "dist\CHSuite\Images"
+    echo  Images folder copied and hidden.
+) else (
+    echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
+    echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
+)
+echo.
+
 :: ── Done ─────────────────────────────────────────────────────────────────────
 echo.
 echo  =============================================================
