@@ -88,6 +88,11 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite2.png">
 </p>
 
+<h3 align="center">CHNoteGen</h3>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite5.png">
+</p>
+
 <h3 align="center">CHCleaner</h3>
 <p align="center">
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite3.png">
@@ -96,6 +101,11 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 <h3 align="center">CHPatcher</h3>
 <p align="center">
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite4.png">
+</p>
+
+<h3 align="center">CHManager</h3>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite6.png">
 </p>
 
 ---
@@ -267,6 +277,31 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 - CHSuite auto-kills the launcher process before writing if it detects it running, then waits for it to fully exit
 - `game_installs.json` is backed up to `.bak` automatically before every write
 - **Refresh** button to re-read the file at any time without restarting
+
+---
+
+## 📦 CHManager
+
+An all-in-one install manager for Clone Hero. View every registered install at a glance, manage them directly, and download any release or PTB build straight from GitHub — all without leaving the tab.
+
+### Local Installs
+
+- Every install registered in `game_installs.json` is listed with its version, path, patch state, and whether it was added manually or by the launcher
+- **★ Default** — set any install as the default used by CHSuite
+- **▶ Launch** — launch Clone Hero directly from CHManager
+- **📂 Folder** — open the install folder in Explorer
+- **⚙ Patch / ↺ Unpatch** — patch or unpatch any install inline without switching to the CHPatcher tab
+- **🗑 Delete** — removes the entire install folder from disk and unregisters it from `game_installs.json`
+- **Auto-remove** — installs whose `Clone Hero.exe` is missing are silently cleaned from `game_installs.json` on every refresh
+- **+ Add Existing Install** — register any existing Clone Hero folder manually
+
+### Download
+
+- Fetches all releases directly from the Clone Hero GitHub
+- **Release tab** — full stable releases only, sorted by version number newest to oldest
+- **PTB tab** — pre-release builds only, sorted by version number newest to oldest
+- **Architecture detection** — automatically detects whether your system is x64 or x32 and shows only matching builds
+- Clicking **⬇ Download & Install** prompts you to choose a destination folder, then downloads and installs silently with no dialogs or prompts
 
 ---
 
