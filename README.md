@@ -78,29 +78,29 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 ## 🎨 Suite Menu
 
-<h3 align="center">CHSuite BG Changer</h3>
+<h3 align="center">CHMenuChanger</h3>
 <p align="center">
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite1.png">
 </p>
 
-<h3 align="center">CHSuite Name Gen</h3>
+<h3 align="center">CHNameGen</h3>
 <p align="center">
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite2.png">
 </p>
 
-<h3 align="center">CHSuite Bad Song Cleaner</h3>
+<h3 align="center">CHCleaner</h3>
 <p align="center">
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite3.png">
 </p>
 
-<h3 align="center">CHSuite Clone Hero Launcher Patcher</h3>
+<h3 align="center">CHPatcher</h3>
 <p align="center">
   <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/main/Screenshots/CHSuite4.png">
 </p>
 
 ---
 
-## 🎨 BG Changer
+## 🎨 CHMenuChanger
 
 Reads and writes Unity `.assets` files directly using UnityPy. No external tools or config file edits required.
 
@@ -176,7 +176,7 @@ On the first **Load & Scan** of any folder, CHSuite automatically copies the ori
 
 ---
 
-## ✏️ Name Generator
+## ✏️ CHNameGen
 
 Create unique colored player names for Clone Hero using gradient fills or per-letter customization, then export directly to your `profiles.ini`.
 
@@ -214,7 +214,7 @@ Colors use standard hex format: `#RRGGBB`
 
 ---
 
-## 🗑️ Bad Songs Cleaner
+## 🗑️ CHCleaner
 
 Parses Clone Hero's `badsongs.txt` error log and lets you bulk-delete the problematic song folders.
 
@@ -257,7 +257,7 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 
 ---
 
-## ⚙️ Launcher Patcher
+## ⚙️ CHPatcher
 
 Lists every install registered in `game_installs.json` and lets you patch or unpatch them on the fly.
 
