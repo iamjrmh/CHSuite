@@ -357,7 +357,7 @@ Use at your own risk.
 - [CHCleaner](https://github.com/iamjrmh/CHCleaner) - Clean up problematic songs from your library
 - [Chorus](https://chorus.fightthe.pw/) - Song database and downloader
 - [Clone Hero Launcher](https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/chlauncher-setup.exe) - Direct Download of the latest build of the Clone Hero Launcher.
-- [Discord Server](https://discord.gg/PtVqaCWFHa) - Questions? Join the discord server and ask! 
+- [Murrin' It Central](https://discord.gg/PtVqaCWFHa) - Questions? Join the discord server and ask!
 
 ---
 
