@@ -37,10 +37,12 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 | Tool | Description |
 |--|--|
-| **BG Changer** | Swap Clone Hero's menu background textures directly via UnityPy asset editing |
-| **Name Generator** | Create gradient or per-letter colored player names with styling and export to `profiles.ini` |
-| **Bad Songs Cleaner** | Parse `badsongs.txt` and bulk-delete ERROR folders from your song library |
-| **Launcher Patcher** | Patch or unpatch any registered Clone Hero install on the fly - prevents the launcher from resetting game files |
+| **CHMenuChanger** | Swap Clone Hero's menu background textures directly via UnityPy asset editing |
+| **CHNameGen** | Create gradient or per-letter colored player names with styling and export to `profiles.ini` |
+| **CHNoteGen** | Create gradient or per-note colors and export to `(ProfileName).ini` |
+| **CHCleaner** | Parse `badsongs.txt` and bulk-delete ERROR folders from your song library |
+| **CHPatcher** | Patch or unpatch any registered Clone Hero install on the fly - prevents the launcher from resetting game files |
+| **CHManager** | Install or uninstall any version of Clone Hero directly from the CHSuite |
 
 ---
 
