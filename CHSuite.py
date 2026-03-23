@@ -6126,6 +6126,51 @@ def _ng_alpha_blend(h:str, bg:str, alpha:float) -> str:
     r1,g1,b1 = _ng_hex_to_rgb(h); r2,g2,b2 = _ng_hex_to_rgb(bg)
     return _ng_rgb_to_hex(int(r1*alpha+r2*(1-alpha)),int(g1*alpha+g2*(1-alpha)),int(b1*alpha+b2*(1-alpha)))
 
+def _ng_composite_note_pil(body_spr, base_spr, light_spr,
+                            body_hex: str, light_hex: str, size: tuple):
+    """Composite note sprites using pure PIL — no numpy required.
+    body  : multiply-tinted by body_hex (channel-wise multiply preserving alpha)
+    light : source-in tinted by light_hex (colour fill masked by sprite alpha)
+    Layers: body(z=1) → base(z=2) → light(z=3), result keeps full RGBA.
+    """
+    from PIL import Image as _PI
+
+    def _load_or_blank(spr):
+        if spr is None:
+            return _PI.new("RGBA", size, (0, 0, 0, 0))
+        if spr.size != size:
+            spr = spr.resize(size, _PI.LANCZOS)
+        return spr
+
+    body  = _load_or_blank(body_spr)
+    base  = _load_or_blank(base_spr)
+    light = _load_or_blank(light_spr)
+
+    def h2rgb(h):
+        h = h.lstrip("#")
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+    # ── Body: multiply tint (pure PIL — no numpy) ─────────────────────────────
+    r, g, b = h2rgb(body_hex)
+    br, bg_, bb, ba = body.split()
+    br = br.point(lambda x: x * r // 255)
+    bg_ = bg_.point(lambda x: x * g // 255)
+    bb  = bb.point(lambda x: x * b // 255)
+    body_img = _PI.merge("RGBA", (br, bg_, bb, ba))
+
+    # ── Light: source-in tint (pure PIL) ─────────────────────────────────────
+    lr, lg_, lb = h2rgb(light_hex)
+    _, _, _, la = light.split()
+    light_img = _PI.new("RGBA", size, (lr, lg_, lb, 0))
+    light_img.putalpha(la)
+
+    # ── Composite ─────────────────────────────────────────────────────────────
+    out = _PI.new("RGBA", size, (0, 0, 0, 0))
+    out = _PI.alpha_composite(out, body_img)
+    out = _PI.alpha_composite(out, base)
+    out = _PI.alpha_composite(out, light_img)
+    return out
+
 def _ng_load_profiles() -> dict:
     try:
         if _NG_PROFILES_FILE.is_file():
@@ -6929,52 +6974,25 @@ class _NgNoteCard(tk.Frame):
     def _render(self):
         if not _PIL_OK: self._render_fallback(); return
         try:
-            import numpy as np; self._render_pil(np)
-        except Exception: self._render_fallback()
+            from PIL import ImageTk as _ITk
+            blank = None
+            body_spr  = self._load_sprite(self._SPRITE_BODY)
+            base_spr  = self._load_sprite(self._SPRITE_BASE)
+            light_spr = self._load_sprite(self._SPRITE_LIGHT)
+            out   = _ng_composite_note_pil(body_spr, base_spr, light_spr,
+                                            self._body_hex, self._light_hex,
+                                            (self.W, self.H))
+            photo = _ITk.PhotoImage(out)
+            self._photo = photo
+            self._cv.delete("all")
+            self._cv.create_image(0, 0, anchor="nw", image=photo)
+        except Exception:
+            self._render_fallback()
 
     def _render_fallback(self):
         self._cv.delete("all")
         self._cv.create_rectangle(2, 2, self.W-2, self.H-2,
                                    fill=self._body_hex, outline=self._light_hex, width=3)
-
-    def _render_pil(self, np):
-        from PIL import Image as _PI, ImageTk as _ITk
-        blank = _PI.new("RGBA", (self.W, self.H), (0,0,0,0))
-        body_spr  = self._load_sprite(self._SPRITE_BODY)  or blank
-        base_spr  = self._load_sprite(self._SPRITE_BASE)  or blank
-        light_spr = self._load_sprite(self._SPRITE_LIGHT) or blank
-
-        def h2rgb(h):
-            h = h.lstrip("#")
-            return int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
-
-        # Body: source-atop fill → multiply composite (matches React changeBodyColor)
-        r,g,b = h2rgb(self._body_hex)
-        ba = np.array(body_spr, dtype=np.float32); alpha = ba[:,:,3]
-        tint = np.zeros_like(ba)
-        tint[:,:,0]=r; tint[:,:,1]=g; tint[:,:,2]=b; tint[:,:,3]=alpha
-        col = np.clip(ba * tint / 255.0, 0, 255).astype(np.uint8)
-        col[:,:,3] = alpha.astype(np.uint8)
-        body_img = _PI.fromarray(col, "RGBA")
-
-        # Light: source-in tint (matches React changeLightColor)
-        lr,lg_,lb = h2rgb(self._light_hex)
-        la = np.array(light_spr, dtype=np.float32)
-        lt = np.zeros((self.H, self.W, 4), dtype=np.uint8)
-        lt[:,:,0]=lr; lt[:,:,1]=lg_; lt[:,:,2]=lb
-        lt[:,:,3] = la[:,:,3].astype(np.uint8)
-        light_img = _PI.fromarray(lt, "RGBA")
-
-        # Composite: body(z=1) → base(z=2) → light(z=3), keep transparent
-        out = _PI.new("RGBA", (self.W, self.H), (0,0,0,0))
-        out = _PI.alpha_composite(out, body_img)
-        out = _PI.alpha_composite(out, base_spr)
-        out = _PI.alpha_composite(out, light_img)
-
-        photo = _ITk.PhotoImage(out)
-        self._photo = photo
-        self._cv.delete("all")
-        self._cv.create_image(0, 0, anchor="nw", image=photo)
 
 
 # ── NoteGen scrollable frame ──────────────────────────────────────────────────
@@ -7222,55 +7240,27 @@ class _NgHighwayPreview(tk.Frame):
 
     # ── note sprite loader ──────────────────────────────────────────────────────
     def _get_note_photo(self, body_hex: str, light_hex: str, pixel_w: int, pixel_h: int):
-        """Composite note_body + note_base + note_light sprites at the requested size,
-        using the same PIL rendering as _NgNoteCard (multiply for body, source-in for light)."""
+        """Composite note sprites using pure PIL — no numpy required."""
         if not _PIL_OK:
             return None
         key = (body_hex.upper(), light_hex.upper(), pixel_w, pixel_h)
         if key in self._photo_cache:
             return self._photo_cache[key]
         try:
-            import numpy as np
             from PIL import Image as _PI, ImageTk as _ITk
 
             def _load(name):
                 p = _NG_IMAGES_DIR / name
                 if p.is_file():
-                    return _PI.open(str(p)).convert("RGBA").resize(
-                           (pixel_w, pixel_h), _PI.LANCZOS)
-                return _PI.new("RGBA", (pixel_w, pixel_h), (0, 0, 0, 0))
+                    return _PI.open(str(p)).convert("RGBA")
+                return None
 
-            body_spr  = _load("note_body.png")
-            base_spr  = _load("note_base.png")
-            light_spr = _load("note_light.png")
-
-            def h2rgb(h):
-                h = h.lstrip("#")
-                return int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
-
-            # Body: multiply tint
-            r, g, b = h2rgb(body_hex)
-            ba    = np.array(body_spr, dtype=np.float32)
-            alpha = ba[:,:,3]
-            tint  = np.zeros_like(ba)
-            tint[:,:,0]=r; tint[:,:,1]=g; tint[:,:,2]=b; tint[:,:,3]=alpha
-            col   = np.clip(ba * tint / 255.0, 0, 255).astype(np.uint8)
-            col[:,:,3] = alpha.astype(np.uint8)
-            body_img = _PI.fromarray(col, "RGBA")
-
-            # Light: source-in tint
-            lr, lg_, lb = h2rgb(light_hex)
-            la = np.array(light_spr, dtype=np.float32)
-            lt = np.zeros((pixel_h, pixel_w, 4), dtype=np.uint8)
-            lt[:,:,0]=lr; lt[:,:,1]=lg_; lt[:,:,2]=lb
-            lt[:,:,3] = la[:,:,3].astype(np.uint8)
-            light_img = _PI.fromarray(lt, "RGBA")
-
-            # Composite: body → base → light, keep transparent (canvas bg shows through)
-            out = _PI.new("RGBA", (pixel_w, pixel_h), (0,0,0,0))
-            out = _PI.alpha_composite(out, body_img)
-            out = _PI.alpha_composite(out, base_spr)
-            out = _PI.alpha_composite(out, light_img)
+            out = _ng_composite_note_pil(
+                _load("note_body.png"),
+                _load("note_base.png"),
+                _load("note_light.png"),
+                body_hex, light_hex,
+                (pixel_w, pixel_h))
 
             photo = _ITk.PhotoImage(out)
             self._photo_cache[key] = photo
