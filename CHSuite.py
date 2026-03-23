@@ -5865,6 +5865,15 @@ _NG_DEFAULT_COLORS: dict = {
         "note_yellow":"#FFFF00","note_red":"#FF0000","note_green":"#00FF00",
     },
     "drums": {
+        "striker_base_green":"#FFFFFF","striker_base_blue":"#FFFFFF",
+        "striker_base_yellow":"#FFFFFF","striker_base_red":"#FFFFFF",
+        "striker_head_light_kick":"#FFCE86","striker_head_light_green":"#00FF00",
+        "striker_head_light_blue":"#0089FF","striker_head_light_yellow":"#FFFF00",
+        "striker_head_light_red":"#FF0000",
+        "striker_head_cover_green":"#00FF00","striker_head_cover_blue":"#0089FF",
+        "striker_head_cover_yellow":"#FFFF00","striker_head_cover_red":"#FF0000",
+        "striker_cover_green":"#00FF00","striker_cover_blue":"#0089FF",
+        "striker_cover_yellow":"#FFFF00","striker_cover_red":"#FF0000",
         "drums_striker_base_green":"#FFFFFF","drums_striker_base_blue":"#FFFFFF",
         "drums_striker_base_yellow":"#FFFFFF","drums_striker_base_red":"#FFFFFF",
         "drums_striker_head_light_kick":"#FFCE86","drums_striker_head_light_green":"#00FF00",
@@ -5875,6 +5884,7 @@ _NG_DEFAULT_COLORS: dict = {
         "drums_striker_cover_green":"#00FF00","drums_striker_cover_blue":"#0089FF",
         "drums_striker_cover_yellow":"#FFFF00","drums_striker_cover_red":"#FF0000",
         "note_anim_kick_sp_active":"#00FFFF","note_overlay_kick_sp_phrase":"#00D7D7",
+        "note_overlay_kick_sp_active":"#00D8D8",
         "note_anim_kick_sp_phrase_active":"#FFFFFF","note_anim_kick_sp_phrase":"#FFFF00",
         "note_kick_sp_active":"#009178","note_kick_sp_phrase_active":"#FFFFFF",
         "note_kick_sp_phrase":"#FF4600","note_anim_kick":"#FFFF00","note_kick":"#FF4600",
@@ -5905,6 +5915,8 @@ _NG_DEFAULT_COLORS: dict = {
         "sf_note_sp_phrase":"#00FFFF","sf_note_open":"#FFFFFF",
         "sf_note_white_right":"#FFFFFF","sf_note_white_mid":"#FFFFFF","sf_note_white_left":"#FFFFFF",
         "sf_note_black_right":"#3F3F3F","sf_note_black_mid":"#3F3F3F","sf_note_black_left":"#3F3F3F",
+        "sf_striker_background_right":"#FFFFFF","sf_striker_background_mid":"#FFFFFF",
+        "sf_striker_background_left":"#FFFFFF",
     },
     "other": {
         "combo_sp_active_glow":"#FFFFFF","combo_four_glow":"#E8B1FF",
@@ -5918,6 +5930,8 @@ _NG_DEFAULT_COLORS: dict = {
         "sp_bar_arrow":"#7FFFFF","sp_bar_elec":"#B2B2B2","sp_bar_color":"#004848",
         "sp_act_animation":"#00C1E5","sp_act_flash":"#0029BF",
         "general_sp_active":"#FFFFFF","general_sp":"#00FFFF",
+        "leaderboard_first":"#DABA37","leaderboard_second":"#C5C5C5","leaderboard_third":"#75551D",
+        "sp_gain_lightning":"#2FCCCC","sp_gain_lightning_secondary":"#BFE5BF",
     },
 }
 
@@ -6037,6 +6051,44 @@ _NG_GROUPS: dict = {
                                    "striker_head_cover_orange"]),
         ("Strikeline Cover", ["striker_cover_green","striker_cover_red","striker_cover_yellow",
                               "striker_cover_blue","striker_cover_orange"]),
+    ],
+    "drums": [
+        ("Cymbals", ["cym_green","cym_red","cym_yellow","cym_blue"]),
+        ("Cymbal Animations", ["cym_anim_green","cym_anim_red","cym_anim_yellow","cym_anim_blue",
+                               "cym_anim_sp_active","cym_anim_sp_phrase","cym_anim_sp_phrase_active",
+                               "cym_sp_active","cym_sp_phrase","cym_sp_phrase_active"]),
+        ("Toms", ["tom_green","tom_red","tom_yellow","tom_blue"]),
+        ("Tom Animations", ["tom_anim_green","tom_anim_red","tom_anim_yellow","tom_anim_blue",
+                            "tom_anim_sp_active","tom_anim_sp_phrase","tom_anim_sp_phrase_active",
+                            "tom_sp_active","tom_sp_phrase","tom_sp_phrase_active"]),
+        ("Kick", ["note_kick","note_anim_kick",
+                  "note_kick_sp_active","note_kick_sp_phrase","note_kick_sp_phrase_active",
+                  "note_anim_kick_sp_active","note_anim_kick_sp_phrase","note_anim_kick_sp_phrase_active",
+                  "note_overlay_kick_sp_phrase","note_overlay_kick_sp_active"]),
+        ("Drum Strikeline", ["drums_striker_base_green","drums_striker_base_red",
+                             "drums_striker_base_yellow","drums_striker_base_blue",
+                             "drums_striker_head_light_kick","drums_striker_head_light_green",
+                             "drums_striker_head_light_red","drums_striker_head_light_yellow",
+                             "drums_striker_head_light_blue",
+                             "drums_striker_head_cover_green","drums_striker_head_cover_red",
+                             "drums_striker_head_cover_yellow","drums_striker_head_cover_blue",
+                             "drums_striker_cover_green","drums_striker_cover_red",
+                             "drums_striker_cover_yellow","drums_striker_cover_blue"]),
+    ],
+    "sixfret": [
+        ("Notes", ["sf_note_white_left","sf_note_white_mid","sf_note_white_right",
+                   "sf_note_black_left","sf_note_black_mid","sf_note_black_right",
+                   "sf_note_open","sf_note_hopo",
+                   "sf_note_sp_active","sf_note_sp_phrase","sf_note_sp_phrase_active"]),
+        ("Taps", ["sf_note_tap_white_left","sf_note_tap_white_mid","sf_note_tap_white_right",
+                  "sf_note_tap_black_left","sf_note_tap_black_mid","sf_note_tap_black_right",
+                  "sf_note_tap_open"]),
+        ("Sustains", ["sf_sustain_left","sf_sustain_mid","sf_sustain_right",
+                      "sf_sustain_open","sf_sustain_sp_active","sf_sustain_sp_phrase",
+                      "sf_sustain_sp_phrase_active"]),
+        ("Strikeline", ["sf_striker_base_white_left","sf_striker_base_white_mid","sf_striker_base_white_right",
+                        "sf_striker_base_black_left","sf_striker_base_black_mid","sf_striker_base_black_right",
+                        "sf_striker_background_left","sf_striker_background_mid","sf_striker_background_right"]),
     ],
 }
 
@@ -6163,7 +6215,12 @@ def _ng_colorize_pil(img, hex_color:str):
             b_lut.append(max(0,min(255,int(L*(1-w)+bc*w))))
         r_ch,g_ch,b_ch,a_ch=rgba.split(); gray=r_ch
         from PIL import Image as _PI
-        return _PI.merge("RGBA",(gray.point(r_lut),gray.point(g_lut),gray.point(b_lut),a_ch))
+        colored=_PI.merge("RGBA",(gray.point(r_lut),gray.point(g_lut),gray.point(b_lut),a_ch))
+        mask_path=_ng_find_mask()
+        if mask_path:
+            mi=_PI.open(str(mask_path)).convert("L").resize(rgba.size,_PI.LANCZOS)
+            return _PI.composite(colored,rgba,mi)
+        return colored
     import numpy as np
     arr=np.array(rgba,dtype=np.float32); H,W=arr.shape[:2]
     R,G,B,A=arr[:,:,0],arr[:,:,1],arr[:,:,2],arr[:,:,3]
@@ -6396,44 +6453,109 @@ class _ColorPickerDialog(tk.Toplevel):
 # ── NoteGen auto-gradient dialog ──────────────────────────────────────────────
 
 class _NgAutoGradientDialog(tk.Toplevel):
-    """Pick 2–3 colour stops → interpolate across the 5 guitar lanes →
-    apply the gradient to every selected colour category (notes, anims, sustains, etc.)."""
+    """Pick colour stops → interpolate across lanes → apply to a section.
+    mode: 'guitar'  — 5 lanes, forced 1+5, optional midpoint 3
+          'drums'   — combined: cymbals + toms side by side, each forced 1+4
+          'sixfret' — 6 notes forced 1+6
+    """
 
-    _LANES    = ["green", "red", "yellow", "blue", "orange"]
-    _LANE_LBL = ["1 · Green", "2 · Red", "3 · Yellow", "4 · Blue", "5 · Orange"]
+    _GUITAR_CFG = {
+        "title":      "Auto Gradient — Guitar",
+        "lanes":      ["green","red","yellow","blue","orange"],
+        "lane_lbls":  ["1·G","2·R","3·Y","4·B","5·O"],
+        "stop_lbls":  [("Note 1  (Green)","note_green"),
+                       ("Note 3  (Yellow)","note_yellow"),
+                       ("Note 5  (Orange)","note_orange")],
+        "categories": [("Notes","note"),("Note Animations","note_anim"),
+                       ("Sustains","sustain"),("Head Light","striker_head_light"),
+                       ("Head Cover","striker_head_cover"),("Strikeline Cover","striker_cover")],
+        "section":    "guitar",
+        "has_mid":    True,
+        "n_stops":    5,
+    }
+    _DRUMS_CYM = {
+        "lanes":      ["red","yellow","blue","green"],
+        "lane_lbls":  ["1·R","2·Y","3·B","4·G"],
+        "stop_lbls":  [("Cymbal 1  (Red)","cym_red"),("Cymbal 4  (Green)","cym_green")],
+        "categories": [("Cymbals","cym"),("Cymbal Anims","cym_anim")],
+        "n_stops":    4,
+    }
+    _DRUMS_TOM = {
+        "lanes":      ["red","yellow","blue","green"],
+        "lane_lbls":  ["1·R","2·Y","3·B","4·G"],
+        "stop_lbls":  [("Tom 1  (Red)","tom_red"),("Tom 4  (Green)","tom_green")],
+        "categories": [("Toms","tom"),("Tom Anims","tom_anim")],
+        "n_stops":    4,
+    }
+    _SF_CFG = {
+        "title":   "Auto Gradient — Six Fret",
+        "section": "sixfret",
+    }
+    _SF_WHITE = {
+        "lanes":      ["white_left","white_mid","white_right"],
+        "lane_lbls":  ["1·WL","2·WM","3·WR"],
+        "stop_lbls":  [("White 1  (Left)","sf_note_white_left"),
+                       ("White 3  (Right)","sf_note_white_right")],
+        "categories": [("Notes","sf_note"),("Sustains","sf_sustain")],
+        "n_stops":    3,
+    }
+    _SF_BLACK = {
+        "lanes":      ["black_left","black_mid","black_right"],
+        "lane_lbls":  ["1·BL","2·BM","3·BR"],
+        "stop_lbls":  [("Black 1  (Left)","sf_note_black_left"),
+                       ("Black 3  (Right)","sf_note_black_right")],
+        "categories": [("Notes","sf_note"),("Sustains","sf_sustain")],
+        "n_stops":    3,
+    }
 
-    # (friendly label, key-prefix inside the guitar section)
-    _CATEGORIES = [
-        ("Notes",            "note"),
-        ("Note Animations",  "note_anim"),
-        ("Sustains",         "sustain"),
-        ("Head Light",       "striker_head_light"),
-        ("Head Cover",       "striker_head_cover"),
-        ("Strikeline Cover", "striker_cover"),
-    ]
-
-    def __init__(self, parent, current_guitar: dict):
+    def __init__(self, parent, current_colors: dict, mode: str = "guitar"):
         super().__init__(parent)
-        self.title("Auto Gradient — CHNoteGen")
         self.resizable(False, False)
         self.configure(bg=C["bg"])
         self.transient(parent)
         self.grab_set()
-        self.result = None          # {lane_map:{lane:hex}, categories:[prefix,...]}
+        self.result  = None   # list of dicts for drums, single dict otherwise
+        self._mode   = mode
+        self._colors = current_colors
 
-        # Seed stop colours from the active profile's note colours
-        self._stop1 = tk.StringVar(value=current_guitar.get("note_green",  "#00FF00").upper())
-        self._stop3 = tk.StringVar(value=current_guitar.get("note_yellow", "#FFFF00").upper())
-        self._stop5 = tk.StringVar(value=current_guitar.get("note_orange", "#FFB300").upper())
-        self._use_mid = tk.BooleanVar(value=True)
+        # Per-section stop vars
+        def _sv(key, fallback):
+            return tk.StringVar(value=current_colors.get(key, fallback).upper())
 
-        self._cat_vars   = {lbl: tk.BooleanVar(value=True) for lbl, _ in self._CATEGORIES}
-        self._sw_refs    = {}    # label → coloured Frame swatch
-        self._prev_sws   = []   # list of 5 preview swatch Frames
+        if mode == "guitar":
+            cfg = self._GUITAR_CFG
+            self.title(cfg["title"])
+            self._stop1    = _sv("note_green",  "#00FF00")
+            self._stop_mid = _sv("note_yellow", "#FFFF00")
+            self._stop2    = _sv("note_orange", "#FFB300")
+            self._use_mid  = tk.BooleanVar(value=True)
+            self._cat_vars = {lbl: tk.BooleanVar(value=True) for lbl, _ in cfg["categories"]}
+            self._sw_refs  = {}; self._prev_sws = []
+        elif mode == "drums":
+            self.title("Auto Gradient — Drums")
+            self._cym_stop1 = _sv("cym_red",   "#FF0000")
+            self._cym_stop2 = _sv("cym_green",  "#00FF00")
+            self._tom_stop1 = _sv("tom_red",   "#FF0000")
+            self._tom_stop2 = _sv("tom_green",  "#00FF00")
+            self._cym_cat_vars = {lbl: tk.BooleanVar(value=True) for lbl, _ in self._DRUMS_CYM["categories"]}
+            self._tom_cat_vars = {lbl: tk.BooleanVar(value=True) for lbl, _ in self._DRUMS_TOM["categories"]}
+            self._cym_sw_refs = {}; self._tom_sw_refs = {}
+            self._cym_prev_sws = []; self._tom_prev_sws = []
+        else:  # sixfret — split white / black
+            self.title("Auto Gradient — Six Fret")
+            self._sf_white_stop1 = _sv("sf_note_white_left",  "#FFFFFF")
+            self._sf_white_stop2 = _sv("sf_note_white_right", "#FFFFFF")
+            self._sf_black_stop1 = _sv("sf_note_black_left",  "#3F3F3F")
+            self._sf_black_stop2 = _sv("sf_note_black_right", "#3F3F3F")
+            self._sf_white_cat_vars = {lbl: tk.BooleanVar(value=True)
+                                       for lbl, _ in self._SF_WHITE["categories"]}
+            self._sf_black_cat_vars = {lbl: tk.BooleanVar(value=True)
+                                       for lbl, _ in self._SF_BLACK["categories"]}
+            self._sf_white_sw_refs = {}; self._sf_black_sw_refs = {}
+            self._sf_white_prev_sws = []; self._sf_black_prev_sws = []
 
         self._build()
         self._refresh_preview()
-
         self.update_idletasks()
         pw, ph = parent.winfo_width(), parent.winfo_height()
         px, py = parent.winfo_rootx(), parent.winfo_rooty()
@@ -6441,114 +6563,171 @@ class _NgAutoGradientDialog(tk.Toplevel):
         self.geometry(f"+{px+(pw-ww)//2}+{py+(ph-wh)//2}")
         self.wait_window()
 
-    # ── gradient computation ──────────────────────────────────────────────────
+    # ── compute ───────────────────────────────────────────────────────────────
     def _compute(self):
-        stops = ([self._stop1.get(), self._stop3.get(), self._stop5.get()]
-                 if self._use_mid.get()
-                 else [self._stop1.get(), self._stop5.get()])
-        return _interpolate_colors(stops, 5)   # always exactly 5 colours
+        """For non-drums modes."""
+        cfg = self._GUITAR_CFG if self._mode == "guitar" else self._SF_CFG
+        n = cfg["n_stops"]
+        if self._mode == "guitar" and self._use_mid.get():
+            stops = [self._stop1.get(), self._stop_mid.get(), self._stop2.get()]
+        else:
+            stops = [self._stop1.get(), self._stop2.get()]
+        return _interpolate_colors(stops, n)
 
-    # ── UI construction ───────────────────────────────────────────────────────
+    def _compute_cym(self):
+        return _interpolate_colors([self._cym_stop1.get(), self._cym_stop2.get()], 4)
+
+    def _compute_tom(self):
+        return _interpolate_colors([self._tom_stop1.get(), self._tom_stop2.get()], 4)
+
+    def _compute_sf_white(self):
+        return _interpolate_colors([self._sf_white_stop1.get(), self._sf_white_stop2.get()], 3)
+
+    def _compute_sf_black(self):
+        return _interpolate_colors([self._sf_black_stop1.get(), self._sf_black_stop2.get()], 3)
+
+    # ── build ─────────────────────────────────────────────────────────────────
     def _build(self):
         BG = C["bg"]; CARD = "#13161f"
 
-        def sec_lbl(parent, text):
+        def sec_hdr(parent, text):
             tk.Label(parent, text=text, font=("Segoe UI", 7, "bold"),
-                     bg=CARD, fg=C["text_dim"]).pack(anchor="w", pady=(0, 8))
+                     bg=CARD, fg=C["text_dim"]).pack(anchor="w", pady=(0, 6))
 
-        outer = tk.Frame(self, bg=BG, padx=22, pady=18)
-        outer.pack()
-
-        # ── Gradient stops card ───────────────────────────────────────────────
-        sc = tk.Frame(outer, bg=CARD, padx=16, pady=14,
-                      highlightbackground=C["border"], highlightthickness=1)
-        sc.pack(fill="x", pady=(0, 10))
-        sec_lbl(sc, "GRADIENT STOPS")
-
-        def _stop_row(parent, label, var, enabled=True):
-            row = tk.Frame(parent, bg=CARD)
-            row.pack(fill="x", pady=4)
-            tk.Label(row, text=label, bg=CARD,
-                     fg=C["text"] if enabled else C["text_dim"],
+        def stop_row(parent, label, var, sw_dict):
+            row = tk.Frame(parent, bg=CARD); row.pack(fill="x", pady=3)
+            tk.Label(row, text=label, bg=CARD, fg=C["text"],
                      font=FT, width=20, anchor="w").pack(side="left")
-            swatch = tk.Frame(row, bg=var.get(), width=38, height=24, cursor="hand2",
-                              highlightbackground=C["border"], highlightthickness=1)
-            swatch.pack(side="left", padx=(0, 6))
-            swatch.pack_propagate(False)
-            self._sw_refs[label] = swatch
-            btn = tk.Button(row, text="Pick", font=("Segoe UI", 8),
-                            bg=C["border"], fg=C["text"], relief="flat",
-                            padx=8, pady=3, cursor="hand2",
-                            command=lambda v=var, l=label: self._pick(v, l))
-            btn.pack(side="left")
-            return btn
-
-        _stop_row(sc, "Note 1  (Green)",  self._stop1)
-
-        # Midpoint row (has an extra checkbox)
-        mid_row = tk.Frame(sc, bg=CARD)
-        mid_row.pack(fill="x", pady=4)
-        tk.Label(mid_row, text="Note 3  (Yellow)", bg=CARD, fg=C["text_dim"],
-                 font=FT, width=20, anchor="w").pack(side="left")
-        sw3 = tk.Frame(mid_row, bg=self._stop3.get(), width=38, height=24, cursor="hand2",
-                       highlightbackground=C["border"], highlightthickness=1)
-        sw3.pack(side="left", padx=(0, 6))
-        sw3.pack_propagate(False)
-        self._sw_refs["Note 3  (Yellow)"] = sw3
-        self._pick3_btn = tk.Button(mid_row, text="Pick", font=("Segoe UI", 8),
-                                    bg=C["border"], fg=C["text"], relief="flat",
-                                    padx=8, pady=3, cursor="hand2",
-                                    command=lambda: self._pick(self._stop3, "Note 3  (Yellow)"))
-        self._pick3_btn.pack(side="left")
-        tk.Checkbutton(mid_row, text="Use as midpoint",
-                       variable=self._use_mid, command=self._on_mid_toggle,
-                       bg=CARD, fg=C["text_mid"], selectcolor=C["bg"],
-                       activebackground=CARD, activeforeground=C["text"],
-                       font=("Segoe UI", 8), relief="flat").pack(side="left", padx=(12, 0))
-
-        _stop_row(sc, "Note 5  (Orange)", self._stop5)
-        self._on_mid_toggle()   # sync initial enabled/disabled state
-
-        # ── Gradient preview card ─────────────────────────────────────────────
-        pc = tk.Frame(outer, bg=CARD, padx=16, pady=14,
-                      highlightbackground=C["border"], highlightthickness=1)
-        pc.pack(fill="x", pady=(0, 10))
-        sec_lbl(pc, "GRADIENT PREVIEW")
-
-        strip = tk.Frame(pc, bg=CARD)
-        strip.pack(fill="x")
-        for lane_lbl in self._LANE_LBL:
-            col = tk.Frame(strip, bg=CARD)
-            col.pack(side="left", expand=True, fill="x", padx=2)
-            sw = tk.Frame(col, bg="#333", height=34,
+            sw = tk.Frame(row, bg=var.get(), width=34, height=22, cursor="hand2",
                           highlightbackground=C["border"], highlightthickness=1)
-            sw.pack(fill="x")
-            sw.pack_propagate(False)
-            tk.Label(col, text=lane_lbl, bg=CARD, fg=C["text_dim"],
-                     font=("Segoe UI", 7)).pack(anchor="center", pady=(4, 0))
-            self._prev_sws.append(sw)
+            sw.pack(side="left", padx=(0,5)); sw.pack_propagate(False)
+            sw_dict[label] = sw
+            tk.Button(row, text="Pick", font=("Segoe UI", 8),
+                      bg=C["border"], fg=C["text"], relief="flat", padx=7, pady=2,
+                      cursor="hand2",
+                      command=lambda v=var, l=label, d=sw_dict: self._pick(v, l, d)
+                      ).pack(side="left")
 
-        # ── Apply-to card ─────────────────────────────────────────────────────
-        ac = tk.Frame(outer, bg=CARD, padx=16, pady=14,
-                      highlightbackground=C["border"], highlightthickness=1)
-        ac.pack(fill="x", pady=(0, 10))
-        sec_lbl(ac, "APPLY TO")
+        def preview_strip(parent, lbls, prev_list):
+            strip = tk.Frame(parent, bg=CARD); strip.pack(fill="x", pady=(4,0))
+            for lbl in lbls:
+                col = tk.Frame(strip, bg=CARD)
+                col.pack(side="left", expand=True, fill="x", padx=1)
+                sw = tk.Frame(col, bg="#333", height=28,
+                              highlightbackground=C["border"], highlightthickness=1)
+                sw.pack(fill="x"); sw.pack_propagate(False)
+                tk.Label(col, text=lbl, bg=CARD, fg=C["text_dim"],
+                         font=("Segoe UI", 6)).pack(anchor="center")
+                prev_list.append(sw)
 
-        grid = tk.Frame(ac, bg=CARD)
-        grid.pack(fill="x")
-        for i, (lbl, _) in enumerate(self._CATEGORIES):
-            tk.Checkbutton(grid, text=lbl, variable=self._cat_vars[lbl],
+        def cat_checks(parent, cat_vars):
+            g = tk.Frame(parent, bg=CARD); g.pack(fill="x", pady=(4,0))
+            for i, (lbl, _) in enumerate(cat_vars.items()):
+                tk.Checkbutton(g, text=lbl, variable=cat_vars[lbl],
+                               bg=CARD, fg=C["text_mid"], selectcolor=C["bg"],
+                               activebackground=CARD, activeforeground=C["text"],
+                               font=("Segoe UI", 8), relief="flat").grid(
+                    row=0, column=i, sticky="w", padx=(0, 12))
+
+        outer = tk.Frame(self, bg=BG, padx=20, pady=16); outer.pack()
+
+        if self._mode == "drums":
+            # ── Combined cymbals + toms in a split card ───────────────────────
+            split = tk.Frame(outer, bg=BG); split.pack(fill="x", pady=(0,10))
+
+            for side_lbl, stop1, stop2, sw_dict, prev_list, cat_vars, dcfg in [
+                ("CYMBALS", self._cym_stop1, self._cym_stop2,
+                 self._cym_sw_refs, self._cym_prev_sws, self._cym_cat_vars, self._DRUMS_CYM),
+                ("TOMS",    self._tom_stop1, self._tom_stop2,
+                 self._tom_sw_refs, self._tom_prev_sws, self._tom_cat_vars, self._DRUMS_TOM),
+            ]:
+                box = tk.Frame(split, bg=CARD, padx=14, pady=12,
+                               highlightbackground=C["border"], highlightthickness=1)
+                box.pack(side="left", fill="both", expand=True, padx=(0 if side_lbl=="CYMBALS" else 6, 0))
+                sec_hdr(box, side_lbl)
+                stop_row(box, dcfg["stop_lbls"][0][0], stop1, sw_dict)
+                stop_row(box, dcfg["stop_lbls"][1][0], stop2, sw_dict)
+                tk.Label(box, text="PREVIEW", font=("Segoe UI", 6, "bold"),
+                         bg=CARD, fg=C["text_dim"]).pack(anchor="w", pady=(8,0))
+                preview_strip(box, dcfg["lane_lbls"], prev_list)
+                tk.Label(box, text="APPLY TO", font=("Segoe UI", 6, "bold"),
+                         bg=CARD, fg=C["text_dim"]).pack(anchor="w", pady=(8,0))
+                cat_checks(box, cat_vars)
+
+        elif self._mode == "sixfret":
+            # ── Combined white + black in a split card ────────────────────────
+            split = tk.Frame(outer, bg=BG); split.pack(fill="x", pady=(0,10))
+            for side_lbl, stop1, stop2, sw_dict, prev_list, cat_vars, sfcfg in [
+                ("WHITE", self._sf_white_stop1, self._sf_white_stop2,
+                 self._sf_white_sw_refs, self._sf_white_prev_sws,
+                 self._sf_white_cat_vars, self._SF_WHITE),
+                ("BLACK", self._sf_black_stop1, self._sf_black_stop2,
+                 self._sf_black_sw_refs, self._sf_black_prev_sws,
+                 self._sf_black_cat_vars, self._SF_BLACK),
+            ]:
+                box = tk.Frame(split, bg=CARD, padx=14, pady=12,
+                               highlightbackground=C["border"], highlightthickness=1)
+                box.pack(side="left", fill="both", expand=True,
+                         padx=(0 if side_lbl == "WHITE" else 6, 0))
+                sec_hdr(box, side_lbl)
+                stop_row(box, sfcfg["stop_lbls"][0][0], stop1, sw_dict)
+                stop_row(box, sfcfg["stop_lbls"][1][0], stop2, sw_dict)
+                tk.Label(box, text="PREVIEW", font=("Segoe UI", 6, "bold"),
+                         bg=CARD, fg=C["text_dim"]).pack(anchor="w", pady=(8,0))
+                preview_strip(box, sfcfg["lane_lbls"], prev_list)
+                tk.Label(box, text="APPLY TO", font=("Segoe UI", 6, "bold"),
+                         bg=CARD, fg=C["text_dim"]).pack(anchor="w", pady=(8,0))
+                cat_checks(box, cat_vars)
+
+        else:
+            # ── Guitar single-section layout ──────────────────────────────────
+            cfg = self._GUITAR_CFG
+
+            sc = tk.Frame(outer, bg=CARD, padx=16, pady=12,
+                          highlightbackground=C["border"], highlightthickness=1)
+            sc.pack(fill="x", pady=(0,10))
+            sec_hdr(sc, "GRADIENT STOPS")
+            stop_row(sc, cfg["stop_lbls"][0][0], self._stop1, self._sw_refs)
+
+            mid_lbl = cfg["stop_lbls"][1][0]
+            mid_row = tk.Frame(sc, bg=CARD); mid_row.pack(fill="x", pady=3)
+            tk.Label(mid_row, text=mid_lbl, bg=CARD, fg=C["text_dim"],
+                     font=FT, width=20, anchor="w").pack(side="left")
+            sw3 = tk.Frame(mid_row, bg=self._stop_mid.get(), width=34, height=22,
+                           cursor="hand2", highlightbackground=C["border"], highlightthickness=1)
+            sw3.pack(side="left", padx=(0,5)); sw3.pack_propagate(False)
+            self._sw_refs[mid_lbl] = sw3
+            self._pick_mid_btn = tk.Button(
+                mid_row, text="Pick", font=("Segoe UI", 8),
+                bg=C["border"], fg=C["text"], relief="flat", padx=7, pady=2, cursor="hand2",
+                command=lambda: self._pick(self._stop_mid, mid_lbl, self._sw_refs))
+            self._pick_mid_btn.pack(side="left")
+            tk.Checkbutton(mid_row, text="Use as midpoint",
+                           variable=self._use_mid, command=self._on_mid_toggle,
                            bg=CARD, fg=C["text_mid"], selectcolor=C["bg"],
-                           activebackground=CARD, activeforeground=C["text"],
-                           font=("Segoe UI", 8), relief="flat").grid(
-                row=i // 3, column=i % 3, sticky="w", padx=(0, 18), pady=3)
+                           activebackground=CARD, font=("Segoe UI", 8),
+                           relief="flat").pack(side="left", padx=(10,0))
+            self._on_mid_toggle()
 
-        # ── Action buttons ────────────────────────────────────────────────────
-        br = tk.Frame(outer, bg=BG)
-        br.pack(fill="x", pady=(6, 0))
+            stop_row(sc, cfg["stop_lbls"][-1][0], self._stop2, self._sw_refs)
+
+            pc = tk.Frame(outer, bg=CARD, padx=16, pady=12,
+                          highlightbackground=C["border"], highlightthickness=1)
+            pc.pack(fill="x", pady=(0,10))
+            sec_hdr(pc, "GRADIENT PREVIEW")
+            preview_strip(pc, cfg["lane_lbls"], self._prev_sws)
+
+            ac = tk.Frame(outer, bg=CARD, padx=16, pady=12,
+                          highlightbackground=C["border"], highlightthickness=1)
+            ac.pack(fill="x", pady=(0,10))
+            sec_hdr(ac, "APPLY TO")
+            cat_checks(ac, self._cat_vars)
+
+        # ── Buttons ───────────────────────────────────────────────────────────
+        br = tk.Frame(outer, bg=BG); br.pack(fill="x", pady=(4,0))
         tk.Button(br, text="Cancel", font=FT, bg=C["card2"], fg=C["text_mid"],
                   relief="flat", padx=12, pady=7, cursor="hand2",
-                  command=self.destroy).pack(side="right", padx=(4, 0))
+                  command=self.destroy).pack(side="right", padx=(4,0))
         tk.Button(br, text="✓  Apply Gradient", font=FTB,
                   bg=C["accent"], fg="#fff",
                   activebackground=C["accent_dim"], activeforeground="#fff",
@@ -6558,42 +6737,244 @@ class _NgAutoGradientDialog(tk.Toplevel):
     # ── helpers ───────────────────────────────────────────────────────────────
     def _on_mid_toggle(self):
         enabled = self._use_mid.get()
-        self._pick3_btn.config(state="normal" if enabled else "disabled",
-                               fg=C["text"] if enabled else C["text_dim"])
+        self._pick_mid_btn.config(state="normal" if enabled else "disabled",
+                                  fg=C["text"] if enabled else C["text_dim"])
         self._refresh_preview()
 
-    def _pick(self, var, label):
+    def _pick(self, var, label, sw_dict):
         dlg = _ColorPickerDialog(self, var.get(), f"Pick — {label}")
         if dlg.result:
             var.set(dlg.result)
-            if label in self._sw_refs:
-                self._sw_refs[label].config(bg=dlg.result)
+            if label in sw_dict:
+                sw_dict[label].config(bg=dlg.result)
             self._refresh_preview()
 
     def _refresh_preview(self):
-        try:
-            gradient = self._compute()
-        except Exception:
-            gradient = ["#666666"] * 5
-        for sw, hex_c in zip(self._prev_sws, gradient):
-            sw.config(bg=hex_c)
+        if self._mode == "drums":
+            try:    cg = self._compute_cym()
+            except: cg = ["#666"] * 4
+            try:    tg = self._compute_tom()
+            except: tg = ["#666"] * 4
+            for sw, c in zip(self._cym_prev_sws, cg): sw.config(bg=c)
+            for sw, c in zip(self._tom_prev_sws, tg): sw.config(bg=c)
+        elif self._mode == "sixfret":
+            try:    wg = self._compute_sf_white()
+            except: wg = ["#666"] * 3
+            try:    bg_ = self._compute_sf_black()
+            except: bg_ = ["#666"] * 3
+            for sw, c in zip(self._sf_white_prev_sws, wg): sw.config(bg=c)
+            for sw, c in zip(self._sf_black_prev_sws, bg_): sw.config(bg=c)
+        else:
+            try:    gradient = self._compute()
+            except: gradient = ["#666"] * 5
+            for sw, c in zip(self._prev_sws, gradient): sw.config(bg=c)
 
     def _ok(self):
-        try:
-            gradient = self._compute()
-        except Exception as e:
-            messagebox.showerror("Gradient Error", str(e), parent=self)
-            return
-        active_cats = [pfx for (lbl, pfx) in self._CATEGORIES if self._cat_vars[lbl].get()]
-        if not active_cats:
-            messagebox.showwarning("Nothing selected",
-                                   "Select at least one category to apply.", parent=self)
-            return
-        self.result = {
-            "lane_map":   dict(zip(self._LANES, gradient)),
-            "categories": active_cats,
-        }
+        if self._mode == "drums":
+            results = []
+            try:    cg = self._compute_cym()
+            except Exception as e:
+                messagebox.showerror("Gradient Error", str(e), parent=self); return
+            try:    tg = self._compute_tom()
+            except Exception as e:
+                messagebox.showerror("Gradient Error", str(e), parent=self); return
+            cym_cats = [pfx for lbl, pfx in self._DRUMS_CYM["categories"]
+                        if self._cym_cat_vars[lbl].get()]
+            tom_cats = [pfx for lbl, pfx in self._DRUMS_TOM["categories"]
+                        if self._tom_cat_vars[lbl].get()]
+            if cym_cats:
+                results.append({"section": "drums",
+                                 "lane_map": dict(zip(self._DRUMS_CYM["lanes"], cg)),
+                                 "categories": cym_cats})
+            if tom_cats:
+                results.append({"section": "drums",
+                                 "lane_map": dict(zip(self._DRUMS_TOM["lanes"], tg)),
+                                 "categories": tom_cats})
+            if not results:
+                messagebox.showwarning("Nothing selected",
+                                       "Select at least one category to apply.", parent=self); return
+            self.result = results
+        elif self._mode == "sixfret":
+            results = []
+            try:    wg = self._compute_sf_white()
+            except Exception as e:
+                messagebox.showerror("Gradient Error", str(e), parent=self); return
+            try:    bg_ = self._compute_sf_black()
+            except Exception as e:
+                messagebox.showerror("Gradient Error", str(e), parent=self); return
+            w_cats = [pfx for lbl, pfx in self._SF_WHITE["categories"]
+                      if self._sf_white_cat_vars[lbl].get()]
+            b_cats = [pfx for lbl, pfx in self._SF_BLACK["categories"]
+                      if self._sf_black_cat_vars[lbl].get()]
+            if w_cats:
+                results.append({"section": "sixfret",
+                                 "lane_map": dict(zip(self._SF_WHITE["lanes"], wg)),
+                                 "categories": w_cats})
+            if b_cats:
+                results.append({"section": "sixfret",
+                                 "lane_map": dict(zip(self._SF_BLACK["lanes"], bg_)),
+                                 "categories": b_cats})
+            if not results:
+                messagebox.showwarning("Nothing selected",
+                                       "Select at least one category to apply.", parent=self); return
+            self.result = results
+        else:
+            cfg = self._GUITAR_CFG
+            try:    gradient = self._compute()
+            except Exception as e:
+                messagebox.showerror("Gradient Error", str(e), parent=self); return
+            active_cats = [pfx for lbl, pfx in cfg["categories"]
+                           if self._cat_vars[lbl].get()]
+            if not active_cats:
+                messagebox.showwarning("Nothing selected",
+                                       "Select at least one category to apply.",
+                                       parent=self); return
+            self.result = [{"section":    cfg["section"],
+                             "lane_map":   dict(zip(cfg["lanes"], gradient)),
+                             "categories": active_cats}]
         self.destroy()
+
+
+# ── NoteGen note card (visual note preview + 2 colour pickers) ────────────────
+
+class _NgNoteCard(tk.Frame):
+    """Canvas-based note preview card matching the React web editor's rendering.
+    Uses multiply blend for body colour and source-in for light/anim colour."""
+    W, H = 95, 50
+    _SPRITE_BODY  = "note_body.png"
+    _SPRITE_BASE  = "note_base.png"
+    _SPRITE_LIGHT = "note_light.png"
+    _sprite_cache: dict = {}
+
+    def __init__(self, parent, section: str, body_key: str, light_key: str,
+                 label: str, notegen_page, **kw):
+        BG = "#0d1020"
+        super().__init__(parent, bg=BG, **kw)
+        self._section   = section
+        self._body_key  = body_key
+        self._light_key = light_key
+        self._page      = notegen_page
+        self._readonly  = False
+        self._photo     = None
+        self._body_hex  = "#FFFFFF"
+        self._light_hex = "#FFFFFF"
+
+        cv_wrap = tk.Frame(self, bg="#1a1a2e",
+                           highlightthickness=1, highlightbackground=C["border"])
+        cv_wrap.pack(padx=10, pady=(10, 4))
+        self._cv = tk.Canvas(cv_wrap, width=self.W, height=self.H,
+                              bg="#1a1a2e", highlightthickness=0)
+        self._cv.pack()
+
+        short = (label.replace("note_","").replace("cym_","Cym ")
+                      .replace("tom_","Tom ").replace("_"," ").title())
+        tk.Label(self, text=short, bg=BG, fg=C["text_mid"],
+                 font=("Segoe UI", 8, "bold")).pack(pady=(0, 2))
+
+        self._body_sw,  self._body_btn  = self._color_row(BG, "Body",  self._pick_body)
+        self._light_sw, self._light_btn = self._color_row(BG, "Light", self._pick_light)
+        self._cv.create_rectangle(0, 0, self.W, self.H, fill="#1a1a2e", outline="")
+
+    def _color_row(self, bg, label, cmd):
+        row = tk.Frame(self, bg=bg); row.pack(fill="x", padx=8, pady=2)
+        tk.Label(row, text=label, bg=bg, fg=C["text_dim"],
+                 font=("Segoe UI", 7), width=5, anchor="w").pack(side="left")
+        sw = tk.Frame(row, width=30, height=18, cursor="hand2",
+                      highlightthickness=1, highlightbackground=C["border"])
+        sw.pack(side="left", padx=(0, 4)); sw.pack_propagate(False)
+        btn = tk.Button(row, text="Pick", font=("Segoe UI", 7),
+                        bg=C["border"], fg=C["text"], relief="flat",
+                        padx=5, pady=1, cursor="hand2", command=cmd)
+        btn.pack(side="left")
+        return sw, btn
+
+    def _pick_body(self):
+        if self._readonly: return
+        dlg = _ColorPickerDialog(self._page, self._body_hex,
+                                  f"Body — {self._body_key}")
+        if dlg.result:
+            self._page.on_color_changed(self._section, self._body_key, dlg.result)
+
+    def _pick_light(self):
+        if self._readonly: return
+        dlg = _ColorPickerDialog(self._page, self._light_hex,
+                                  f"Light — {self._light_key}")
+        if dlg.result:
+            self._page.on_color_changed(self._section, self._light_key, dlg.result)
+
+    def update_colors(self, body_hex: str, light_hex: str):
+        self._body_hex  = body_hex.upper()
+        self._light_hex = light_hex.upper()
+        self._body_sw.config(bg=body_hex)
+        self._light_sw.config(bg=light_hex)
+        self._render()
+
+    def set_readonly(self, ro: bool):
+        self._readonly = ro
+        s = "disabled" if ro else "normal"; fg = C["text_dim"] if ro else C["text"]
+        self._body_btn.config(state=s, fg=fg)
+        self._light_btn.config(state=s, fg=fg)
+
+    def _load_sprite(self, name: str):
+        path = _NG_IMAGES_DIR / name
+        key = str(path)
+        if key in _NgNoteCard._sprite_cache:
+            return _NgNoteCard._sprite_cache[key]
+        if not _PIL_OK or not path.is_file(): return None
+        from PIL import Image as _PI
+        img = _PI.open(key).convert("RGBA").resize((self.W, self.H), _PI.LANCZOS)
+        _NgNoteCard._sprite_cache[key] = img
+        return img
+
+    def _render(self):
+        if not _PIL_OK: self._render_fallback(); return
+        try:
+            import numpy as np; self._render_pil(np)
+        except Exception: self._render_fallback()
+
+    def _render_fallback(self):
+        self._cv.delete("all")
+        self._cv.create_rectangle(2, 2, self.W-2, self.H-2,
+                                   fill=self._body_hex, outline=self._light_hex, width=3)
+
+    def _render_pil(self, np):
+        from PIL import Image as _PI, ImageTk as _ITk
+        blank = _PI.new("RGBA", (self.W, self.H), (0,0,0,0))
+        body_spr  = self._load_sprite(self._SPRITE_BODY)  or blank
+        base_spr  = self._load_sprite(self._SPRITE_BASE)  or blank
+        light_spr = self._load_sprite(self._SPRITE_LIGHT) or blank
+
+        def h2rgb(h):
+            h = h.lstrip("#")
+            return int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+
+        # Body: source-atop fill → multiply composite (matches React changeBodyColor)
+        r,g,b = h2rgb(self._body_hex)
+        ba = np.array(body_spr, dtype=np.float32); alpha = ba[:,:,3]
+        tint = np.zeros_like(ba)
+        tint[:,:,0]=r; tint[:,:,1]=g; tint[:,:,2]=b; tint[:,:,3]=alpha
+        col = np.clip(ba * tint / 255.0, 0, 255).astype(np.uint8)
+        col[:,:,3] = alpha.astype(np.uint8)
+        body_img = _PI.fromarray(col, "RGBA")
+
+        # Light: source-in tint (matches React changeLightColor)
+        lr,lg_,lb = h2rgb(self._light_hex)
+        la = np.array(light_spr, dtype=np.float32)
+        lt = np.zeros((self.H, self.W, 4), dtype=np.uint8)
+        lt[:,:,0]=lr; lt[:,:,1]=lg_; lt[:,:,2]=lb
+        lt[:,:,3] = la[:,:,3].astype(np.uint8)
+        light_img = _PI.fromarray(lt, "RGBA")
+
+        # Composite: body(z=1) → base(z=2) → light(z=3), keep transparent
+        out = _PI.new("RGBA", (self.W, self.H), (0,0,0,0))
+        out = _PI.alpha_composite(out, body_img)
+        out = _PI.alpha_composite(out, base_spr)
+        out = _PI.alpha_composite(out, light_img)
+
+        photo = _ITk.PhotoImage(out)
+        self._photo = photo
+        self._cv.delete("all")
+        self._cv.create_image(0, 0, anchor="nw", image=photo)
 
 
 # ── NoteGen scrollable frame ──────────────────────────────────────────────────
@@ -6648,9 +7029,13 @@ class _NgGroupHeader(tk.Frame):
             try: w.config(bg=self._BG)
             except: pass
     def _toggle(self,_=None):
-        self._expanded=not self._expanded; self._chev.config(text="▾" if self._expanded else "▸")
+        self._expanded = not self._expanded
+        self._chev.config(text="▾" if self._expanded else "▸")
         if self._children:
-            (self._children.pack if self._expanded else self._children.pack_forget)(fill="x") if self._expanded else self._children.pack_forget()
+            if self._expanded:
+                self._children.pack(fill="x", after=self)
+            else:
+                self._children.pack_forget()
     def attach(self,frame): self._children=frame
 
 
@@ -6818,31 +7203,76 @@ class _NgHighwayPreview(tk.Frame):
         w, h = self._cv.winfo_width(), self._cv.winfo_height()
         if w < 20 or h < 20:
             return
-        self._draw_guitar(w, h)
+        tab = getattr(self._page, "_ng_active_tab", "guitar")
+        if tab == "drums":
+            self._draw_drums(w, h)
+        elif tab == "sixfret":
+            self._draw_sixfret(w, h)
+        else:
+            self._draw_guitar(w, h)
 
     def clear_photo_cache(self, hex_color=None):
         if hex_color is None:
             self._photo_cache.clear()
         else:
-            for k in [k for k in self._photo_cache if k[0] == hex_color]:
+            # key is now (body_hex, light_hex, w, h) — evict any entry involving this colour
+            for k in [k for k in self._photo_cache
+                      if k[0] == hex_color or k[1] == hex_color]:
                 del self._photo_cache[k]
 
-    # ── note image loader ───────────────────────────────────────────────────────
-    def _get_note_photo(self, hex_color: str, pixel_size: int):
+    # ── note sprite loader ──────────────────────────────────────────────────────
+    def _get_note_photo(self, body_hex: str, light_hex: str, pixel_w: int, pixel_h: int):
+        """Composite note_body + note_base + note_light sprites at the requested size,
+        using the same PIL rendering as _NgNoteCard (multiply for body, source-in for light)."""
         if not _PIL_OK:
             return None
-        key = (hex_color.upper(), pixel_size)
+        key = (body_hex.upper(), light_hex.upper(), pixel_w, pixel_h)
         if key in self._photo_cache:
             return self._photo_cache[key]
-        tpl = _ng_find_template()
-        if tpl is None:
-            return None
         try:
+            import numpy as np
             from PIL import Image as _PI, ImageTk as _ITk
-            base    = _PI.open(str(tpl))
-            colored = _ng_colorize_pil(base, hex_color)
-            colored = colored.resize((pixel_size, pixel_size), _PI.LANCZOS)
-            photo   = _ITk.PhotoImage(colored)
+
+            def _load(name):
+                p = _NG_IMAGES_DIR / name
+                if p.is_file():
+                    return _PI.open(str(p)).convert("RGBA").resize(
+                           (pixel_w, pixel_h), _PI.LANCZOS)
+                return _PI.new("RGBA", (pixel_w, pixel_h), (0, 0, 0, 0))
+
+            body_spr  = _load("note_body.png")
+            base_spr  = _load("note_base.png")
+            light_spr = _load("note_light.png")
+
+            def h2rgb(h):
+                h = h.lstrip("#")
+                return int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+
+            # Body: multiply tint
+            r, g, b = h2rgb(body_hex)
+            ba    = np.array(body_spr, dtype=np.float32)
+            alpha = ba[:,:,3]
+            tint  = np.zeros_like(ba)
+            tint[:,:,0]=r; tint[:,:,1]=g; tint[:,:,2]=b; tint[:,:,3]=alpha
+            col   = np.clip(ba * tint / 255.0, 0, 255).astype(np.uint8)
+            col[:,:,3] = alpha.astype(np.uint8)
+            body_img = _PI.fromarray(col, "RGBA")
+
+            # Light: source-in tint
+            lr, lg_, lb = h2rgb(light_hex)
+            la = np.array(light_spr, dtype=np.float32)
+            lt = np.zeros((pixel_h, pixel_w, 4), dtype=np.uint8)
+            lt[:,:,0]=lr; lt[:,:,1]=lg_; lt[:,:,2]=lb
+            lt[:,:,3] = la[:,:,3].astype(np.uint8)
+            light_img = _PI.fromarray(lt, "RGBA")
+
+            # Composite: body → base → light, keep transparent (canvas bg shows through)
+            out = _PI.new("RGBA", (pixel_w, pixel_h), (0,0,0,0))
+            out = _PI.alpha_composite(out, body_img)
+            out = _PI.alpha_composite(out, base_spr)
+            out = _PI.alpha_composite(out, light_img)
+
+            photo = _ITk.PhotoImage(out)
             self._photo_cache[key] = photo
             return photo
         except Exception:
@@ -6889,45 +7319,185 @@ class _NgHighwayPreview(tk.Frame):
         cv.create_oval(cx - sw, top,            cx + sw, top    + sw * 2, fill=col, outline="")
         cv.create_oval(cx - sw, bottom - sw * 2, cx + sw, bottom,         fill=col, outline="")
 
-    # ── guitar highway (1:1 from CHNoteGen) ────────────────────────────────────
+    # ── guitar highway ────────────────────────────────────────────────────────
     def _draw_guitar(self, w: int, h: int):
         cv  = self._cv
         gc  = self._page._ng_active_colors().get("guitar", {})
         n   = len(_NG_GUITAR_LANES)
         lw  = w / n
 
-        nr      = max(18, int(lw * 0.40))
-        note_y  = h - nr - 14
+        # Note sprites are 95×50 — scale to fit lane width nicely
+        note_w  = max(40, min(95, int(lw * 0.85)))
+        note_h  = max(21, int(note_w * 50 / 95))   # maintain 95:50 aspect ratio
         sw      = max(4, int(lw * 0.10))
-        sus_top = -sw          # bleed above canvas so sustains reach the very top
-        sus_bot = note_y
+        note_y  = h - note_h - 10
+        sus_top = -sw
+        sus_bot = note_y + note_h // 2   # sustain meets the note centre
 
         self._draw_lanes(cv, w, h, n,
                          [gc.get(f"note_{l}", "#333") for l in _NG_GUITAR_LANES])
 
-        # Sustains drawn before notes so notes sit on top
+        # Sustains (behind notes)
         for i, lane in enumerate(_NG_GUITAR_LANES):
             cx  = int(i * lw + lw / 2)
             col = gc.get(f"sustain_{lane}", "#888")
             self._draw_sustain(cv, cx, sus_top, sus_bot, col, sw)
 
-        # SP stripe across the top (drawn over sustains as visual cutoff)
+        # SP stripe across the top
         cv.create_rectangle(0, 0, w, 4,
                             fill=gc.get("note_sp_active", "#00FFFF"), outline="")
 
-        # Notes
-        img_size = nr * 2
+        # Notes using new sprites
         for i, lane in enumerate(_NG_GUITAR_LANES):
-            cx    = int(i * lw + lw / 2)
-            col   = gc.get(f"note_{lane}", "#888")
-            photo = self._get_note_photo(col, img_size)
+            cx        = int(i * lw + lw / 2)
+            body_hex  = gc.get(f"note_{lane}",      "#888")
+            light_hex = gc.get(f"note_anim_{lane}", "#888")
+            photo = self._get_note_photo(body_hex, light_hex, note_w, note_h)
             if photo is not None:
-                cv.create_image(cx, note_y, image=photo, anchor="center")
+                cv.create_image(cx, note_y, image=photo, anchor="n")
             else:
-                self._draw_dome_note(cv, cx, note_y, col, nr)
+                nr = note_h // 2
+                self._draw_dome_note(cv, cx, note_y + nr, body_hex, nr)
 
-        cv.create_text(w // 2, h - 5, text="Guitar Highway",
-                       font=("Segoe UI", 8), fill=C["text_dim"])
+    # ── drums highway (4×2: cymbals top row, toms bottom row) ────────────────
+    def _draw_drums(self, w: int, h: int):
+        cv = self._cv
+        dc = self._page._ng_active_colors().get("drums", {})
+        n  = 4
+        lw = w / n
+
+        note_w = max(40, min(95, int(lw * 0.85)))
+        note_h = max(21, int(note_w * 50 / 95))
+        sw     = max(4, int(lw * 0.10))
+
+        row_h  = h / 2
+        div_y  = int(row_h)
+
+        # Note sits at bottom of each half-row
+        cym_y  = div_y - note_h - sw      # note top (anchor "n") in cymbal row
+        tom_y  = h     - note_h - sw      # note top in tom row
+
+        LANES = ["red", "yellow", "blue", "green"]
+
+        # Lane backgrounds
+        for i, lane in enumerate(LANES):
+            x1, x2 = int(i * lw), int((i + 1) * lw)
+            tint = _ng_alpha_blend(dc.get(f"tom_{lane}", "#333"), "#07090e", 0.10)
+            cv.create_rectangle(x1, 0, x2, h, fill=tint, outline="")
+            if i > 0:
+                cv.create_line(x1, 0, x1, h, fill=C["border"], width=1)
+
+        # Horizontal divider
+        cv.create_line(0, div_y, w, div_y, fill=C["border"], width=1, dash=(4, 8))
+
+        # SP stripe at top
+        cv.create_rectangle(0, 0, w, 4,
+                            fill=dc.get("cym_sp_active", "#00FFFF"), outline="")
+
+        # Cymbal sustains: from very top → cymbal note centre
+        for i, lane in enumerate(LANES):
+            cx  = int(i * lw + lw / 2)
+            col = dc.get(f"cym_{lane}", "#888")
+            self._draw_sustain(cv, cx, -sw, cym_y + note_h // 2, col, sw)
+
+        # Tom sustains: from divider → tom note centre
+        for i, lane in enumerate(LANES):
+            cx  = int(i * lw + lw / 2)
+            col = dc.get(f"tom_{lane}", "#888")
+            self._draw_sustain(cv, cx, div_y + sw, tom_y + note_h // 2, col, sw)
+
+        # Cymbals
+        for i, lane in enumerate(LANES):
+            cx        = int(i * lw + lw / 2)
+            body_hex  = dc.get(f"cym_{lane}",      "#888")
+            light_hex = dc.get(f"cym_anim_{lane}", "#888")
+            photo = self._get_note_photo(body_hex, light_hex, note_w, note_h)
+            if photo is not None:
+                cv.create_image(cx, cym_y, image=photo, anchor="n")
+            else:
+                nr = note_h // 2
+                self._draw_dome_note(cv, cx, cym_y + nr, body_hex, nr)
+
+        # Toms
+        for i, lane in enumerate(LANES):
+            cx        = int(i * lw + lw / 2)
+            body_hex  = dc.get(f"tom_{lane}",      "#888")
+            light_hex = dc.get(f"tom_anim_{lane}", "#888")
+            photo = self._get_note_photo(body_hex, light_hex, note_w, note_h)
+            if photo is not None:
+                cv.create_image(cx, tom_y, image=photo, anchor="n")
+            else:
+                nr = note_h // 2
+                self._draw_dome_note(cv, cx, tom_y + nr, body_hex, nr)
+
+        # Row labels
+        cv.create_text(4, 6, text="Cymbals", font=("Segoe UI", 7), fill=C["text_dim"], anchor="nw")
+        cv.create_text(4, div_y + 6, text="Toms", font=("Segoe UI", 7), fill=C["text_dim"], anchor="nw")
+
+    # ── six fret highway (2×3: white/black columns, left/mid/right rows) ─────
+    def _draw_sixfret(self, w: int, h: int):
+        cv = self._cv
+        sc = self._page._ng_active_colors().get("sixfret", {})
+
+        n_cols = 2
+        n_rows = 3
+        col_w  = w / n_cols
+        row_h  = h / n_rows
+
+        note_w = max(30, min(95, int(col_w * 0.75)))
+        note_h = max(16, int(note_w * 50 / 95))
+        sw     = max(3, int(col_w * 0.08))
+
+        POSITIONS  = ["left", "mid", "right"]
+        WHITE_TINT = "#e8e8e8"
+        BLACK_TINT = "#3a3a3a"
+
+        # Column backgrounds
+        for col_i, bg_tint in enumerate([WHITE_TINT, BLACK_TINT]):
+            x1, x2 = int(col_i * col_w), int((col_i + 1) * col_w)
+            cv.create_rectangle(x1, 0, x2, h,
+                                fill=_ng_alpha_blend(bg_tint, "#07090e", 0.08), outline="")
+        cv.create_line(int(col_w), 0, int(col_w), h, fill=C["border"], width=1)
+
+        # Horizontal dividers between rows
+        for row_i in range(1, n_rows):
+            y = int(row_i * row_h)
+            cv.create_line(0, y, w, y, fill=C["border"], width=1, dash=(3, 8))
+
+        # SP stripe at very top
+        cv.create_rectangle(0, 0, w, 4,
+                            fill=sc.get("sf_note_sp_active", "#00FFFF"), outline="")
+
+        for row_i, pos in enumerate(POSITIONS):
+            row_top  = int(row_i * row_h)
+            row_bot  = int((row_i + 1) * row_h)
+            # Note sits at bottom of cell
+            note_top = row_bot - note_h - sw
+            # Sustain runs from very top of cell (bleeding above for row 0) to note centre
+            sus_top  = (-sw) if row_i == 0 else row_top
+            sus_bot  = note_top + note_h // 2
+
+            for col_i, col_type in enumerate(["white", "black"]):
+                cx = int(col_i * col_w + col_w / 2)
+
+                # Sustain
+                self._draw_sustain(cv, cx, sus_top, sus_bot,
+                                   sc.get(f"sf_sustain_{pos}", "#888"), sw)
+
+                # Note
+                body_hex = sc.get(f"sf_note_{col_type}_{pos}", "#888")
+                photo = self._get_note_photo(body_hex, body_hex, note_w, note_h)
+                if photo is not None:
+                    cv.create_image(cx, note_top, image=photo, anchor="n")
+                else:
+                    nr = note_h // 2
+                    self._draw_dome_note(cv, cx, note_top + nr, body_hex, nr)
+
+        # Column labels
+        for col_i, label in enumerate(["White", "Black"]):
+            cx = int(col_i * col_w + col_w / 2)
+            cv.create_text(cx, h - 2, text=label,
+                           font=("Segoe UI", 7), fill=C["text_dim"], anchor="s")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -7366,6 +7936,9 @@ class CHSuite(tk.Tk):
                 self._cfg["default_data_path"] = dlg.result
             self._cfg["setup_done"] = True
             _save_json(CONFIG_FILE, self._cfg)
+            # Auto-import any existing color profiles from the detected Colors folder
+            if hasattr(self, "_ng_profiles"):
+                self._ng_import_ini_files()
 
     def _refresh_profile_combo(self):
         names = sorted(self._profiles.keys(),
@@ -8350,6 +8923,21 @@ class CHSuite(tk.Tk):
         _grad_btn.pack(side="left", padx=2)
         _grad_btn.bind("<Enter>", lambda _: _grad_btn.config(bg="#0e3d30", fg="#00ffcc"))
         _grad_btn.bind("<Leave>", lambda _: _grad_btn.config(bg="#0a2922", fg="#00d4aa"))
+        tk.Frame(pi, bg="#181c38", width=1, height=28).pack(side="left", padx=12)
+        _dir_btn = tk.Button(pi, text="📁 Open Folder", font=("Segoe UI", 8),
+                              bg="#11142a", fg=C["text_mid"], relief="flat",
+                              activebackground="#1b1f40", activeforeground=C["text"],
+                              cursor="hand2", command=self._ng_open_profile_dir, bd=0, padx=10, pady=5)
+        _dir_btn.pack(side="left", padx=2)
+        _dir_btn.bind("<Enter>", lambda _: _dir_btn.config(bg="#1b1f40", fg=C["text"]))
+        _dir_btn.bind("<Leave>", lambda _: _dir_btn.config(bg="#11142a", fg=C["text_mid"]))
+        _ref_btn = tk.Button(pi, text="↻ Refresh", font=("Segoe UI", 8),
+                              bg="#11142a", fg=C["text_mid"], relief="flat",
+                              activebackground="#1b1f40", activeforeground=C["text"],
+                              cursor="hand2", command=self._ng_refresh_profiles, bd=0, padx=10, pady=5)
+        _ref_btn.pack(side="left", padx=2)
+        _ref_btn.bind("<Enter>", lambda _: _ref_btn.config(bg="#1b1f40", fg=C["text"]))
+        _ref_btn.bind("<Leave>", lambda _: _ref_btn.config(bg="#11142a", fg=C["text_mid"]))
 
         self._ng_status_var = tk.StringVar(value="")
         self._ng_status_lbl = tk.Label(pi, textvariable=self._ng_status_var,
@@ -8377,8 +8965,9 @@ class CHSuite(tk.Tk):
         body.add(left,  minsize=380, width=640, stretch="always")
         body.add(right, minsize=300, width=480, stretch="always")
 
-        # ── Editor (Guitar + Effects tabs) ────────────────────────────────────
-        TABS = [("🎸  Guitar","guitar"), ("✨  Effects","other")]
+        # ── Editor (Guitar + Drums + Six Fret + Effects tabs) ────────────────
+        TABS = [("🎸  Guitar","guitar"), ("🥁  Drums","drums"),
+                ("🎮  Six Fret","sixfret"), ("✨  Effects","other")]
         self._ng_tab_lbls = {}; self._ng_active_tab = "guitar"
         BG = "#07090e"
         tab_bar = tk.Frame(left, bg=BG); tab_bar.pack(fill="x", side="top")
@@ -8392,6 +8981,8 @@ class CHSuite(tk.Tk):
         self._ng_tab_bounds = {}
         content = tk.Frame(left, bg=BG); content.pack(fill="both", expand=True)
 
+        self._ng_note_cards = {}  # unused in this layout, kept for compat
+
         def _ng_switch(section):
             self._ng_active_tab = section
             for s,lbl in self._ng_tab_lbls.items():
@@ -8401,6 +8992,8 @@ class CHSuite(tk.Tk):
                 x0,x1=self._ng_tab_bounds[section]; self._ng_slide_to(x0,x1)
             for s,ed in self._ng_editors.items(): ed.pack_forget()
             self._ng_editors[section].pack(fill="both", expand=True, in_=content)
+            if hasattr(self, "_ng_preview"):
+                self._ng_preview.refresh()
 
         for tab_label, section in TABS:
             lbl = tk.Label(tab_row, text=tab_label, font=("Segoe UI",9), bg=BG,
@@ -8463,15 +9056,21 @@ class CHSuite(tk.Tk):
         return self._ng_active_colors_data
 
     def on_color_changed(self, section:str, key:str, hex_val:str):
-        """Called by _NgColorRow when a colour is picked — mirrors CHNoteGen's App method."""
+        """Called by _NgColorRow when a colour is picked."""
         if self._ng_active_name == _NG_DEFAULT_PROFILE_NAME: return
         if not _ng_valid_hex(hex_val): return
         old_val = self._ng_active_colors_data.get(section,{}).get(key,"")
         self._ng_active_colors_data.setdefault(section,{})[key] = hex_val.upper()
         self._ng_profiles[self._ng_active_name] = copy.deepcopy(self._ng_active_colors_data)
         _ng_save_profiles(self._ng_profiles)
-        if section=="guitar" and key.startswith("note_") and old_val:
+        if section == "guitar" and old_val:
             self._ng_preview.clear_photo_cache(old_val.upper())
+        self._ng_preview.refresh()
+
+    def _ng_refresh_note_cards(self):
+        """Push current colours to editors and refresh the highway preview."""
+        for section, ed in self._ng_editors.items():
+            ed.push(self._ng_active_colors_data.get(section, {}))
         self._ng_preview.refresh()
 
     # ── NoteGen profile management ────────────────────────────────────────────
@@ -8506,12 +9105,28 @@ class CHSuite(tk.Tk):
 
     def _ng_on_prof_selected(self,_=None): self._ng_select_profile(self._ng_prof_var.get())
 
+    def _ng_validate_prof_name(self, name: str) -> bool:
+        """Return True if name is safe to use as a Clone Hero .ini filename.
+        Purely numeric names (e.g. '3', '42') are rejected because Clone Hero
+        ignores profiles whose filename stem is only digits."""
+        fname = name.replace(" ", "_")
+        if fname.isdigit():
+            messagebox.showwarning(
+                "Invalid profile name",
+                f"'{name}' would export as '{fname}.ini'.\n\n"
+                "Clone Hero ignores profiles with purely numeric filenames.\n"
+                "Please use a name that contains at least one letter.",
+                parent=self)
+            return False
+        return True
+
     def _ng_prof_new(self):
         name=simpledialog.askstring("New Profile","Profile name:",parent=self)
         if not name: return
         name=name.strip()
         if name==_NG_DEFAULT_PROFILE_NAME:
             messagebox.showwarning("Reserved","That name is reserved.",parent=self); return
+        if not self._ng_validate_prof_name(name): return
         if name in self._ng_profiles:
             messagebox.showwarning("Exists",f"'{name}' already exists.",parent=self); return
         self._ng_profiles[name]=copy.deepcopy(self._ng_active_colors_data)
@@ -8524,6 +9139,7 @@ class CHSuite(tk.Tk):
         if not name: return
         name=name.strip()
         if not name or name==_NG_DEFAULT_PROFILE_NAME: return
+        if not self._ng_validate_prof_name(name): return
         if name in self._ng_profiles:
             messagebox.showwarning("Exists",f"'{name}' already exists.",parent=self); return
         self._ng_profiles[name]=copy.deepcopy(self._ng_active_colors_data)
@@ -8536,6 +9152,7 @@ class CHSuite(tk.Tk):
         if not new: return
         new=new.strip()
         if not new or new==_NG_DEFAULT_PROFILE_NAME: return
+        if not self._ng_validate_prof_name(new): return
         if new in self._ng_profiles:
             messagebox.showwarning("Exists",f"'{new}' already exists.",parent=self); return
         old=self._ng_active_name; self._ng_profiles[new]=self._ng_profiles.pop(old)
@@ -8574,19 +9191,26 @@ class CHSuite(tk.Tk):
         self._ng_select_profile(target); self._ng_status(f"Imported '{Path(path).name}' → '{target}'.")
 
     def _ng_export_ini(self,_=None):
-        ini_str=_ng_generate_ini(self._ng_active_colors_data)
-        default_file=("DefaultColors.ini" if self._ng_is_default()
-                      else self._ng_active_name.replace(" ","_")+".ini")
-        path=filedialog.asksaveasfilename(title="Export Colors .ini",defaultextension=".ini",
-                                          filetypes=[("INI files","*.ini"),("All files","*.*")],
-                                          initialfile=default_file,parent=self)
-        if not path: return
+        ini_str = _ng_generate_ini(self._ng_active_colors_data)
+        fname   = self._ng_active_name.replace(" ", "_") + ".ini"
+
+        colors_dir = self._ng_find_colors_dir()
+        if colors_dir is None:
+            messagebox.showerror(
+                "Colors folder not found",
+                "CHSuite could not find your Clone Hero  Custom/Colors  folder.\n\n"
+                "Make sure Clone Hero is registered in CHManager, or set your "
+                "install directory there first.",
+                parent=self)
+            return
+
+        dest = colors_dir / fname
         try:
-            Path(path).write_text(ini_str,encoding="utf-8")
-            self._ng_status(f"Exported → '{Path(path).name}'.")
-            messagebox.showinfo("Exported",
-                f"Profile exported to:\n{path}\n\nCopy to your Clone Hero  Custom/Colors  folder.",parent=self)
-        except Exception as e: messagebox.showerror("Export Error",str(e),parent=self)
+            dest.write_text(ini_str, encoding="utf-8")
+            self._ng_status(f"Exported → '{fname}'.")
+            messagebox.showinfo("Exported", f"Saved to:\n{dest}", parent=self)
+        except Exception as e:
+            messagebox.showerror("Export Error", str(e), parent=self)
 
     def _ng_status(self, msg:str):
         self._ng_status_var.set(msg)
@@ -8594,47 +9218,120 @@ class CHSuite(tk.Tk):
         self.after(2000, lambda: self._ng_status_lbl.config(fg=C["text_dim"])
                    if hasattr(self,"_ng_status_lbl") else None)
 
-    # ── NoteGen auto gradient ─────────────────────────────────────────────────
-    def _ng_auto_gradient(self):
-        """Open the Auto Gradient dialog and write the result into the active profile."""
-        if self._ng_is_default():
-            messagebox.showwarning(
-                "Read-Only",
-                "Duplicate or create a new profile before applying a gradient.",
-                parent=self)
-            return
-        guitar = self._ng_active_colors_data.get("guitar", {})
-        dlg = _NgAutoGradientDialog(self, guitar)
-        if dlg.result is None:
-            return
-        self._ng_apply_gradient_colors(dlg.result["lane_map"], dlg.result["categories"])
-
-    def _ng_apply_gradient_colors(self, lane_map: dict, categories: list):
-        """Write gradient colours into every selected category × lane combination,
-        then persist the profile and refresh the editor + preview."""
-        guitar = self._ng_active_colors_data.setdefault("guitar", {})
-        changed_old_hexes = set()
-        for lane, hex_c in lane_map.items():
-            if not hex_c:
+    # ── NoteGen open profile folder + auto-import ─────────────────────────────
+    def _ng_import_ini_files(self) -> int:
+        """Scan both Colors dirs and import any .ini not already in profiles.
+        Returns the number of newly imported profiles."""
+        imported = []
+        for colors_dir in self._ng_colors_dirs():
+            if not colors_dir.is_dir():
                 continue
+            for ini_path in sorted(colors_dir.glob("*.ini")):
+                profile_name = ini_path.stem
+                if profile_name == _NG_DEFAULT_PROFILE_NAME:
+                    continue
+                if profile_name in self._ng_profiles:
+                    continue
+                parsed = _ng_parse_ini(str(ini_path))
+                if not any(parsed.get(s) for s in _NG_DEFAULT_COLORS):
+                    continue
+                colors = _ng_fresh_colors()
+                for section in colors:
+                    if section in parsed:
+                        colors[section].update(parsed[section])
+                self._ng_profiles[profile_name] = copy.deepcopy(colors)
+                imported.append(profile_name)
+        if imported:
+            _ng_save_profiles(self._ng_profiles)
+            self._ng_refresh_profile_list()
+        return len(imported)
+
+    def _ng_open_profile_dir(self):
+        """Auto-import any new .ini profiles then open the Colors folder in Explorer."""
+        n = self._ng_import_ini_files()
+        if n:
+            self._ng_status(f"Imported {n} profile(s).")
+
+        dirs_to_scan = self._ng_colors_dirs()
+        folder = next((d for d in dirs_to_scan if d.is_dir()), None) or _app_dir()
+        try:
+            if sys.platform == "win32":
+                os.startfile(str(folder))
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(folder)])
+            else:
+                subprocess.Popen(["xdg-open", str(folder)])
+        except Exception as e:
+            messagebox.showerror("Open Folder", str(e), parent=self)
+
+    def _ng_refresh_profiles(self):
+        """Scan Colors folders and import any new .ini profiles, then report."""
+        n = self._ng_import_ini_files()
+        if n:
+            self._ng_status(f"↻ Imported {n} new profile(s).")
+        else:
+            self._ng_status("↻ No new profiles found.")
+
+    def _ng_find_colors_dir(self) -> "Path | None":
+        """Return the first existing Custom/Colors dir from the two known locations."""
+        return next((d for d in self._ng_colors_dirs() if d.is_dir()), None)
+
+    def _ng_colors_dirs(self) -> list:
+        """Return [base/Custom/Colors, base/PlayerData/Custom/Colors] for the
+        detected Clone Hero install base. Both paths are returned regardless of
+        whether they exist — callers check .is_dir() themselves."""
+        base = None
+        for key in ("ch_default_install", "ch_install_dir"):
+            d = self._cfg.get(key, "")
+            if d and Path(d).is_dir():
+                base = Path(d); break
+        if base is None:
+            dp = self._cfg.get("default_data_path", "")
+            if dp and Path(dp).is_dir():
+                base = Path(dp).parent
+        if base is None:
+            for inst in _read_installs():
+                d = inst.get("directoryPath", "")
+                if d and Path(d).is_dir():
+                    base = Path(d); break
+        if base is None:
+            return []
+        return [
+            base / "Custom" / "Colors",
+            base / "PlayerData" / "Custom" / "Colors",
+        ]
+    def _ng_auto_gradient(self):
+        if self._ng_is_default():
+            messagebox.showwarning("Read-Only",
+                "Duplicate or create a new profile before applying a gradient.",
+                parent=self); return
+        tab    = self._ng_active_tab
+        colors = self._ng_active_colors_data
+        if tab == "drums":
+            dlg = _NgAutoGradientDialog(self, colors.get("drums", {}), mode="drums")
+        elif tab == "sixfret":
+            dlg = _NgAutoGradientDialog(self, colors.get("sixfret", {}), mode="sixfret")
+        else:
+            dlg = _NgAutoGradientDialog(self, colors.get("guitar", {}), mode="guitar")
+        if dlg.result is None: return
+        for r in dlg.result:
+            self._ng_apply_gradient_colors(r)
+
+    def _ng_apply_gradient_colors(self, result: dict):
+        section    = result["section"]
+        lane_map   = result["lane_map"]
+        categories = result["categories"]
+        sec_data   = self._ng_active_colors_data.setdefault(section, {})
+        for lane, hex_c in lane_map.items():
+            if not hex_c: continue
             hex_c = hex_c.upper()
             for pfx in categories:
                 key = f"{pfx}_{lane}"
-                if key in guitar:
-                    old = guitar.get(key, "")
-                    if old and old.upper() != hex_c:
-                        changed_old_hexes.add(old.upper())
-                    guitar[key] = hex_c
-        # Persist
+                if key in sec_data:
+                    sec_data[key] = hex_c
         self._ng_profiles[self._ng_active_name] = copy.deepcopy(self._ng_active_colors_data)
         _ng_save_profiles(self._ng_profiles)
-        # Push updated colours to every editor widget
-        for section, ed in self._ng_editors.items():
-            ed.push(self._ng_active_colors_data.get(section, {}))
-        # Evict stale photo-cache entries and redraw the highway preview
-        for old_hex in changed_old_hexes:
-            self._ng_preview.clear_photo_cache(old_hex)
-        self._ng_preview.refresh()
+        self._ng_refresh_note_cards()
         self._ng_status("Auto gradient applied ✦")
 
     # ══════════════════════════════════════════════════════════════════════════
