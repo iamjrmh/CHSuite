@@ -5278,24 +5278,9 @@ DEFAULT_PROFILE_NAME = "Default (Original)"
 DEFAULT_DATA = str(Path.home() / "Documents" / "Clone Hero" / "Clone Hero_Data")
 
 def _get_default_data():
-    """Return the best known data path.
-    Priority:
-      1. Explicitly saved default_data_path
-      2. Clone Hero_Data derived from ch_default_install / ch_install_dir
-      3. Hardcoded Documents fallback
-    """
+    """Return the best known data path: saved config value, or the hardcoded fallback."""
     cfg = _load_json(CONFIG_FILE, {})
-    saved = cfg.get("default_data_path", "")
-    if saved and os.path.isdir(saved):
-        return saved
-    # Derive from the CHManager default install
-    for key in ("ch_default_install", "ch_install_dir"):
-        install = cfg.get(key, "")
-        if install:
-            derived = os.path.join(install, "Clone Hero_Data")
-            if os.path.isdir(derived):
-                return derived
-    return DEFAULT_DATA
+    return cfg.get("default_data_path", DEFAULT_DATA)
 
 BACKGROUNDS = [
     "Black", "Spray", "Pastel Burst", "Groovy", "Grains",
@@ -6207,6 +6192,51 @@ def _ng_hsl_to_rgb(h,s,l):
     else:      r1,g1,b1=c,0.,x
     return int((r1+m)*255),int((g1+m)*255),int((b1+m)*255)
 
+def _ng_composite_note_pil(body_spr, base_spr, light_spr,
+                            body_hex: str, light_hex: str, size: tuple):
+    """Composite note sprites using pure PIL — no numpy required.
+    body  : multiply-tinted (channel-wise multiply preserving alpha)
+    light : source-in tinted (colour fill masked by sprite alpha)
+    Layers: body → base → light, result is fully RGBA (transparent bg).
+    """
+    from PIL import Image as _PI
+
+    def _load_or_blank(spr):
+        if spr is None:
+            return _PI.new("RGBA", size, (0, 0, 0, 0))
+        if spr.size != size:
+            spr = spr.resize(size, _PI.LANCZOS)
+        return spr.convert("RGBA")
+
+    body  = _load_or_blank(body_spr)
+    base  = _load_or_blank(base_spr)
+    light = _load_or_blank(light_spr)
+
+    def h2rgb(h):
+        h = h.lstrip("#")
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+    # Body: multiply tint — split into channels, scale each by tint colour
+    r, g, b = h2rgb(body_hex)
+    br, bg_, bb, ba = body.split()
+    br  = br.point(lambda x: x * r // 255)
+    bg_ = bg_.point(lambda x: x * g // 255)
+    bb  = bb.point(lambda x: x * b // 255)
+    body_img = _PI.merge("RGBA", (br, bg_, bb, ba))
+
+    # Light: source-in tint — solid colour masked by sprite alpha
+    lr, lg_, lb = h2rgb(light_hex)
+    _, _, _, la = light.split()
+    light_img = _PI.new("RGBA", size, (lr, lg_, lb, 0))
+    light_img.putalpha(la)
+
+    # Composite: body(z=1) → base(z=2) → light(z=3)
+    out = _PI.new("RGBA", size, (0, 0, 0, 0))
+    out = _PI.alpha_composite(out, body_img)
+    out = _PI.alpha_composite(out, base)
+    out = _PI.alpha_composite(out, light_img)
+    return out
+
 def _ng_colorize_pil(img, hex_color:str):
     try:
         import numpy as np
@@ -6944,52 +6974,23 @@ class _NgNoteCard(tk.Frame):
     def _render(self):
         if not _PIL_OK: self._render_fallback(); return
         try:
-            import numpy as np; self._render_pil(np)
+            from PIL import ImageTk as _ITk
+            out = _ng_composite_note_pil(
+                self._load_sprite(self._SPRITE_BODY),
+                self._load_sprite(self._SPRITE_BASE),
+                self._load_sprite(self._SPRITE_LIGHT),
+                self._body_hex, self._light_hex,
+                (self.W, self.H))
+            photo = _ITk.PhotoImage(out)
+            self._photo = photo
+            self._cv.delete("all")
+            self._cv.create_image(0, 0, anchor="nw", image=photo)
         except Exception: self._render_fallback()
 
     def _render_fallback(self):
         self._cv.delete("all")
         self._cv.create_rectangle(2, 2, self.W-2, self.H-2,
                                    fill=self._body_hex, outline=self._light_hex, width=3)
-
-    def _render_pil(self, np):
-        from PIL import Image as _PI, ImageTk as _ITk
-        blank = _PI.new("RGBA", (self.W, self.H), (0,0,0,0))
-        body_spr  = self._load_sprite(self._SPRITE_BODY)  or blank
-        base_spr  = self._load_sprite(self._SPRITE_BASE)  or blank
-        light_spr = self._load_sprite(self._SPRITE_LIGHT) or blank
-
-        def h2rgb(h):
-            h = h.lstrip("#")
-            return int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
-
-        # Body: source-atop fill → multiply composite (matches React changeBodyColor)
-        r,g,b = h2rgb(self._body_hex)
-        ba = np.array(body_spr, dtype=np.float32); alpha = ba[:,:,3]
-        tint = np.zeros_like(ba)
-        tint[:,:,0]=r; tint[:,:,1]=g; tint[:,:,2]=b; tint[:,:,3]=alpha
-        col = np.clip(ba * tint / 255.0, 0, 255).astype(np.uint8)
-        col[:,:,3] = alpha.astype(np.uint8)
-        body_img = _PI.fromarray(col, "RGBA")
-
-        # Light: source-in tint (matches React changeLightColor)
-        lr,lg_,lb = h2rgb(self._light_hex)
-        la = np.array(light_spr, dtype=np.float32)
-        lt = np.zeros((self.H, self.W, 4), dtype=np.uint8)
-        lt[:,:,0]=lr; lt[:,:,1]=lg_; lt[:,:,2]=lb
-        lt[:,:,3] = la[:,:,3].astype(np.uint8)
-        light_img = _PI.fromarray(lt, "RGBA")
-
-        # Composite: body(z=1) → base(z=2) → light(z=3), keep transparent
-        out = _PI.new("RGBA", (self.W, self.H), (0,0,0,0))
-        out = _PI.alpha_composite(out, body_img)
-        out = _PI.alpha_composite(out, base_spr)
-        out = _PI.alpha_composite(out, light_img)
-
-        photo = _ITk.PhotoImage(out)
-        self._photo = photo
-        self._cv.delete("all")
-        self._cv.create_image(0, 0, anchor="nw", image=photo)
 
 
 # ── NoteGen scrollable frame ──────────────────────────────────────────────────
@@ -7237,55 +7238,27 @@ class _NgHighwayPreview(tk.Frame):
 
     # ── note sprite loader ──────────────────────────────────────────────────────
     def _get_note_photo(self, body_hex: str, light_hex: str, pixel_w: int, pixel_h: int):
-        """Composite note_body + note_base + note_light sprites at the requested size,
-        using the same PIL rendering as _NgNoteCard (multiply for body, source-in for light)."""
+        """Composite note sprites using pure PIL — no numpy required."""
         if not _PIL_OK:
             return None
         key = (body_hex.upper(), light_hex.upper(), pixel_w, pixel_h)
         if key in self._photo_cache:
             return self._photo_cache[key]
         try:
-            import numpy as np
             from PIL import Image as _PI, ImageTk as _ITk
 
             def _load(name):
                 p = _NG_IMAGES_DIR / name
                 if p.is_file():
-                    return _PI.open(str(p)).convert("RGBA").resize(
-                           (pixel_w, pixel_h), _PI.LANCZOS)
-                return _PI.new("RGBA", (pixel_w, pixel_h), (0, 0, 0, 0))
+                    return _PI.open(str(p)).convert("RGBA")
+                return None
 
-            body_spr  = _load("note_body.png")
-            base_spr  = _load("note_base.png")
-            light_spr = _load("note_light.png")
-
-            def h2rgb(h):
-                h = h.lstrip("#")
-                return int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
-
-            # Body: multiply tint
-            r, g, b = h2rgb(body_hex)
-            ba    = np.array(body_spr, dtype=np.float32)
-            alpha = ba[:,:,3]
-            tint  = np.zeros_like(ba)
-            tint[:,:,0]=r; tint[:,:,1]=g; tint[:,:,2]=b; tint[:,:,3]=alpha
-            col   = np.clip(ba * tint / 255.0, 0, 255).astype(np.uint8)
-            col[:,:,3] = alpha.astype(np.uint8)
-            body_img = _PI.fromarray(col, "RGBA")
-
-            # Light: source-in tint
-            lr, lg_, lb = h2rgb(light_hex)
-            la = np.array(light_spr, dtype=np.float32)
-            lt = np.zeros((pixel_h, pixel_w, 4), dtype=np.uint8)
-            lt[:,:,0]=lr; lt[:,:,1]=lg_; lt[:,:,2]=lb
-            lt[:,:,3] = la[:,:,3].astype(np.uint8)
-            light_img = _PI.fromarray(lt, "RGBA")
-
-            # Composite: body → base → light, keep transparent (canvas bg shows through)
-            out = _PI.new("RGBA", (pixel_w, pixel_h), (0,0,0,0))
-            out = _PI.alpha_composite(out, body_img)
-            out = _PI.alpha_composite(out, base_spr)
-            out = _PI.alpha_composite(out, light_img)
+            out = _ng_composite_note_pil(
+                _load("note_body.png"),
+                _load("note_base.png"),
+                _load("note_light.png"),
+                body_hex, light_hex,
+                (pixel_w, pixel_h))
 
             photo = _ITk.PhotoImage(out)
             self._photo_cache[key] = photo
@@ -10011,11 +9984,6 @@ class CHSuite(tk.Tk):
             found_dir = str(Path(exe).parent)
             self._cfg["ch_default_install"] = found_dir
             self._cfg["ch_install_dir"]     = found_dir
-            data_path = os.path.join(found_dir, "Clone Hero_Data")
-            if os.path.isdir(data_path):
-                self._cfg["default_data_path"] = data_path
-                if hasattr(self, "_data_v"):
-                    self._data_v.set(data_path)
             _save_json(CONFIG_FILE, self._cfg)
 
         self._do_launch_exe(exe)
@@ -10065,21 +10033,9 @@ class CHSuite(tk.Tk):
         self._status("Clone Hero closed — welcome back!")
 
     def _gm_set_default_install(self, path: str):
-        """Save path as the default Clone Hero install and refresh the list.
-        Also syncs default_data_path used by CHMenuChanger and NoteGen color export."""
+        """Save path as the default Clone Hero install and refresh the list."""
         self._cfg["ch_default_install"] = path
         self._cfg["ch_install_dir"]     = path
-        # Derive Clone Hero_Data path so CHMenuChanger picks it up automatically
-        data_path = os.path.join(path, "Clone Hero_Data")
-        if os.path.isdir(data_path):
-            self._cfg["default_data_path"] = data_path
-            # Keep the active profile in sync too
-            if not self._is_default_profile():
-                self._active_prof["data_path"] = data_path
-                _save_profiles(self._profiles)
-            # Refresh the MenuChanger data path entry if it's showing the old value
-            if hasattr(self, "_data_v"):
-                self._data_v.set(data_path)
         _save_json(CONFIG_FILE, self._cfg)
         self._gm_refresh_installs()
         self._gm_status(f"Default set: {os.path.basename(path)}")
@@ -10882,13 +10838,7 @@ class CHSuite(tk.Tk):
                 _log(f"[gm] Could not register install: {e}")
 
         # Save as default install dir
-        self._cfg["ch_install_dir"]     = actual
-        self._cfg["ch_default_install"] = actual
-        data_path = os.path.join(actual, "Clone Hero_Data")
-        if os.path.isdir(data_path):
-            self._cfg["default_data_path"] = data_path
-            if hasattr(self, "_data_v"):
-                self._data_v.set(data_path)
+        self._cfg["ch_install_dir"] = actual
         _save_json(CONFIG_FILE, self._cfg)
 
         self._gm_status(f"Installed {tag} → {actual}")
