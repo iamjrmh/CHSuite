@@ -1,5 +1,5 @@
 """
-CHSuite  by JURMR  v2.0
+CHSuite  by JURMR  v2.1
 =======================
 All-in-one Clone Hero utility suite.
 
@@ -4856,6 +4856,55 @@ def _app_dir():
 CONFIG_FILE   = _app_dir() / "chsuite_config.json"
 PROFILES_FILE = _app_dir() / "ch_bg_profiles.json"
 SCAN_LOG_FILE = _app_dir() / "ch_bg_scan.log"
+THEMES_DIR    = _app_dir() / "themes"
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  THEME SYSTEM
+# ──────────────────────────────────────────────────────────────────────────────
+
+_THEME_KEYS = (
+    "bg", "panel", "card", "card2", "sidebar",
+    "border", "border2",
+    "accent", "accent_dim", "accent2", "accent3",
+    "text", "text_dim", "text_mid",
+    "success", "warn", "error",
+    "selected", "hover", "nav_active", "nav_hover",
+)
+
+def _list_themes() -> list[str]:
+    """Return sorted theme names (stems of .json files) found in the themes dir."""
+    if not THEMES_DIR.is_dir():
+        return ["Default"]
+    names = []
+    for p in sorted(THEMES_DIR.glob("*.json")):
+        if p.stem != "Template":
+            names.append(p.stem)
+    return names if names else ["Default"]
+
+def _load_theme(name: str) -> bool:
+    """
+    Load a theme JSON from themes/<name>.json and update the global C dict.
+    Returns True on success, False on any error (C is left unchanged on error).
+    Falls back to built-in defaults if the file is missing.
+    """
+    path = THEMES_DIR / f"{name}.json"
+    if not path.is_file():
+        # Silently keep the current theme if file not found
+        return False
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    # Validate: every required key must map to a non-empty string
+    for k in _THEME_KEYS:
+        v = raw.get(k, "")
+        if not isinstance(v, str) or not v.startswith("#"):
+            return False
+    # All good — update the live C dict in-place so all existing references
+    # (strings captured in lambdas) still point to the same dict object.
+    for k in _THEME_KEYS:
+        C[k] = raw[k]
+    return True
 
 # ── CH Launcher registry path ─────────────────────────────────────────────────
 _INSTALLS_FILE = (
@@ -5278,9 +5327,25 @@ DEFAULT_PROFILE_NAME = "Default (Original)"
 DEFAULT_DATA = str(Path.home() / "Documents" / "Clone Hero" / "Clone Hero_Data")
 
 def _get_default_data():
-    """Return the best known data path: saved config value, or the hardcoded fallback."""
+    """Return the best known Clone Hero_Data path.
+    Priority:
+      1. Explicitly saved default_data_path — returned as-is, no existence check
+         (user set it deliberately; don't second-guess it)
+      2. Clone Hero_Data derived from ch_default_install / ch_install_dir
+         (only used when default_data_path has never been set)
+      3. Hardcoded Documents fallback
+    """
     cfg = _load_json(CONFIG_FILE, {})
-    return cfg.get("default_data_path", DEFAULT_DATA)
+    saved = cfg.get("default_data_path", "")
+    if saved:
+        return saved
+    for key in ("ch_default_install", "ch_install_dir"):
+        install = cfg.get(key, "")
+        if install:
+            derived = os.path.join(install, "Clone Hero_Data")
+            if os.path.isdir(derived):
+                return derived
+    return DEFAULT_DATA
 
 BACKGROUNDS = [
     "Black", "Spray", "Pastel Burst", "Groovy", "Grains",
@@ -6368,7 +6433,7 @@ class _ColorPickerDialog(tk.Toplevel):
         hx=tk.Frame(right,bg=C["bg"]); hx.pack(fill="x",pady=(0,4))
         tk.Label(hx,text="HEX",bg=C["bg"],fg=C["text_dim"],font=("Segoe UI",7,"bold")).pack(side="left",padx=(0,8))
         self._hex_entry=tk.Entry(hx,textvariable=self._hex_var,font=("Consolas",10),width=9,
-                                  bg="#0a0c16",fg=C["accent"],insertbackground=C["accent"],
+                                  bg=C["card2"],fg=C["accent"],insertbackground=C["accent"],
                                   relief="flat",bd=0,highlightthickness=1,
                                   highlightbackground=C["border"],highlightcolor=C["accent"])
         self._hex_entry.pack(side="left",ipady=4,padx=4)
@@ -6633,7 +6698,7 @@ class _NgAutoGradientDialog(tk.Toplevel):
 
     # ── build ─────────────────────────────────────────────────────────────────
     def _build(self):
-        BG = C["bg"]; CARD = "#13161f"
+        BG = C["bg"]; CARD = C["panel"]
 
         def sec_hdr(parent, text):
             tk.Label(parent, text=text, font=("Segoe UI", 7, "bold"),
@@ -6893,7 +6958,7 @@ class _NgNoteCard(tk.Frame):
 
     def __init__(self, parent, section: str, body_key: str, light_key: str,
                  label: str, notegen_page, **kw):
-        BG = "#0d1020"
+        BG = C["bg"]
         super().__init__(parent, bg=BG, **kw)
         self._section   = section
         self._body_key  = body_key
@@ -7019,8 +7084,9 @@ class _NgScrollFrame(tk.Frame):
 # ── NoteGen collapsible group header ─────────────────────────────────────────
 
 class _NgGroupHeader(tk.Frame):
-    _BG="#080a16"; _HOV="#0e1024"
     def __init__(self,parent,text,count=0,**kw):
+        self._BG  = C["bg"]
+        self._HOV = C["hover"]
         super().__init__(parent,bg=self._BG,cursor="hand2",**kw)
         self._expanded=True; self._children=None
         row=tk.Frame(self,bg=self._BG); row.pack(fill="x")
@@ -7032,7 +7098,7 @@ class _NgGroupHeader(tk.Frame):
         if count:
             badge=tk.Frame(row,bg=C["accent_dim"]); badge.pack(side="right",padx=(0,10))
             tk.Label(badge,text=f" {count} ",font=("Segoe UI",7,"bold"),bg=C["accent_dim"],fg=C["accent"]).pack(padx=2,pady=2)
-        tk.Frame(self,bg="#141830",height=1).pack(fill="x")
+        tk.Frame(self,bg=C["border"],height=1).pack(fill="x")
         for w in (self,row,self._chev,self._title):
             w.bind("<Enter>",self._h_on); w.bind("<Leave>",self._h_off); w.bind("<Button-1>",self._toggle)
 
@@ -7058,36 +7124,40 @@ class _NgGroupHeader(tk.Frame):
 # ── NoteGen colour row ────────────────────────────────────────────────────────
 
 class _NgColorRow(tk.Frame):
-    _IDLE_ODD="#0c0e1d"; _IDLE_EVEN="#090b17"; _HOV="#161930"; _ACT="#1e2145"; _STEPS=8
+    _STEPS=8
 
     def __init__(self,parent,section,key,notegen_page,row_idx):
-        idle=self._IDLE_ODD if row_idx%2 else self._IDLE_EVEN
+        _IDLE_ODD  = C["bg"]
+        _IDLE_EVEN = C["panel"]
+        self._HOV  = C["hover"]
+        self._ACT  = C["selected"]
+        idle=_IDLE_ODD if row_idx%2 else _IDLE_EVEN
         super().__init__(parent,bg=idle,cursor="hand2")
         self._section=section; self._key=key; self._page=notegen_page
         self._idle=idle; self._muted=False; self._anim_id=None; self._t=0.; self._going=0
-        tk.Frame(self,bg="#0f1228",height=1).pack(side="bottom",fill="x")
+        tk.Frame(self,bg=C["border"],height=1).pack(side="bottom",fill="x")
         self._sw=tk.Canvas(self,width=50,height=28,highlightthickness=0,bg="#000",cursor="hand2")
         self._sw.pack(side="left",padx=(12,10),pady=6)
         self._lbl=tk.Label(self,text=_ng_friendly(key),bg=idle,fg=C["text_mid"],font=FTS,anchor="w")
         self._lbl.pack(side="left",fill="x",expand=True,padx=(0,6))
-        pill=tk.Frame(self,bg="#0a0d1e",highlightthickness=1,highlightbackground="#222545")
+        pill=tk.Frame(self,bg=C["card2"],highlightthickness=1,highlightbackground=C["border"])
         pill.pack(side="right",padx=(0,12),pady=6)
         self._var=tk.StringVar(value="#000000")
         self._entry=tk.Entry(pill,textvariable=self._var,font=("Consolas",9),width=8,
-                             bg="#0a0d1e",fg="#8a7fff",insertbackground=C["accent"],
+                             bg=C["card2"],fg=C["accent"],insertbackground=C["accent"],
                              relief="flat",bd=4,highlightthickness=0,cursor="hand2",
-                             state="readonly",readonlybackground="#0a0d1e")
+                             state="readonly",readonlybackground=C["card2"])
         self._entry.pack()
         self._entry.bind("<FocusIn>",lambda e: pill.config(highlightbackground=C["accent"]))
-        self._entry.bind("<FocusOut>",lambda e: pill.config(highlightbackground="#222545"))
+        self._entry.bind("<FocusOut>",lambda e: pill.config(highlightbackground=C["border"]))
         self._entry.bind("<Button-1>",self._copy_hex)
         self._pill=pill
-        self._pick_btn=tk.Button(self,text="Pick Color",font=("Segoe UI",8),bg="#1a1d36",fg=C["text_mid"],
+        self._pick_btn=tk.Button(self,text="Pick Color",font=("Segoe UI",8),bg=C["card2"],fg=C["text_mid"],
                                   relief="flat",activebackground=C["accent"],activeforeground="#fff",
                                   cursor="hand2",bd=0,padx=8,pady=3,command=self._open_picker)
         self._pick_btn.pack(side="right",padx=(0,4))
         self._pick_btn.bind("<Enter>",lambda e: self._pick_btn.config(bg=C["accent"],fg="#fff"))
-        self._pick_btn.bind("<Leave>",lambda e: self._pick_btn.config(bg="#1a1d36",fg=C["text_mid"]))
+        self._pick_btn.bind("<Leave>",lambda e: self._pick_btn.config(bg=C["card2"],fg=C["text_mid"]))
         self._copied_lbl=tk.Label(self,text="Copied!",font=("Segoe UI",8,"bold"),bg=self._idle,fg=C["success"],padx=4)
         for w in (self,self._lbl,self._sw):
             w.bind("<Enter>",self._h_in); w.bind("<Leave>",self._h_out); w.bind("<Button-1>",self._click)
@@ -7124,7 +7194,7 @@ class _NgColorRow(tk.Frame):
         self._copied_lbl.config(bg=self.cget("bg"))
         self._copied_lbl.pack(side="right",before=self._pill)
         def _hide():
-            self._copied_lbl.pack_forget(); self._pill.config(highlightbackground="#222545")
+            self._copied_lbl.pack_forget(); self._pill.config(highlightbackground=C["border"])
         if hasattr(self,"_copy_after_id"):
             try: self.after_cancel(self._copy_after_id)
             except: pass
@@ -7140,11 +7210,11 @@ class _NgColorRow(tk.Frame):
 
     def set_readonly(self,readonly):
         self._entry.config(state="disabled" if readonly else "readonly",
-                           fg=C["text_dim"] if readonly else "#8a7fff",
-                           readonlybackground="#0a0d1e",disabledbackground="#0a0d1e",
+                           fg=C["text_dim"] if readonly else C["accent"],
+                           readonlybackground=C["card2"],disabledbackground=C["card2"],
                            disabledforeground=C["text_dim"])
         self._pick_btn.config(state="disabled" if readonly else "normal",
-                              bg=C["border"] if readonly else "#1a1d36",
+                              bg=C["border"] if readonly else C["card2"],
                               fg=C["text_dim"] if readonly else C["text_mid"])
         cur="" if readonly else "hand2"
         for w in (self,self._lbl,self._sw):
@@ -7173,9 +7243,9 @@ class _NgColorRow(tk.Frame):
 
 class _NgSectionEditor(tk.Frame):
     def __init__(self,parent,section,notegen_page,**kw):
-        super().__init__(parent,bg="#07090e",**kw)
+        super().__init__(parent,bg=C["bg"],**kw)
         self._rows: dict = {}
-        self._sf=_NgScrollFrame(self,bg="#07090e"); self._sf.pack(fill="both",expand=True)
+        self._sf=_NgScrollFrame(self,bg=C["bg"]); self._sf.pack(fill="both",expand=True)
         groups=_NG_GROUPS.get(section,[])
         if not groups: groups=[("All",list(_NG_DEFAULT_COLORS.get(section,{}).keys()))]
         row_idx=0
@@ -7183,7 +7253,7 @@ class _NgSectionEditor(tk.Frame):
             valid=[k for k in keys if k in _NG_DEFAULT_COLORS.get(section,{})]
             if not valid: continue
             hdr=_NgGroupHeader(self._sf.inner,group_name,count=len(valid)); hdr.pack(fill="x")
-            cf=tk.Frame(self._sf.inner,bg="#07090e"); cf.pack(fill="x"); hdr.attach(cf)
+            cf=tk.Frame(self._sf.inner,bg=C["bg"]); cf.pack(fill="x"); hdr.attach(cf)
             for key in valid:
                 row=_NgColorRow(cf,section,key,notegen_page,row_idx)
                 row.pack(fill="x"); self._rows[key]=row; row_idx+=1
@@ -7208,7 +7278,7 @@ class _NgHighwayPreview(tk.Frame):
         super().__init__(parent, bg=C["panel"], **kw)
         self._page = notegen_page
         self._photo_cache: dict = {}
-        self._cv = tk.Canvas(self, bg="#07090e", highlightthickness=1,
+        self._cv = tk.Canvas(self, bg=C["bg"], highlightthickness=1,
                              highlightbackground=C["border"])
         self._cv.pack(fill="both", expand=True, padx=6, pady=(0, 6))
         self._cv.bind("<Configure>", lambda _: self.refresh())
@@ -7291,7 +7361,7 @@ class _NgHighwayPreview(tk.Frame):
         lw = w / n
         for i in range(n):
             x1, x2 = int(i * lw), int((i + 1) * lw)
-            bg = _ng_alpha_blend(lane_tints[i], "#07090e", 0.10)
+            bg = _ng_alpha_blend(lane_tints[i], C["bg"], 0.10)
             cv.create_rectangle(x1, 0, x2, h, fill=bg, outline="")
             if i > 0:
                 cv.create_line(x1, 0, x1, h, fill=C["border"], width=1)
@@ -7370,7 +7440,7 @@ class _NgHighwayPreview(tk.Frame):
         # Lane backgrounds
         for i, lane in enumerate(LANES):
             x1, x2 = int(i * lw), int((i + 1) * lw)
-            tint = _ng_alpha_blend(dc.get(f"tom_{lane}", "#333"), "#07090e", 0.10)
+            tint = _ng_alpha_blend(dc.get(f"tom_{lane}", "#333"), C["bg"], 0.10)
             cv.create_rectangle(x1, 0, x2, h, fill=tint, outline="")
             if i > 0:
                 cv.create_line(x1, 0, x1, h, fill=C["border"], width=1)
@@ -7444,7 +7514,7 @@ class _NgHighwayPreview(tk.Frame):
         for col_i, bg_tint in enumerate([WHITE_TINT, BLACK_TINT]):
             x1, x2 = int(col_i * col_w), int((col_i + 1) * col_w)
             cv.create_rectangle(x1, 0, x2, h,
-                                fill=_ng_alpha_blend(bg_tint, "#07090e", 0.08), outline="")
+                                fill=_ng_alpha_blend(bg_tint, C["bg"], 0.08), outline="")
         cv.create_line(int(col_w), 0, int(col_w), h, fill=C["border"], width=1)
 
         # Horizontal dividers between rows
@@ -7543,6 +7613,10 @@ class CHSuite(tk.Tk):
         self._cfg      = _load_json(CONFIG_FILE, {})
         self._profiles = _load_profiles()
 
+        # ── Apply saved theme before any widgets are created ──────────────────
+        _saved_theme = self._cfg.get("theme", "Default")
+        _load_theme(_saved_theme)   # silently falls back to built-in C if missing
+
         # ── BG changer state ──────────────────────────────────────────────────
         self._am          = None
         self._asset_cache = {}
@@ -7622,7 +7696,7 @@ class CHSuite(tk.Tk):
                  bg=C["panel"], fg=C["accent"]).pack(side="left", padx=(0, 10))
         tk.Label(inner_tb, text="CHSuite",
                  font=FTT, bg=C["panel"], fg=C["text"]).pack(side="left")
-        tk.Label(inner_tb, text="  by JURMR  v2.0",
+        tk.Label(inner_tb, text="  by JURMR  v2.1",
                  font=("Segoe UI", 13), bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(6,0))
 
         # Discord status dot
@@ -7724,9 +7798,51 @@ class CHSuite(tk.Tk):
             # Store references so _show_page can update active state
             self._nav_btns[page_id] = (btn_frame, icon_lbl, text_lbl)
 
+        # ── Theme picker at the bottom of the sidebar ─────────────────────────
+        theme_sep = tk.Frame(self._nav, bg=C["border"], height=1)
+        theme_sep.pack(fill="x", padx=12, pady=(0, 8))
+
+        theme_frame = tk.Frame(self._nav, bg=C["sidebar"], padx=12)
+        theme_frame.pack(fill="x", pady=(0, 6))
+
+        tk.Label(theme_frame, text="THEME", font=("Segoe UI", 7, "bold"),
+                 fg=C["text_dim"], bg=C["sidebar"]).pack(anchor="w", pady=(0, 4))
+
+        self._theme_var = tk.StringVar(value=self._cfg.get("theme", "Default"))
+        self._theme_cb  = ttk.Combobox(
+            theme_frame,
+            textvariable=self._theme_var,
+            values=_list_themes(),
+            state="readonly",
+            font=("Segoe UI", 8),
+            width=18,
+        )
+        self._theme_cb.pack(fill="x")
+        self._theme_cb.bind("<<ComboboxSelected>>", self._on_theme_change)
+
+        # Reset to Default button
+        reset_sep = tk.Frame(self._nav, bg=C["border"], height=1)
+        reset_sep.pack(fill="x", padx=12, pady=(8, 6))
+
+        reset_frame = tk.Frame(self._nav, bg=C["sidebar"], padx=12)
+        reset_frame.pack(fill="x", pady=(0, 4))
+
+        reset_btn = tk.Label(
+            reset_frame,
+            text="⟳  Reset to Default",
+            font=("Segoe UI", 8),
+            fg=C["error"],
+            bg=C["sidebar"],
+            cursor="hand2",
+        )
+        reset_btn.pack(anchor="w")
+        reset_btn.bind("<Button-1>", lambda e: self._reset_to_default())
+        reset_btn.bind("<Enter>",  lambda e: reset_btn.config(fg=C["text"]))
+        reset_btn.bind("<Leave>",  lambda e: reset_btn.config(fg=C["error"]))
+
         # Version at bottom
         tk.Frame(self._nav, bg=C["sidebar"]).pack(fill="y", expand=True)
-        tk.Label(self._nav, text="CHSuite v2.0", font=("Segoe UI", 8),
+        tk.Label(self._nav, text="CHSuite v2.1", font=("Segoe UI", 8),
                  fg=C["text_dim"], bg=C["sidebar"]).pack(pady=(0, 12))
 
     def _nav_hover(self, frame, icon_lbl, text_lbl, entering: bool):
@@ -7764,6 +7880,35 @@ class CHSuite(tk.Tk):
         # Update Discord activity whenever the active tab changes
         if hasattr(self, "_drpc"):
             self._update_discord_rpc()
+
+    # ── theme change ──────────────────────────────────────────────────────────
+    def _on_theme_change(self, event=None):
+        """Apply the chosen theme and restart the window so all colors refresh."""
+        name = self._theme_var.get()
+        if not _load_theme(name):
+            messagebox.showwarning(
+                "Theme Error",
+                f"Could not load theme '{name}'.\n"
+                "Make sure themes/{name}.json exists and is valid.",
+                parent=self)
+            # Revert picker to the currently saved theme
+            self._theme_var.set(self._cfg.get("theme", "Default"))
+            return
+
+        # Save choice to config
+        self._cfg["theme"] = name
+        _save_json(CONFIG_FILE, self._cfg)
+
+        # Notify user that a restart is needed for a full repaint
+        resp = messagebox.askokcancel(
+            "Theme Applied",
+            f"Theme '{name}' will be fully applied the next time CHSuite starts.\n\n"
+            "Restart now?",
+            parent=self)
+        if resp:
+            self._on_close()
+            python = sys.executable
+            os.execv(python, [python] + sys.argv)
 
     # ══════════════════════════════════════════════════════════════════════════
     #  PAGE 1 — BG CHANGER
@@ -7905,6 +8050,9 @@ class CHSuite(tk.Tk):
             self._profiles[DEFAULT_PROFILE_NAME] = _blank_profile(DEFAULT_PROFILE_NAME)
         self._profiles[DEFAULT_PROFILE_NAME]["locked"] = True
         self._profiles[DEFAULT_PROFILE_NAME]["replacements"] = {}
+        # Always keep the Default profile's data_path in sync with the best
+        # known path — otherwise a stale path baked in at first launch persists.
+        self._profiles[DEFAULT_PROFILE_NAME]["data_path"] = _get_default_data()
         _save_profiles(self._profiles)
         last = self._cfg.get("last_profile", "")
         if last and last in self._profiles:
@@ -7927,6 +8075,21 @@ class CHSuite(tk.Tk):
             # Auto-import any existing color profiles from the detected Colors folder
             if hasattr(self, "_ng_profiles"):
                 self._ng_import_ini_files()
+            # Auto-scan after setup so the user lands on a ready MenuChanger
+            self.after(300, self._auto_scan_on_start)
+        else:
+            # Auto-scan on every normal launch too
+            self.after(300, self._auto_scan_on_start)
+
+    def _auto_scan_on_start(self):
+        """Silently trigger Load & Scan if deps are available and path is valid.
+        Called after startup and after the setup dialog confirms."""
+        if not _PIL_OK or not _UNITYPY_OK:
+            return
+        path = self._data_v.get().strip()
+        if not os.path.isdir(path):
+            return
+        self._load_ggm()
 
     def _refresh_profile_combo(self):
         names = sorted(self._profiles.keys(),
@@ -7949,7 +8112,7 @@ class CHSuite(tk.Tk):
         self._prof_var.set(name)
         self._cfg["last_profile"] = name
         _save_json(CONFIG_FILE, self._cfg)
-        self._data_v.set(self._active_prof.get("data_path", DEFAULT_DATA))
+        self._data_v.set(self._active_prof.get("data_path", "") or _get_default_data())
         self._am = None
         self._asset_cache.clear(); self._orig_pil.clear()
         self._new_pil.clear(); self._orig_tk.clear(); self._new_tk.clear()
@@ -8047,6 +8210,8 @@ class CHSuite(tk.Tk):
         if not self._is_default_profile():
             self._active_prof["data_path"] = path
             _save_profiles(self._profiles)
+        self._cfg["default_data_path"] = path
+        _save_json(CONFIG_FILE, self._cfg)
         self._status("Scanning " + path + " ...")
         self.update_idletasks()
 
@@ -8851,8 +9016,8 @@ class CHSuite(tk.Tk):
         page = tk.Frame(self._content, bg=C["bg"])
         self._pages["notegen"] = page
 
-        BG_TITLE = "#06080c"
-        BG_PROF  = "#0a0c16"
+        BG_TITLE = C["bg"]
+        BG_PROF  = C["panel"]
 
         # ── Title bar ─────────────────────────────────────────────────────────
         title = tk.Frame(page, bg=BG_TITLE); title.pack(fill="x")
@@ -8869,7 +9034,7 @@ class CHSuite(tk.Tk):
 
         # ── Profile bar ───────────────────────────────────────────────────────
         pbar = tk.Frame(page, bg=BG_PROF); pbar.pack(fill="x")
-        tk.Frame(pbar, bg="#181c38", height=1).pack(fill="x", side="bottom")
+        tk.Frame(pbar, bg=C["border"], height=1).pack(fill="x", side="bottom")
         pi = tk.Frame(pbar, bg=BG_PROF); pi.pack(fill="x", padx=14, pady=8)
 
         pw = tk.Frame(pi, bg=BG_PROF); pw.pack(side="left")
@@ -8881,10 +9046,10 @@ class CHSuite(tk.Tk):
         self._ng_prof_cb.pack()
         self._ng_prof_cb.bind("<<ComboboxSelected>>", self._ng_on_prof_selected)
 
-        tk.Frame(pi, bg="#181c38", width=1, height=28).pack(side="left", padx=12)
+        tk.Frame(pi, bg=C["border"], width=1, height=28).pack(side="left", padx=12)
 
         def _pb(text, cmd, style="ghost"):
-            styles = {"ghost":("#11142a",C["text_mid"],"#1b1f40",C["text"]),
+            styles = {"ghost":(C["card2"],C["text_mid"],C["hover"],C["text"]),
                       "accent":(C["accent"],"#fff",C["accent_dim"],"#fff"),
                       "danger":("#1a0808","#d45555","#2c0f0f","#ff8080")}
             bg,fg,hbg,hfg = styles[style]
@@ -8900,32 +9065,32 @@ class CHSuite(tk.Tk):
         _pb("⎘ Duplicate",  self._ng_prof_duplicate)
         self._ng_rename_btn = _pb("✎ Rename", self._ng_prof_rename)
         self._ng_delete_btn = _pb("✕ Delete", self._ng_prof_delete, "danger")
-        tk.Frame(pi, bg="#181c38", width=1, height=28).pack(side="left", padx=12)
+        tk.Frame(pi, bg=C["border"], width=1, height=28).pack(side="left", padx=12)
         _pb("↑ Import .ini", self._ng_import_ini)
         _pb("↓ Export .ini", self._ng_export_ini, "accent")
-        tk.Frame(pi, bg="#181c38", width=1, height=28).pack(side="left", padx=12)
+        tk.Frame(pi, bg=C["border"], width=1, height=28).pack(side="left", padx=12)
         _grad_btn = tk.Button(pi, text="✦ Auto Gradient", font=("Segoe UI", 8),
-                              bg="#0a2922", fg="#00d4aa", relief="flat",
-                              activebackground="#0e3d30", activeforeground="#00ffcc",
+                              bg=C["card2"], fg=C["accent3"], relief="flat",
+                              activebackground=C["hover"], activeforeground=C["accent3"],
                               cursor="hand2", command=self._ng_auto_gradient, bd=0, padx=10, pady=5)
         _grad_btn.pack(side="left", padx=2)
-        _grad_btn.bind("<Enter>", lambda _: _grad_btn.config(bg="#0e3d30", fg="#00ffcc"))
-        _grad_btn.bind("<Leave>", lambda _: _grad_btn.config(bg="#0a2922", fg="#00d4aa"))
-        tk.Frame(pi, bg="#181c38", width=1, height=28).pack(side="left", padx=12)
+        _grad_btn.bind("<Enter>", lambda _: _grad_btn.config(bg=C["hover"], fg=C["accent3"]))
+        _grad_btn.bind("<Leave>", lambda _: _grad_btn.config(bg=C["card2"], fg=C["accent3"]))
+        tk.Frame(pi, bg=C["border"], width=1, height=28).pack(side="left", padx=12)
         _dir_btn = tk.Button(pi, text="📁 Open Folder", font=("Segoe UI", 8),
-                              bg="#11142a", fg=C["text_mid"], relief="flat",
-                              activebackground="#1b1f40", activeforeground=C["text"],
+                              bg=C["card2"], fg=C["text_mid"], relief="flat",
+                              activebackground=C["hover"], activeforeground=C["text"],
                               cursor="hand2", command=self._ng_open_profile_dir, bd=0, padx=10, pady=5)
         _dir_btn.pack(side="left", padx=2)
-        _dir_btn.bind("<Enter>", lambda _: _dir_btn.config(bg="#1b1f40", fg=C["text"]))
-        _dir_btn.bind("<Leave>", lambda _: _dir_btn.config(bg="#11142a", fg=C["text_mid"]))
+        _dir_btn.bind("<Enter>", lambda _: _dir_btn.config(bg=C["hover"], fg=C["text"]))
+        _dir_btn.bind("<Leave>", lambda _: _dir_btn.config(bg=C["card2"], fg=C["text_mid"]))
         _ref_btn = tk.Button(pi, text="↻ Refresh", font=("Segoe UI", 8),
-                              bg="#11142a", fg=C["text_mid"], relief="flat",
-                              activebackground="#1b1f40", activeforeground=C["text"],
+                              bg=C["card2"], fg=C["text_mid"], relief="flat",
+                              activebackground=C["hover"], activeforeground=C["text"],
                               cursor="hand2", command=self._ng_refresh_profiles, bd=0, padx=10, pady=5)
         _ref_btn.pack(side="left", padx=2)
-        _ref_btn.bind("<Enter>", lambda _: _ref_btn.config(bg="#1b1f40", fg=C["text"]))
-        _ref_btn.bind("<Leave>", lambda _: _ref_btn.config(bg="#11142a", fg=C["text_mid"]))
+        _ref_btn.bind("<Enter>", lambda _: _ref_btn.config(bg=C["hover"], fg=C["text"]))
+        _ref_btn.bind("<Leave>", lambda _: _ref_btn.config(bg=C["card2"], fg=C["text_mid"]))
 
         self._ng_status_var = tk.StringVar(value="")
         self._ng_status_lbl = tk.Label(pi, textvariable=self._ng_status_var,
@@ -8933,12 +9098,12 @@ class CHSuite(tk.Tk):
         self._ng_status_lbl.pack(side="right", padx=6)
 
         # ── Read-only banner ──────────────────────────────────────────────────
-        self._ng_ro_bar = tk.Frame(page, bg="#0e0828"); ro_i = tk.Frame(self._ng_ro_bar, bg="#0e0828")
+        self._ng_ro_bar = tk.Frame(page, bg=C["selected"]); ro_i = tk.Frame(self._ng_ro_bar, bg=C["selected"])
         ro_i.pack(fill="x", padx=14, pady=6)
         tk.Label(ro_i, text="🔒  Read-only profile", font=("Segoe UI",8,"bold"),
-                 bg="#0e0828", fg=C["accent"]).pack(side="left")
+                 bg=C["selected"], fg=C["accent"]).pack(side="left")
         tk.Label(ro_i, text=" — duplicate or create a new profile to edit colours.",
-                 font=("Segoe UI",8), bg="#0e0828", fg="#6b4faa").pack(side="left")
+                 font=("Segoe UI",8), bg=C["selected"], fg=C["accent_dim"]).pack(side="left")
         tk.Button(ro_i, text="⎘ Duplicate now", font=("Segoe UI",8), bg=C["accent"], fg="#fff",
                   relief="flat", activebackground=C["accent_dim"], activeforeground="#fff",
                   cursor="hand2", command=self._ng_prof_duplicate, bd=0, padx=8, pady=3
@@ -8946,9 +9111,9 @@ class CHSuite(tk.Tk):
 
         # ── Main body: paned (editor left, preview right) ─────────────────────
         body = tk.PanedWindow(page, orient="horizontal",
-                              bg="#0d1020", sashwidth=4, sashrelief="flat", handlesize=0)
+                              bg=C["bg"], sashwidth=4, sashrelief="flat", handlesize=0)
         body.pack(fill="both", expand=True)
-        left  = tk.Frame(body, bg="#07090e")
+        left  = tk.Frame(body, bg=C["bg"])
         right = tk.Frame(body, bg=C["panel"])
         body.add(left,  minsize=380, width=640, stretch="always")
         body.add(right, minsize=300, width=480, stretch="always")
@@ -8957,7 +9122,7 @@ class CHSuite(tk.Tk):
         TABS = [("🎸  Guitar","guitar"), ("🥁  Drums","drums"),
                 ("🎮  Six Fret","sixfret"), ("✨  Effects","other")]
         self._ng_tab_lbls = {}; self._ng_active_tab = "guitar"
-        BG = "#07090e"
+        BG = C["bg"]
         tab_bar = tk.Frame(left, bg=BG); tab_bar.pack(fill="x", side="top")
         self._ng_ind_cv = tk.Canvas(tab_bar, height=2, bg=BG, highlightthickness=0)
         self._ng_ind_cv.pack(fill="x", side="bottom")
@@ -8992,7 +9157,7 @@ class CHSuite(tk.Tk):
                 l.bind("<Leave>", lambda e,_s=s: l.config(fg=C["text_dim"]) if self._ng_active_tab!=_s else None)
                 l.bind("<Button-1>", lambda e,sec=s: _ng_switch(sec))
             _bind(lbl, section)
-        tk.Frame(tab_bar, bg="#151830", height=1).pack(fill="x", side="bottom")
+        tk.Frame(tab_bar, bg=C["border"], height=1).pack(fill="x", side="bottom")
 
         def _init_bounds(_=None):
             tab_row.update_idletasks()
@@ -9554,14 +9719,14 @@ class CHSuite(tk.Tk):
         self._pt_remove_btn.pack(fill="x")
 
         # Warning note
-        warn_card = tk.Frame(inner, bg="#2a1f0a",
+        warn_card = tk.Frame(inner, bg=C["card2"],
                              highlightbackground=C["warn"], highlightthickness=1,
                              padx=14, pady=10)
         warn_card.pack(fill="x")
         tk.Label(warn_card,
                  text="⚠  Close the Clone Hero Launcher before patching. "
                       "CHSuite will attempt to close it automatically if detected.",
-                 font=FT_LABEL, fg=C["warn"], bg="#2a1f0a",
+                 font=FT_LABEL, fg=C["warn"], bg=C["card2"],
                  wraplength=760, justify="left").pack(anchor="w")
 
         # ── Store selection vars ───────────────────────────────────────────────
@@ -9687,7 +9852,7 @@ class CHSuite(tk.Tk):
                      fg=C["text_dim"], bg=C["card"]).pack(side="left", padx=(0, 8))
             if disabled:
                 tk.Label(tag_row, text="disabled", font=FTM,
-                         fg=C["error"], bg="#3a1f1f", padx=4).pack(side="left", padx=(0, 6))
+                         fg=C["error"], bg=C["card2"], padx=4).pack(side="left", padx=(0, 6))
 
             # Patch badge
             if is_man:
@@ -9984,6 +10149,11 @@ class CHSuite(tk.Tk):
             found_dir = str(Path(exe).parent)
             self._cfg["ch_default_install"] = found_dir
             self._cfg["ch_install_dir"]     = found_dir
+            data_path = os.path.join(found_dir, "Clone Hero_Data")
+            if os.path.isdir(data_path):
+                self._cfg["default_data_path"] = data_path
+                if hasattr(self, "_data_v"):
+                    self._data_v.set(data_path)
             _save_json(CONFIG_FILE, self._cfg)
 
         self._do_launch_exe(exe)
@@ -10033,9 +10203,21 @@ class CHSuite(tk.Tk):
         self._status("Clone Hero closed — welcome back!")
 
     def _gm_set_default_install(self, path: str):
-        """Save path as the default Clone Hero install and refresh the list."""
+        """Save path as the default Clone Hero install and refresh the list.
+        Also syncs default_data_path so CHMenuChanger and NoteGen export
+        work correctly even if the user skipped the initial setup dialog."""
         self._cfg["ch_default_install"] = path
         self._cfg["ch_install_dir"]     = path
+        data_path = os.path.join(path, "Clone Hero_Data")
+        if os.path.isdir(data_path):
+            self._cfg["default_data_path"] = data_path
+            # Sync active profile data path
+            if not self._is_default_profile():
+                self._active_prof["data_path"] = data_path
+                _save_profiles(self._profiles)
+            # Update the MenuChanger data path entry live
+            if hasattr(self, "_data_v"):
+                self._data_v.set(data_path)
         _save_json(CONFIG_FILE, self._cfg)
         self._gm_refresh_installs()
         self._gm_status(f"Default set: {os.path.basename(path)}")
@@ -10288,13 +10470,13 @@ class CHSuite(tk.Tk):
                          bg="#0d2e1a", padx=4).pack(side="left", padx=(0, 4))
             else:
                 tk.Label(tag_r, text="Launcher", font=FTS, fg=C["warn"],
-                         bg="#2a1f0a", padx=4).pack(side="left", padx=(0, 4))
+                         bg=C["card2"], padx=4).pack(side="left", padx=(0, 4))
             if is_def:
                 tk.Label(tag_r, text="default", font=FTS, fg=C["warn"],
                          bg="#2a1200", padx=4).pack(side="left", padx=(0, 4))
             if disabled:
                 tk.Label(tag_r, text="disabled", font=FTS, fg=C["error"],
-                         bg="#3a1f1f", padx=4).pack(side="left")
+                         bg=C["card2"], padx=4).pack(side="left")
 
             # Right: buttons
             # ── Buttons: 2-column grid, uniform width ────────────────────────
@@ -10308,7 +10490,7 @@ class CHSuite(tk.Tk):
             if not is_def:
                 tk.Button(btn_col, text="★ Default",
                           command=lambda p=path: self._gm_set_default_install(p),
-                          bg="#2a1f0a", fg=C["warn"], **_bs
+                          bg=C["card2"], fg=C["warn"], **_bs
                           ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 3))
 
             # Row 1: Launch | Open folder
@@ -10337,13 +10519,13 @@ class CHSuite(tk.Tk):
                       ).grid(row=2, column=0, sticky="ew", padx=(0, 3), pady=(3, 0))
             tk.Button(btn_col, text="↺ Unpatch",
                       command=lambda p=path: self._gm_unpatch_install(p),
-                      bg="#2a1f0a", fg=C["warn"], **_bs
+                      bg=C["card2"], fg=C["warn"], **_bs
                       ).grid(row=2, column=1, sticky="ew", pady=(3, 0))
 
             # Row 3: Delete (spans both cols)
             tk.Button(btn_col, text="🗑 Delete",
                       command=lambda p=path: self._gm_delete_install(p),
-                      bg="#3a1f1f", fg=C["error"], **_bs
+                      bg=C["card2"], fg=C["error"], **_bs
                       ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(3, 0))
 
     def _gm_launch_exe(self, exe_path: str):
@@ -10838,7 +11020,13 @@ class CHSuite(tk.Tk):
                 _log(f"[gm] Could not register install: {e}")
 
         # Save as default install dir
-        self._cfg["ch_install_dir"] = actual
+        self._cfg["ch_install_dir"]     = actual
+        self._cfg["ch_default_install"] = actual
+        data_path = os.path.join(actual, "Clone Hero_Data")
+        if os.path.isdir(data_path):
+            self._cfg["default_data_path"] = data_path
+            if hasattr(self, "_data_v"):
+                self._data_v.set(data_path)
         _save_json(CONFIG_FILE, self._cfg)
 
         self._gm_status(f"Installed {tag} → {actual}")
@@ -10854,6 +11042,65 @@ class CHSuite(tk.Tk):
             self._gm_status_lbl.config(text=msg, fg=C["accent"])
             self.after(4000, lambda: self._gm_status_lbl.config(
                 text="", fg=C["text_dim"]) if hasattr(self, "_gm_status_lbl") else None)
+
+    # ── Reset to Default ──────────────────────────────────────────────────────
+    def _reset_to_default(self):
+        """Delete all CHSuite-created JSON files, restoring a fresh-install state."""
+        json_files = [
+            CONFIG_FILE,        # chsuite_config.json
+            PROFILES_FILE,      # ch_bg_profiles.json
+            _NG_PROFILES_FILE,  # ch_notegen_profiles.json
+            _NG_CONFIG_FILE,    # ch_notegen_config.json
+        ]
+
+        # Only list files that actually exist
+        existing = [f for f in json_files if f.is_file()]
+        if not existing:
+            messagebox.showinfo(
+                "Reset to Default",
+                "No CHSuite data files found — already at factory defaults.",
+                parent=self,
+            )
+            return
+
+        file_list = "\n".join(f"  • {f.name}" for f in existing)
+        confirmed = messagebox.askyesno(
+            "Reset to Default",
+            f"This will permanently delete the following CHSuite data files "
+            f"and restore factory defaults:\n\n{file_list}\n\n"
+            f"The application will close and must be restarted.\n\n"
+            f"Are you sure?",
+            icon="warning",
+            parent=self,
+        )
+        if not confirmed:
+            return
+
+        errors = []
+        for f in existing:
+            try:
+                f.unlink()
+            except Exception as exc:
+                errors.append(f"{f.name}: {exc}")
+
+        if errors:
+            messagebox.showerror(
+                "Reset to Default",
+                "Some files could not be deleted:\n\n" + "\n".join(errors),
+                parent=self,
+            )
+        else:
+            messagebox.showinfo(
+                "Reset to Default",
+                "All CHSuite data files have been deleted.\n"
+                "Please restart the application.",
+                parent=self,
+            )
+
+        # Close without saving (avoids re-writing the deleted files)
+        if hasattr(self, "_drpc"):
+            self._drpc.close()
+        self.destroy()
 
     # ── Close ─────────────────────────────────────────────────────────────────
     def _on_close(self):

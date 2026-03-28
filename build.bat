@@ -35,6 +35,11 @@ if not exist "rthook_texture2d.py" (
     goto :fail
 )
 
+if not exist "themes\" (
+    echo  [WARNING] themes\ folder not found -- the theme picker will show no themes at runtime.
+    echo  Create a themes\ folder with at least Default.json next to CHSuite.py.
+)
+
 :: ── [1/7] Locate Python 3.11 ─────────────────────────────────────────────────
 echo  [1/7] Locating Python 3.11...
 
@@ -191,6 +196,17 @@ if exist "Images\" (
 ) else (
     echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
     echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
+)
+echo.
+
+:: ── Copy themes folder ────────────────────────────────────────────────────────
+echo  Copying themes folder to dist\CHSuite...
+if exist "themes\" (
+    xcopy /E /I /Y "themes" "dist\CHSuite\themes" >nul
+    echo  themes folder copied.
+) else (
+    echo  [WARNING] themes\ folder not found in %~dp0 -- skipping copy.
+    echo  Users will see no themes until a themes\ folder with .json files is present.
 )
 echo.
 
