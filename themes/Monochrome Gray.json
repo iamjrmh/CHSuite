@@ -1,0 +1,30 @@
+{
+  "_name": "Monochrome Gray",
+  "_description": "A neutral mid-gray theme with no color accents.",
+
+  "bg":          "#1a1a1a",
+  "panel":       "#222222",
+  "card":        "#2a2a2a",
+  "card2":       "#303030",
+  "sidebar":     "#1e1e1e",
+  "border":      "#404040",
+  "border2":     "#505050",
+
+  "accent":      "#b0b0b0",
+  "accent_dim":  "#666666",
+  "accent2":     "#989898",
+  "accent3":     "#cccccc",
+
+  "text":        "#eeeeee",
+  "text_dim":    "#777777",
+  "text_mid":    "#aaaaaa",
+
+  "success":     "#888888",
+  "warn":        "#aaaaaa",
+  "error":       "#888888",
+
+  "selected":    "#555555",
+  "hover":       "#333333",
+  "nav_active":  "#b0b0b0",
+  "nav_hover":   "#333333"
+}

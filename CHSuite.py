@@ -1,5 +1,5 @@
 """
-CHSuite  by JURMR  v2.1
+CHSuite  by JURMR  v3.0
 =======================
 All-in-one Clone Hero utility suite.
 
@@ -5047,6 +5047,7 @@ DISCORD_CLIENT_ID_DEFAULT = "1484437105164943421"
 
 # Map internal page IDs → display names shown in Discord
 _PAGE_DISPLAY_NAMES = {
+    "about":       "About CHSuite",
     "bgchanger":   "CHMenuChanger",
     "namegen":     "CHNameGen",
     "notegen":     "CHNoteGen",
@@ -7696,7 +7697,7 @@ class CHSuite(tk.Tk):
                  bg=C["panel"], fg=C["accent"]).pack(side="left", padx=(0, 10))
         tk.Label(inner_tb, text="CHSuite",
                  font=FTT, bg=C["panel"], fg=C["text"]).pack(side="left")
-        tk.Label(inner_tb, text="  by JURMR  v2.1",
+        tk.Label(inner_tb, text="  by JURMR  v3.0",
                  font=("Segoe UI", 13), bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(6,0))
 
         # Discord status dot
@@ -7734,6 +7735,7 @@ class CHSuite(tk.Tk):
         self._current_page = None
 
         self._build_nav()
+        self._build_page_about()
         self._build_page_bgchanger()
         self._build_page_namegen()
         self._build_page_notegen()
@@ -7741,9 +7743,13 @@ class CHSuite(tk.Tk):
         self._build_page_patcher()
         self._build_page_gamemanager()
 
-        self._show_page("bgchanger")
+        self._show_page("about")
 
-    # ── navigation sidebar ────────────────────────────────────────────────────
+        # Show "What's New" popup once per version
+        if self._cfg.get("whats_new_seen_version") != "3.0":
+            self.after(400, self._show_whats_new)
+
+
     def _build_nav(self):
         tk.Frame(self._nav, bg=C["sidebar"], height=20).pack()
 
@@ -7757,6 +7763,7 @@ class CHSuite(tk.Tk):
         # Icons are drawn in a fixed-width Label so text always starts at
         # the same x position regardless of glyph width.
         nav_items = [
+            ("about",        "ⓘ", "About This Tool"),
             ("bgchanger",    "◈", "CHMenuChanger"),
             ("namegen",      "✦", "CHNameGen"),
             ("notegen",      "♪", "CHNoteGen"),
@@ -7842,7 +7849,7 @@ class CHSuite(tk.Tk):
 
         # Version at bottom
         tk.Frame(self._nav, bg=C["sidebar"]).pack(fill="y", expand=True)
-        tk.Label(self._nav, text="CHSuite v2.1", font=("Segoe UI", 8),
+        tk.Label(self._nav, text="CHSuite v3.0", font=("Segoe UI", 8),
                  fg=C["text_dim"], bg=C["sidebar"]).pack(pady=(0, 12))
 
     def _nav_hover(self, frame, icon_lbl, text_lbl, entering: bool):
@@ -7909,6 +7916,136 @@ class CHSuite(tk.Tk):
             self._on_close()
             python = sys.executable
             os.execv(python, [python] + sys.argv)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  PAGE 0 — ABOUT THIS TOOL
+    # ══════════════════════════════════════════════════════════════════════════
+    def _build_page_about(self):
+        page = tk.Frame(self._content, bg=C["bg"])
+        self._pages["about"] = page
+
+        # ── Scrollable canvas setup ───────────────────────────────────────────
+        canvas = tk.Canvas(page, bg=C["bg"], highlightthickness=0, bd=0)
+        scrollbar = ttk.Scrollbar(page, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # Inner frame that actually holds all the content
+        inner = tk.Frame(canvas, bg=C["bg"], padx=32, pady=28)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            canvas.itemconfig(inner_id, width=event.width)
+
+        inner.bind("<Configure>", _on_inner_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+
+        # Mouse-wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        # Linux scroll
+        canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+        canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1,  "units"))
+
+        # ── Header ────────────────────────────────────────────────────────────
+        tk.Label(inner, text="About CHSuite",
+                 font=("Segoe UI", 22, "bold"), fg=C["text"], bg=C["bg"]).pack(anchor="w")
+        tk.Label(inner,
+                 text="A comprehensive utility suite for Clone Hero — built to give you full control over every aspect of the game.",
+                 font=FT, fg=C["text_dim"], bg=C["bg"], wraplength=820, justify="left",
+                 ).pack(anchor="w", pady=(4, 22))
+
+        _sep(inner, bg=C["border"]).pack(fill="x", pady=(0, 22))
+
+        # ── Tool entries: (icon, name, accent_color, page_id, description) ───
+        tools = [
+            ("◈", "CHMenuChanger", C["accent"], "bgchanger",
+             "Replace the in-game menu backgrounds with any image you choose. "
+             "CHMenuChanger directly patches the game's asset bundles via UnityPy, "
+             "giving you pixel-perfect control over Clone Hero's visual presentation "
+             "without touching any other game files."),
+            ("✦", "CHNameGen", C["accent2"], "namegen",
+             "Design visually striking player name tags with full gradient and "
+             "per-letter colour control. Fine-tune hue, saturation, brightness, and "
+             "glow across every character, then copy the finished tag directly into "
+             "Clone Hero for an instantly personalised in-game identity."),
+            ("♪", "CHNoteGen", C["accent3"], "notegen",
+             "Craft custom note and highway colour profiles for any instrument. "
+             "The built-in live preview renders your changes in real time so you "
+             "can dial in the exact look you want before exporting a finished "
+             "profile ready for use in-game."),
+            ("⊘", "CHCleaner", C["warn"], "cleaner",
+             "Parse Clone Hero's badsongs.txt and surgically remove every folder "
+             "that failed to load — in one click. No more manually hunting through "
+             "your song library; CHCleaner surfaces every problematic entry and "
+             "deletes them instantly, keeping your library clean and scan times fast."),
+            ("⚙", "CHPatcher", C["success"], "patcher",
+             "Prevent the official Clone Hero Launcher from silently overwriting "
+             "your customised game files on each update. CHPatcher marks selected "
+             "installs as manually managed so the launcher leaves them untouched, "
+             "ensuring your CHMenuChanger backgrounds and other modifications "
+             "survive every launcher cycle."),
+            ("▦", "CHManager", C["accent"], "gamemanager",
+             "A fully featured Clone Hero installation manager built right into "
+             "CHSuite. Browse and download any official release, register existing "
+             "installs, set a default version, launch the game directly, and manage "
+             "all your installations from a single unified interface — no external "
+             "launcher required."),
+        ]
+
+        for icon, name, accent, page_id, desc in tools:
+            card = _card(inner, padx=18, pady=14)
+            card.pack(fill="x", pady=(0, 10))
+
+            # Icon + name row (name is clickable → jumps to that tab)
+            hdr = tk.Frame(card, bg=C["card"])
+            hdr.pack(anchor="w", fill="x")
+            tk.Label(hdr, text=icon, font=("Segoe UI", 14),
+                     fg=accent, bg=C["card"]).pack(side="left", padx=(0, 8))
+
+            name_lbl = tk.Label(hdr, text=name, font=("Segoe UI", 12, "bold"),
+                                fg=accent, bg=C["card"], cursor="hand2")
+            name_lbl.pack(side="left")
+
+            # Underline hint
+            hint_lbl = tk.Label(hdr, text="→ open", font=("Segoe UI", 8),
+                                fg=C["text_dim"], bg=C["card"])
+            hint_lbl.pack(side="left", padx=(6, 0))
+
+            def _make_jump(pid=page_id):
+                return lambda e: self._show_page(pid)
+
+            def _make_hover_in(nl=name_lbl, hl=hint_lbl, ac=accent):
+                def _h(e):
+                    nl.config(fg="white")
+                    hl.config(fg=ac)
+                return _h
+
+            def _make_hover_out(nl=name_lbl, hl=hint_lbl, ac=accent):
+                def _h(e):
+                    nl.config(fg=ac)
+                    hl.config(fg=C["text_dim"])
+                return _h
+
+            for w in (name_lbl, hint_lbl):
+                w.bind("<Button-1>", _make_jump())
+                w.bind("<Enter>",    _make_hover_in())
+                w.bind("<Leave>",    _make_hover_out())
+
+            tk.Label(card, text=desc,
+                     font=FT, fg=C["text_mid"], bg=C["card"],
+                     wraplength=820, justify="left",
+                     ).pack(anchor="w", pady=(6, 0))
+
+        # ── Footer ────────────────────────────────────────────────────────────
+        _sep(inner, bg=C["border"]).pack(fill="x", pady=(16, 10))
+        tk.Label(inner, text="CHSuite v3.0  ·  by JURMR",
+                 font=("Segoe UI", 8), fg=C["text_dim"], bg=C["bg"]).pack(anchor="w")
 
     # ══════════════════════════════════════════════════════════════════════════
     #  PAGE 1 — BG CHANGER
@@ -10103,7 +10240,9 @@ class CHSuite(tk.Tk):
                 return
             page = getattr(self, "_current_page", "bgchanger") or "bgchanger"
             tool = _PAGE_DISPLAY_NAMES.get(page, "CHSuite")
-            if page == "bgchanger":
+            if page == "about":
+                self._drpc.update(tool, "Browsing tool info")
+            elif page == "bgchanger":
                 profile = getattr(self, "_active_name", "") or ""
                 bg      = self._selected_bg()
                 details = f"Profile: {profile}  ·  {bg}" if profile else f"Editing: {bg}"
@@ -10429,7 +10568,18 @@ class CHSuite(tk.Tk):
 
         for inst in installs:
             path     = inst.get("directoryPath", "?")
-            ver      = inst.get("version") or "?"
+            ver      = inst.get("version") or ""
+            # If version is missing/empty, try reading Clone Hero_Data/version.json
+            if not ver:
+                try:
+                    ver_json_path = Path(path) / "Clone Hero_Data" / "version.json"
+                    if ver_json_path.is_file():
+                        ver_data = json.loads(ver_json_path.read_text(encoding="utf-8"))
+                        ver = (ver_data.get("version") or "?").lstrip("v")
+                    else:
+                        ver = "?"
+                except Exception:
+                    ver = "?"
             is_man   = inst.get("isFromLauncher") is False
             disabled = inst.get("disabled", False)
             exe_path = Path(path) / "Clone Hero.exe"
@@ -11042,6 +11192,89 @@ class CHSuite(tk.Tk):
             self._gm_status_lbl.config(text=msg, fg=C["accent"])
             self.after(4000, lambda: self._gm_status_lbl.config(
                 text="", fg=C["text_dim"]) if hasattr(self, "_gm_status_lbl") else None)
+
+    # ── What's New popup ──────────────────────────────────────────────────────
+    def _show_whats_new(self):
+        """Show a 'What's New in v3.0' popup, once per version."""
+        self._cfg["whats_new_seen_version"] = "3.0"
+        _save_json(CONFIG_FILE, self._cfg)
+
+        win = tk.Toplevel(self)
+        win.title("What's New in CHSuite v3.0")
+        win.resizable(False, False)
+        win.configure(bg=C["bg"])
+        win.grab_set()
+
+        # Centre relative to parent
+        self.update_idletasks()
+        px, py = self.winfo_rootx(), self.winfo_rooty()
+        pw, ph = self.winfo_width(), self.winfo_height()
+        w, h = 520, 540
+        win.geometry(f"{w}x{h}+{px + (pw - w)//2}+{py + (ph - h)//2}")
+
+        outer = tk.Frame(win, bg=C["bg"], padx=28, pady=24)
+        outer.pack(fill="both", expand=True)
+
+        # Header
+        hdr = tk.Frame(outer, bg=C["bg"])
+        hdr.pack(fill="x", pady=(0, 6))
+        tk.Label(hdr, text="🎉", font=("Segoe UI", 26), bg=C["bg"]).pack(side="left", padx=(0, 10))
+        tk.Label(hdr, text="What's New in v3.0",
+                 font=("Segoe UI", 17, "bold"), fg=C["text"], bg=C["bg"]).pack(side="left")
+
+        _sep(outer, bg=C["border"]).pack(fill="x", pady=(4, 14))
+
+        # Scrollable content area
+        txt_canvas = tk.Canvas(outer, bg=C["bg"], highlightthickness=0, bd=0, height=380)
+        txt_sb = ttk.Scrollbar(outer, orient="vertical", command=txt_canvas.yview)
+        txt_canvas.configure(yscrollcommand=txt_sb.set)
+        txt_sb.pack(side="right", fill="y")
+        txt_canvas.pack(side="left", fill="both", expand=True)
+
+        content = tk.Frame(txt_canvas, bg=C["bg"])
+        cid = txt_canvas.create_window((0, 0), window=content, anchor="nw")
+
+        content.bind("<Configure>", lambda e: txt_canvas.configure(
+            scrollregion=txt_canvas.bbox("all")))
+        txt_canvas.bind("<Configure>", lambda e: txt_canvas.itemconfig(cid, width=e.width))
+        txt_canvas.bind_all("<MouseWheel>",
+                            lambda e: txt_canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+
+        changes = [
+            (C["accent"],  "◈ About This Tool — Scrollable",
+             "The About page now scrolls, so every tool card is always "
+             "reachable regardless of window size."),
+            (C["accent"],  "◈ About This Tool — Clickable tool names",
+             "Click any tool name (e.g. CHMenuChanger) on the About page "
+             "to jump straight to that tool's tab."),
+            (C["accent2"], "✦ Discord Rich Presence — About tab",
+             "Opening the About page now shows 'About CHSuite · Browsing "
+             "tool info' in your Discord activity, matching every other tab."),
+            (C["accent3"], "♪ Version bump — v2.1 → v3.0",
+             "Titlebar, sidebar, About footer and all internal references "
+             "updated to reflect the new version."),
+            (C["warn"],    "⊘ What's New popup",
+             "This popup! Appears once per major version so you always "
+             "know what changed. Won't show again until the next release."),
+        ]
+
+        for i, (accent, title, body) in enumerate(changes):
+            row = tk.Frame(content, bg=C["card"], pady=10, padx=14,
+                           highlightbackground=C["border"], highlightthickness=1)
+            row.pack(fill="x", pady=(0, 8))
+            tk.Label(row, text=title, font=("Segoe UI", 10, "bold"),
+                     fg=accent, bg=C["card"], anchor="w").pack(fill="x")
+            tk.Label(row, text=body, font=FT, fg=C["text_mid"], bg=C["card"],
+                     wraplength=420, justify="left", anchor="w").pack(fill="x", pady=(4, 0))
+
+        _sep(outer, bg=C["border"]).pack(fill="x", pady=(10, 0))
+
+        tk.Button(outer, text="Got it  ✓",
+                  command=win.destroy,
+                  bg=C["accent"], fg="white", relief="flat",
+                  font=("Segoe UI", 10, "bold"), padx=20, pady=6,
+                  cursor="hand2", activebackground=C["accent_dim"],
+                  activeforeground="white").pack(anchor="e", pady=(10, 0))
 
     # ── Reset to Default ──────────────────────────────────────────────────────
     def _reset_to_default(self):
