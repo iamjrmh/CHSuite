@@ -1,7 +1,7 @@
 Requirements:
 - Windows 10 or 11 (64-bit)
-- Python 3.11 (64-bit) - from [python.org](https://python.org), check "Add Python to PATH" during install
+- Python 3.11 (64-bit) - from https://python.org, check "Add Python to PATH" during install
 
 1. To Generate themes, just double click the ThemeGen.py. It will open a simple gui for live editing of the CHSuite theme.
-2. Mess around with the colors and find something you like! Once you do, export it to the ```/themes/``` folder.
-3. Send them to your friends! They're able to imported into an already existing build of the CHSuite by placing the ```theme.json``` inside of your CHSuite /themes/ folder ```(ex. C:\CHSuite\themes)```
+2. Mess around with the colors and find something you like! Once you do, export it to the /themes/ folder.
+3. Send them to your friends! They're able to imported into an already existing build of the CHSuite by placing the theme.json inside of your CHSuite /themes/ folder (ex. C:\CHSuite\themes)
