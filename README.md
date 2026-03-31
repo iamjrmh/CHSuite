@@ -18,18 +18,7 @@ You can also manage patch state at any time from the **Launcher Patcher** page i
 
 If your backgrounds still aren't saving after patching, open the Launcher → Settings and set this install as your default.
 
----
-
-## 🔴 Run as Administrator
-
-**CHSuite must be run as Administrator or the BG Changer will fail to save changes.**
-
-Clone Hero's game files require elevated permissions to write to. Without admin rights the tool will open and scan normally, but Apply & Save will fail silently or with an error.
-
-**To run as admin:**
-- Right-click **CHSuite.exe** → **Run as administrator**
-
-To avoid doing this every time: right-click the exe → **Properties** → **Compatibility** tab → check **Run this program as an administrator** → **OK**.
+***You do NOT need the Clone Hero Launcher installed to be able to use this tool. You can use the custom Clone Hero Installer "```CHManager```" to completely bypass it.***
 
 ---
 
@@ -63,18 +52,15 @@ To avoid doing this every time: right-click the exe → **Properties** → **Com
 
 ## 🔄 Updating (Direct)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuite_Setup.exe).
-2. Double-click **CHSuite_Setup.exe** to run the installer.
-3. By default it installs to `C:\CHSuite`. If installed somewhere else, choose that directory.
-4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
-5. All of your old configs will work with newer versions. If you already set up CHSuite with an older version, you don't need to reset it all back up.
+1. Click on "Check for Update".
+2. If an update is found, press update.
+3. It will automatically install - once done, CHSuite should restart.
 
 ## 🔄 Updating (Portable)
 
-1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuite.zip). 
-2. Extract the ZIP where your old CHSuite.exe directory is.
-3. Double-click **CHSuite.exe**.
-4. All of your old configs will work with newer versions. If you already set up CHSuite with an older version, you don't need to reset it all back up.
+1. Click on "Check for Update".
+2. If an update is found, press update.
+3. It will automatically download and extract the latest zip and replace your current install - once done, CHSuite should restart.
 
 ---
 
