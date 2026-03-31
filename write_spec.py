@@ -2,6 +2,10 @@
 write_spec.py  --  writes CHSuite.spec to the current directory.
 Called by build.bat during the build process.
 All project files live in E:\\Downloads\\JURMR CHSuite
+
+Produces two executables inside dist\CHSuite\ sharing one _internal folder:
+  CHSuite.exe   -- the main app
+  ThemeGen.exe  -- the live theme designer (hidden file, launched by CHSuite)
 """
 import sys
 import os
@@ -70,6 +74,10 @@ else:
 spec = f"""# =============================================================================
 #  CHSuite.spec  --  Production PyInstaller spec
 #  Auto-generated  |  Targets: Windows x64, Python 3.11, UnityPy 1.25.0
+#
+#  Produces two executables in dist\\CHSuite\\ sharing one _internal folder:
+#    CHSuite.exe   -- main application
+#    ThemeGen.exe  -- live theme designer (hidden, launched by CHSuite)
 # =============================================================================
 
 from pathlib import Path
@@ -226,6 +234,9 @@ all_hidden = list(set(
     ]
 ))
 
+# =============================================================================
+#  Analysis 1 — CHSuite (main application)
+# =============================================================================
 a = Analysis(
     ["CHSuite.py"],
     pathex=[],
@@ -253,8 +264,48 @@ a = Analysis(
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+# =============================================================================
+#  Analysis 2 — ThemeGen (live theme designer, launched as hidden .exe)
+#  ThemeGen only needs stdlib + tkinter so its Analysis is lightweight.
+# =============================================================================
+a_tg = Analysis(
+    ["ThemeGen.py"],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[
+        "tkinter", "tkinter.colorchooser", "tkinter.filedialog",
+        "tkinter.messagebox", "_tkinter",
+        "json", "os", "socket", "struct", "subprocess",
+        "sys", "threading", "time", "pathlib",
+    ],
+    hookspath=[],
+    hooksconfig={{}},
+    runtime_hooks=[],
+    excludes=[
+        "setuptools", "test", "unittest",
+        "numpy", "scipy", "pandas",
+        "PIL", "UnityPy",
+        "PyQt5", "PyQt6", "wx",
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
 
+# Share modules between the two analyses so _internal isn't duplicated
+MERGE((a, "CHSuite", "CHSuite"), (a_tg, "ThemeGen", "ThemeGen"))
+
+# =============================================================================
+#  PYZ archives
+# =============================================================================
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz_tg = PYZ(a_tg.pure, a_tg.zipped_data, cipher=block_cipher)
+
+# =============================================================================
+#  EXE 1 — CHSuite.exe
+# =============================================================================
 exe = EXE(
     pyz,
     a.scripts,
@@ -274,11 +325,40 @@ exe = EXE(
 {icon_line}
 )
 
+# =============================================================================
+#  EXE 2 — ThemeGen.exe  (placed alongside CHSuite.exe in dist\CHSuite\)
+# =============================================================================
+exe_tg = EXE(
+    pyz_tg,
+    a_tg.scripts,
+    [],
+    exclude_binaries=True,
+    name="ThemeGen",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+{icon_line}
+)
+
+# =============================================================================
+#  COLLECT — one output folder containing both executables + shared _internal
+# =============================================================================
 coll = COLLECT(
     exe,
     a.binaries,
     a.zipfiles,
     a.datas,
+    exe_tg,
+    a_tg.binaries,
+    a_tg.zipfiles,
+    a_tg.datas,
     strip=False,
     upx=False,
     upx_exclude=[],
@@ -289,4 +369,4 @@ coll = COLLECT(
 with open("CHSuite.spec", "w", encoding="utf-8") as f:
     f.write(spec.lstrip())
 
-print("  Spec file written: CHSuite.spec")
+print("  Spec file written: CHSuite.spec  (CHSuite.exe + ThemeGen.exe)")

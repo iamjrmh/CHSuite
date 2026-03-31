@@ -30,6 +30,12 @@ if not exist "write_spec.py" (
     goto :fail
 )
 
+if not exist "ThemeGen.py" (
+    echo  [ERROR] ThemeGen.py not found in this folder.
+    echo  ThemeGen.py must be beside CHSuite.py to be compiled into the build.
+    goto :fail
+)
+
 if not exist "rthook_texture2d.py" (
     echo  [ERROR] rthook_texture2d.py not found in this folder.
     goto :fail
@@ -185,6 +191,15 @@ if exist "dist\CHSuite\_internal" (
 ) else (
     echo  [WARNING] dist\CHSuite\_internal not found -- skipping attrib.
 )
+
+:: ── Hide ThemeGen.exe ─────────────────────────────────────────────────────────
+echo  Hiding ThemeGen.exe...
+if exist "dist\CHSuite\ThemeGen.exe" (
+    attrib +h "dist\CHSuite\ThemeGen.exe"
+    echo  dist\CHSuite\ThemeGen.exe is now hidden.
+) else (
+    echo  [WARNING] dist\CHSuite\ThemeGen.exe not found -- build may have failed.
+)
 echo.
 
 :: ── Copy and hide Images folder ───────────────────────────────────────────────
@@ -217,6 +232,7 @@ echo   BUILD SUCCESSFUL
 echo  =============================================================
 echo.
 echo   Executable : dist\CHSuite\CHSuite.exe
+echo   Theme Lab  : dist\CHSuite\ThemeGen.exe  (hidden)
 echo   Full bundle: dist\CHSuite\
 echo.
 echo   ZIP the entire dist\CHSuite\ folder to distribute.
@@ -259,6 +275,7 @@ echo   BUILD SUCCESSFUL
 echo  =============================================================
 echo.
 echo   Executable : dist\CHSuite\CHSuite.exe
+echo   Theme Lab  : dist\CHSuite\ThemeGen.exe  (hidden)
 echo   Installer  : CHSuite_Setup.exe  (if NSIS was installed)
 echo.
 echo   Without installer: ZIP the entire dist\CHSuite\ folder.
