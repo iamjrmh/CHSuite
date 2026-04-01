@@ -129486,6 +129486,9 @@ class RoundedButton(tk.Canvas):
         state = kw.pop("state", None)
         if state is not None:
             self.set_state(state not in ("disabled", tk.DISABLED))
+        new_cmd = kw.pop("command", None)
+        if new_cmd is not None:
+            self.command = new_cmd
         new_text = kw.pop("text", None)
         if new_text is not None:
             self.text = new_text
@@ -130072,8 +130075,8 @@ class SetupDialog:
 
         row = tk.Frame(pick_card, bg=C["card"]); row.pack(fill="x")
         self._path_var = tk.StringVar()
-        self._path_entry = ttk.Entry(row, textvariable=self._path_var,
-                                     font=FTM, style="DE.TEntry")
+        self._path_entry = tk.Entry(row, textvariable=self._path_var,
+                                    font=FTM)
         self._path_entry.pack(side="left", fill="x", expand=True)
         RoundedButton(row, "Browse…", self._browse,
                       bg_color=C["accent_dim"], hover_color=C["accent"],
@@ -132206,20 +132209,44 @@ class CHSuite(tk.Tk):
         self.option_add("*Button.activeBackground",   C["hover"])
         self.option_add("*Button.activeForeground",   C["text"])
 
+        # Global tk.Entry defaults — highlightthickness draws a clean rectangle
+        # with no corner clipping artifacts unlike ttk.Entry's field element.
+        self.option_add("*Entry.relief",              "flat")
+        self.option_add("*Entry.bd",                  "0")
+        self.option_add("*Entry.highlightThickness",  "1")
+        self.option_add("*Entry.highlightBackground", C["border"])
+        self.option_add("*Entry.highlightColor",      C["accent"])
+        self.option_add("*Entry.background",          C["card2"])
+        self.option_add("*Entry.foreground",          C["text"])
+        self.option_add("*Entry.insertBackground",    C["text"])
+        self.option_add("*Entry.selectBackground",    C["selected"])
+        self.option_add("*Entry.selectForeground",    C["text"])
+
         s = ttk.Style(self)
         s.theme_use("clam")
         s.configure("Treeview",
                     background=C["panel"], fieldbackground=C["panel"],
                     foreground=C["text"], bordercolor=C["border"],
+                    lightcolor=C["border"], darkcolor=C["border"],
+                    relief="flat", borderwidth=1,
                     rowheight=32, font=FT)
         s.map("Treeview",
               background=[("selected", C["selected"])],
-              foreground=[("selected", C["text"])])
+              foreground=[("selected", C["text"])],
+              lightcolor=[("focus", C["border"]), ("!focus", C["border"])],
+              darkcolor=[("focus", C["border"]), ("!focus", C["border"])])
         s.configure("Treeview.Heading",
-                    background=C["border"], foreground=C["text_mid"], font=FTS)
+                    background=C["border"], foreground=C["text_mid"], font=FTS,
+                    lightcolor=C["border"], darkcolor=C["border"])
         s.configure("DE.TEntry",
                     fieldbackground=C["card2"], foreground=C["text"],
-                    insertcolor=C["text"], bordercolor=C["border"])
+                    insertcolor=C["text"], bordercolor=C["border"],
+                    lightcolor=C["border"], darkcolor=C["border"],
+                    relief="flat", borderwidth=1)
+        s.map("DE.TEntry",
+              lightcolor=[("focus", C["accent"]), ("!focus", C["border"])],
+              darkcolor=[("focus", C["accent"]), ("!focus", C["border"])],
+              bordercolor=[("focus", C["accent"]), ("!focus", C["border"])])
         s.configure("Vertical.TScrollbar",
                     background=C["border"], troughcolor=C["panel"],
                     arrowcolor=C["text_dim"])
@@ -132362,58 +132389,40 @@ class CHSuite(tk.Tk):
         self._theme_cb.bind("<<ComboboxSelected>>", self._on_theme_change)
 
         # Theme Lab launcher button
-        tl_btn = tk.Label(
-            theme_frame,
-            text="🎨  Theme Lab",
-            font=("Lato", 8),
-            fg=C["accent"],
-            bg=C["sidebar"],
-            cursor="hand2",
-        )
-        tl_btn.pack(anchor="w", pady=(6, 0))
-        tl_btn.bind("<Button-1>", lambda e: self._open_theme_lab())
-        tl_btn.bind("<Enter>",    lambda e: tl_btn.config(fg=C["text"]))
-        tl_btn.bind("<Leave>",    lambda e: tl_btn.config(fg=C["accent"]))
-
-        # Reset to Default button
-        reset_sep = tk.Frame(self._nav, bg=C["border"], height=1)
-        reset_sep.pack(fill="x", padx=12, pady=(8, 6))
-
-        reset_frame = tk.Frame(self._nav, bg=C["sidebar"], padx=12)
-        reset_frame.pack(fill="x", pady=(0, 4))
-
-        reset_btn = tk.Label(
-            reset_frame,
-            text="⟳  Reset to Default",
-            font=("Lato", 8),
-            fg=C["error"],
-            bg=C["sidebar"],
-            cursor="hand2",
-        )
-        reset_btn.pack(anchor="w")
-        reset_btn.bind("<Button-1>", lambda e: self._reset_to_default())
-        reset_btn.bind("<Enter>",  lambda e: reset_btn.config(fg=C["text"]))
-        reset_btn.bind("<Leave>",  lambda e: reset_btn.config(fg=C["error"]))
+        RoundedButton(
+            theme_frame, "🎨  Theme Lab", self._open_theme_lab,
+            bg_color=C["accent_dim"], hover_color=C["accent"],
+            text_color=C["text"], height=34, radius=12,
+            text_font=("Lato", 8, "bold"), canvas_bg=C["sidebar"],
+        ).pack(fill="x", pady=(8, 0))
 
         # Check for Updates button
         upd_sep = tk.Frame(self._nav, bg=C["border"], height=1)
-        upd_sep.pack(fill="x", padx=12, pady=(6, 6))
+        upd_sep.pack(fill="x", padx=12, pady=(8, 6))
 
         upd_frame = tk.Frame(self._nav, bg=C["sidebar"], padx=12)
         upd_frame.pack(fill="x", pady=(0, 4))
 
-        upd_btn = tk.Label(
-            upd_frame,
-            text="↑  Check for Updates",
-            font=("Lato", 8),
-            fg=C["accent"],
-            bg=C["sidebar"],
-            cursor="hand2",
-        )
-        upd_btn.pack(anchor="w")
-        upd_btn.bind("<Button-1>", lambda e: self._check_for_updates())
-        upd_btn.bind("<Enter>",  lambda e: upd_btn.config(fg=C["text"]))
-        upd_btn.bind("<Leave>",  lambda e: upd_btn.config(fg=C["accent"]))
+        RoundedButton(
+            upd_frame, "↑  Check for Updates", self._check_for_updates,
+            bg_color=C["accent_dim"], hover_color=C["accent"],
+            text_color=C["text"], height=34, radius=12,
+            text_font=("Lato", 8, "bold"), canvas_bg=C["sidebar"],
+        ).pack(fill="x")
+
+        # Reset to Default button
+        reset_sep = tk.Frame(self._nav, bg=C["border"], height=1)
+        reset_sep.pack(fill="x", padx=12, pady=(6, 6))
+
+        reset_frame = tk.Frame(self._nav, bg=C["sidebar"], padx=12)
+        reset_frame.pack(fill="x", pady=(0, 4))
+
+        RoundedButton(
+            reset_frame, "⟳  Reset to Default", self._reset_to_default,
+            bg_color="#3d1a1a", hover_color=C["error"],
+            text_color=C["error"], height=34, radius=12,
+            text_font=("Lato", 8, "bold"), canvas_bg=C["sidebar"],
+        ).pack(fill="x")
 
         # Version + What's New hover icon at the very bottom
         tk.Frame(self._nav, bg=C["sidebar"]).pack(fill="y", expand=True)
@@ -132688,7 +132697,7 @@ class CHSuite(tk.Tk):
         title_row = tk.Frame(header, bg=C["bg"])
         title_row.pack(anchor="center")
         tk.Label(title_row, text="🎉", font=("Lato", 18),
-                 bg=C["bg"]).pack(side="left", padx=(0, 10))
+                 fg=C["text"], bg=C["bg"]).pack(side="left", padx=(0, 10))
         tk.Label(title_row, text="What's New in v4.0",
                  font=("Lato", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(side="left")
         tk.Label(header, text="Here's everything that changed in this release:",
@@ -132795,8 +132804,8 @@ class CHSuite(tk.Tk):
         tk.Label(gi, text="Clone Hero_Data folder:", font=FTB,
                  bg=C["card"], fg=C["text_mid"]).pack(side="left")
         self._data_v = tk.StringVar(value=_get_default_data())
-        ttk.Entry(gi, textvariable=self._data_v,
-                  width=56, font=FTM, style="DE.TEntry").pack(side="left", padx=8)
+        tk.Entry(gi, textvariable=self._data_v,
+                 width=56, font=FTM).pack(side="left", padx=8)
         RoundedButton(gi, "Browse…", self._browse_data,
                       bg_color=C["accent_dim"], hover_color=C["accent"],
                       text_color=C["text"], height=38, radius=14,
@@ -132827,12 +132836,33 @@ class CHSuite(tk.Tk):
         lf  = tk.Frame(side, bg=C["panel"]); lf.pack(fill="both", expand=True, padx=6, pady=(0,6))
         vsb = ttk.Scrollbar(lf, orient="vertical")
         self._tree = ttk.Treeview(lf, selectmode="browse", show="tree",
-                                   yscrollcommand=vsb.set, height=22)
+                                   yscrollcommand=vsb.set, height=22,
+                                   cursor="hand2")
         self._tree.column("#0", width=195)
         vsb.config(command=self._tree.yview)
         self._tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
         self._tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+
+        # Hover highlight for rows
+        self._tree_hovered = None
+        def _tree_hover(event):
+            iid = self._tree.identify_row(event.y)
+            if iid == self._tree_hovered:
+                return
+            if self._tree_hovered and self._tree_hovered not in self._tree.selection():
+                self._tree.item(self._tree_hovered, tags=())
+            self._tree_hovered = iid
+            if iid and iid not in self._tree.selection():
+                self._tree.item(iid, tags=("hover",))
+        def _tree_leave(event):
+            if self._tree_hovered and self._tree_hovered not in self._tree.selection():
+                self._tree.item(self._tree_hovered, tags=())
+            self._tree_hovered = None
+        self._tree.tag_configure("hover", background=C["hover"])
+        self._tree.bind("<Motion>", _tree_hover)
+        self._tree.bind("<Leave>",  _tree_leave)
+
         self._tiid = {}
         for bg in BACKGROUNDS:
             iid = self._tree.insert("", "end", text=f"  {bg}")
@@ -133525,7 +133555,7 @@ class CHSuite(tk.Tk):
         row = tk.Frame(parent, bg=C["card"]); row.pack(fill="x", pady=3)
         tk.Label(row, text=label, width=label_width, anchor="w", font=FT_LABEL,
                  fg=C["text_mid"], bg=C["card"]).pack(side="left")
-        e = ttk.Entry(row, textvariable=var, style="DE.TEntry"); e.pack(side="left", fill="x", expand=True, padx=4)
+        e = tk.Entry(row, textvariable=var); e.pack(side="left", fill="x", expand=True, padx=4)
         if with_picker:
             RoundedButton(row, "Pick", lambda v=var: self._pick_color(v),
                           bg_color=C["border"], hover_color=C["hover"],
@@ -133609,7 +133639,7 @@ class CHSuite(tk.Tk):
 
         # Name input
         name_card = self._ng_section(frame, "NAME")
-        self._grad_name_entry = ttk.Entry(name_card, style="DE.TEntry", font=("Lato", 11))
+        self._grad_name_entry = tk.Entry(name_card, font=("Lato", 11))
         self._grad_name_entry.pack(fill="x")
 
         # Colors
@@ -133739,7 +133769,7 @@ class CHSuite(tk.Tk):
         # Name entry
         name_card = self._ng_section(frame, "NAME")
         name_row = tk.Frame(name_card, bg=C["card"]); name_row.pack(fill="x")
-        self._indiv_name_entry = ttk.Entry(name_row, style="DE.TEntry", font=("Lato", 11))
+        self._indiv_name_entry = tk.Entry(name_row, font=("Lato", 11))
         self._indiv_name_entry.pack(side="left", fill="x", expand=True)
         RoundedButton(name_row, "Update Letters", self._update_individual_letters,
                       bg_color=C["accent"], hover_color=C["accent_dim"],
@@ -133798,7 +133828,7 @@ class CHSuite(tk.Tk):
             color_var = tk.StringVar(value="#FFFFFF")
             color_swatch = tk.Label(row, bg="#FFFFFF", width=2)
             color_swatch.pack(side="left", padx=2)
-            e = ttk.Entry(row, textvariable=color_var, width=9, style="DE.TEntry")
+            e = tk.Entry(row, textvariable=color_var, width=9)
             e.pack(side="left", padx=2)
             def _update_swatch(sv=color_var, sw=color_swatch):
                 try: sw.config(bg=sv.get())
