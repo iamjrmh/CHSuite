@@ -129163,6 +129163,274 @@ def _save_json(path: Path, data):
 #  REUSABLE WIDGET HELPERS
 # ──────────────────────────────────────────────────────────────────────────────
 
+class StyledDropdown(tk.Canvas):
+    """
+    Canvas-based dropdown that matches the CHSuite rounded dark aesthetic.
+    Drop-in replacement for ttk.Combobox — supports:
+      • textvariable / get() / set()
+      • widget["values"] = [...]
+      • bind("<<ComboboxSelected>>", handler)
+      • state="readonly" / config(state=...)
+      • width= (in characters, like Combobox)
+    """
+
+    _POPUP_REF: "StyledDropdown | None" = None   # currently-open popup owner
+
+    def __init__(self, parent, textvariable=None, values=None,
+                 state="readonly", width=20, font=None,
+                 canvas_bg=None, height=34, radius=10, **kw):
+        self._font      = font or ("Lato", 9)
+        self._char_w    = 8          # approximate px per char for sizing
+        self._radius    = radius
+        self._height    = height
+        self._canvas_bg = canvas_bg or C["bg"]
+        self._enabled   = (state != "disabled")
+        self._hovered   = False
+        self._values    = list(values or [])
+        self._var       = textvariable if textvariable is not None else tk.StringVar()
+        self._popup_win = None
+        self._closing   = False   # debounce flag: True briefly after popup closes
+
+        # Calculate pixel width from char width if not given as pixels
+        px_width = max(width * self._char_w + 36, 80)
+
+        super().__init__(parent, highlightthickness=0,
+                         bg=self._canvas_bg,
+                         width=px_width, height=height,
+                         cursor="hand2", **kw)
+
+        self.bind("<Button-1>",  self._on_click)
+        self.bind("<Enter>",     self._on_enter)
+        self.bind("<Leave>",     self._on_leave)
+        self.bind("<Configure>", lambda e: self._draw())
+        # Close popup when window loses focus
+        self.winfo_toplevel().bind("<FocusOut>", self._on_root_focus_out, "+")
+        self._draw()
+
+    # ── drawing ───────────────────────────────────────────────────────────────
+    def _draw(self, hover=False):
+        self.delete("all")
+        w = max(self.winfo_width(),  1)
+        h = max(self.winfo_height(), 1)
+        r = self._radius
+
+        if not self._enabled:
+            bg_fill  = C["panel"]
+            fg_col   = C["text_dim"]
+            border   = C["border"]
+        elif hover or self._hovered:
+            bg_fill  = C["hover"]
+            fg_col   = C["text"]
+            border   = C["accent"]
+        else:
+            bg_fill  = C["card2"]
+            fg_col   = C["text"]
+            border   = C["border"]
+
+        # Rounded rect — draw border layer first, then fill on top (no outline on
+        # either polygon; smooth=True + outline causes white artefacts on Windows)
+        b = 1  # border thickness in px
+        bpts = [r,0, w-r,0, w,0, w,r, w,h-r, w,h, w-r,h, r,h, 0,h, 0,h-r, 0,r, 0,0]
+        self.create_polygon(bpts, smooth=True, fill=border, outline="")
+        ipts = [r+b,b, w-r-b,b, w-b,b, w-b,r+b, w-b,h-r-b, w-b,h-b,
+                w-r-b,h-b, r+b,h-b, b,h-b, b,h-r-b, b,r+b, b,b]
+        self.create_polygon(ipts, smooth=True, fill=bg_fill, outline="")
+
+        # Current value text — truncate if too wide
+        val  = self._var.get()
+        max_chars = max(int((w - 36) / self._char_w), 4)
+        disp = val if len(val) <= max_chars else val[:max_chars - 1] + "…"
+        self.create_text(10, h // 2, text=disp, anchor="w",
+                         fill=fg_col, font=self._font)
+
+        # Chevron ▾
+        cx = w - 14
+        cy = h // 2
+        self.create_polygon(
+            [cx - 5, cy - 3, cx + 5, cy - 3, cx, cy + 3],
+            fill=C["text_dim"] if self._enabled else C["border"],
+            outline="")
+
+    # ── events ────────────────────────────────────────────────────────────────
+    def _on_enter(self, _):
+        self._hovered = True
+        self._draw(hover=True)
+
+    def _on_leave(self, _):
+        self._hovered = False
+        self._draw(hover=False)
+
+    def _on_click(self, _):
+        if not self._enabled:
+            return
+        # Debounce: if popup just closed (via FocusOut), don't immediately reopen
+        if self._closing:
+            return
+        # If another dropdown is open, close it first
+        if StyledDropdown._POPUP_REF and StyledDropdown._POPUP_REF is not self:
+            StyledDropdown._POPUP_REF._close_popup()
+        if self._popup_win and self._popup_win.winfo_exists():
+            self._close_popup()
+            return
+        self._open_popup()
+
+    def _on_root_focus_out(self, event):
+        # Close if focus moved completely outside the app
+        try:
+            focused = self.focus_get()
+        except Exception:
+            focused = None
+        if focused is None:
+            self._close_popup()
+
+    # ── popup ─────────────────────────────────────────────────────────────────
+    def _open_popup(self):
+        if not self._values:
+            return
+
+        self.update_idletasks()
+        root_x = self.winfo_rootx()
+        root_y = self.winfo_rooty() + self.winfo_height() + 2
+        w      = max(self.winfo_width(), 120)
+
+        win = tk.Toplevel(self)
+        win.overrideredirect(True)
+        win.configure(bg=C["border"])
+        win.attributes("-topmost", True)
+
+        # Outer frame — acts as border
+        outer = tk.Frame(win, bg=C["border"], padx=1, pady=1)
+        outer.pack(fill="both", expand=True)
+
+        # Clamp visible rows: max 10, min 1
+        row_h     = 26
+        max_rows  = 10
+        n_rows    = min(len(self._values), max_rows)
+        lb_height = n_rows * row_h
+
+        lb = tk.Listbox(
+            outer,
+            font=self._font,
+            bg=C["card2"],
+            fg=C["text"],
+            selectbackground=C["accent"],
+            selectforeground="white",
+            activestyle="none",
+            relief="flat",
+            bd=0,
+            highlightthickness=0,
+            height=n_rows,
+        )
+
+        # Scrollbar only when needed
+        if len(self._values) > max_rows:
+            sb = tk.Scrollbar(outer, orient="vertical", command=lb.yview,
+                              bg=C["border"], troughcolor=C["panel"],
+                              width=10, relief="flat", bd=0)
+            lb.configure(yscrollcommand=sb.set)
+            sb.pack(side="right", fill="y")
+
+        lb.pack(fill="both", expand=True)
+
+        for v in self._values:
+            lb.insert(tk.END, "  " + v)
+
+        # Highlight current selection
+        cur = self._var.get()
+        if cur in self._values:
+            idx = self._values.index(cur)
+            lb.selection_set(idx)
+            lb.see(idx)
+
+        # Hover highlight (row bg, not selection)
+        def _on_motion(e):
+            lb.selection_clear(0, tk.END)
+            idx = lb.nearest(e.y)
+            lb.selection_set(idx)
+
+        lb.bind("<Motion>",          _on_motion)
+        lb.bind("<Button-1>",        lambda e: self._pick(lb))
+        lb.bind("<Return>",          lambda e: self._pick(lb))
+        lb.bind("<Escape>",          lambda e: self._close_popup())
+        win.bind("<FocusOut>",       lambda e: self._close_popup())
+        win.bind("<Escape>",         lambda e: self._close_popup())
+
+        # Position: try below, flip above if off-screen
+        sh = self.winfo_screenheight()
+        popup_h = lb_height + 2   # +border
+        if root_y + popup_h > sh - 10:
+            root_y = self.winfo_rooty() - popup_h - 2
+
+        win.geometry(f"{w}x{popup_h}+{root_x}+{root_y}")
+        win.lift()
+        lb.focus_set()
+
+        self._popup_win = win
+        self._popup_lb  = lb
+        StyledDropdown._POPUP_REF = self
+
+    def _pick(self, lb):
+        sel = lb.curselection()
+        if not sel:
+            return
+        val = self._values[sel[0]]
+        self._var.set(val)
+        self._draw()
+        self._close_popup()
+        # Fire virtual event so existing <<ComboboxSelected>> bindings work
+        self.event_generate("<<ComboboxSelected>>")
+
+    def _close_popup(self):
+        if self._popup_win:
+            try:
+                self._popup_win.destroy()
+            except Exception:
+                pass
+            self._popup_win = None
+            self._popup_lb  = None
+        if StyledDropdown._POPUP_REF is self:
+            StyledDropdown._POPUP_REF = None
+        # Set debounce flag so _on_click won't immediately reopen the popup
+        # when the click that caused FocusOut also triggers Button-1 on us
+        self._closing = True
+        self.after(200, self._reset_closing)
+        self._draw()
+
+    def _reset_closing(self):
+        self._closing = False
+
+    # ── public API (Combobox-compatible) ──────────────────────────────────────
+    def get(self):
+        return self._var.get()
+
+    def set(self, value):
+        self._var.set(value)
+        self._draw()
+
+    def __getitem__(self, key):
+        if key == "values":
+            return self._values
+        raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        if key == "values":
+            self._values = list(value)
+            self._draw()
+        else:
+            raise KeyError(key)
+
+    def config(self, **kw):
+        state = kw.pop("state", None)
+        if state is not None:
+            self._enabled = (state not in ("disabled", tk.DISABLED))
+            tk.Canvas.config(self, cursor="hand2" if self._enabled else "arrow")
+            self._draw()
+        if kw:
+            tk.Canvas.config(self, **kw)
+
+    configure = config
+
+
 class RoundedButton(tk.Canvas):
     """Canvas-based rounded button with hover and disabled states."""
     def __init__(self, parent, text, command, bg_color, hover_color,
@@ -131955,20 +132223,7 @@ class CHSuite(tk.Tk):
         s.configure("Vertical.TScrollbar",
                     background=C["border"], troughcolor=C["panel"],
                     arrowcolor=C["text_dim"])
-        s.configure("TCombobox",
-                    fieldbackground=C["card2"], background=C["card2"],
-                    foreground=C["text"], selectbackground=C["selected"],
-                    selectforeground=C["text"])
-        s.map("TCombobox",
-              fieldbackground=[("readonly", C["card2"])],
-              foreground=[("readonly", C["text"])])
-        # Style the dropdown listbox popup to match the theme
-        self.option_add("*TCombobox*Listbox.background",       C["card2"])
-        self.option_add("*TCombobox*Listbox.foreground",       C["text"])
-        self.option_add("*TCombobox*Listbox.selectBackground", C["selected"])
-        self.option_add("*TCombobox*Listbox.selectForeground", C["text"])
-        self.option_add("*TCombobox*Listbox.font",             ("Lato", 9))
-        self.option_add("*TCombobox*Listbox.relief",           "flat")
+        # TCombobox styling removed — all dropdowns use StyledDropdown
 
     # ── top-level layout ──────────────────────────────────────────────────────
     def _build_ui(self):
@@ -132093,13 +132348,15 @@ class CHSuite(tk.Tk):
                  fg=C["text_dim"], bg=C["sidebar"]).pack(anchor="w", pady=(0, 4))
 
         self._theme_var = tk.StringVar(value=self._cfg.get("theme", "Default"))
-        self._theme_cb  = ttk.Combobox(
+        self._theme_cb  = StyledDropdown(
             theme_frame,
             textvariable=self._theme_var,
             values=_list_themes(),
             state="readonly",
             font=("Lato", 8),
             width=18,
+            canvas_bg=C["sidebar"],
+            height=32,
         )
         self._theme_cb.pack(fill="x")
         self._theme_cb.bind("<<ComboboxSelected>>", self._on_theme_change)
@@ -132251,6 +132508,14 @@ class CHSuite(tk.Tk):
             self._current_page = page_id
         for pid, btn in self._nav_btns.items():
             btn.set_active(pid == page_id)
+        # Route Ctrl+S at the window level so it fires regardless of which
+        # child widget currently holds keyboard focus.
+        if page_id == "bgchanger":
+            self.bind("<Control-s>", lambda e: self._act_apply_all())
+        elif page_id == "notegen":
+            self.bind("<Control-s>", lambda e: self._ng_export_ini())
+        else:
+            self.unbind("<Control-s>")
         # Update Discord activity whenever the active tab changes
         if hasattr(self, "_drpc"):
             self._update_discord_rpc()
@@ -132495,8 +132760,9 @@ class CHSuite(tk.Tk):
         tk.Label(pi, text="PROFILE:", font=FTB,
                  bg=C["card2"], fg=C["text_mid"]).pack(side="left")
         self._prof_var = tk.StringVar()
-        self._prof_cb  = ttk.Combobox(pi, textvariable=self._prof_var,
-                                       width=30, font=FT, state="readonly")
+        self._prof_cb  = StyledDropdown(pi, textvariable=self._prof_var,
+                                        width=30, font=FT, state="readonly",
+                                        canvas_bg=C["card2"], height=34)
         self._prof_cb.pack(side="left", padx=8)
         self._prof_cb.bind("<<ComboboxSelected>>", self._on_profile_combo)
 
@@ -132605,14 +132871,10 @@ class CHSuite(tk.Tk):
                                  height=38, radius=14,
                                  text_font=(FTB if bold else FT),
                                  canvas_bg=C["panel"])
-        cbtn("▶ Export Original",    self._act_export_orig).pack(side="left", padx=(0, 6))
+        self._apply_btn = cbtn("💾 Save and Apply", self._act_apply_all, C["accent2"], "white", True)
+        self._apply_btn.pack(side="left", padx=(0, 6))
         cbtn("📂 Choose Replacement", self._act_choose_replacement, C["accent_dim"]).pack(side="left", padx=(0, 6))
-        cbtn("✖ Clear",               self._act_clear_replacement).pack(side="left", padx=(0, 6))
-        self._apply_btn = cbtn("✔  Apply & Save", self._act_apply_all, C["accent2"], "white", True)
-        self._apply_btn.pack(side="left")
-
-        # Ctrl+S shortcut
-        page.bind("<Control-s>", lambda e: self._act_apply_all())
+        cbtn("✖ Clear",               self._act_clear_replacement).pack(side="left")
 
         # Status bar
         sbar = tk.Frame(page, bg=C["panel"], pady=5)
@@ -132633,6 +132895,23 @@ class CHSuite(tk.Tk):
         card._info      = info
         card._ph_text   = ""   # track current placeholder text so resize can redraw it
         cv.bind("<Configure>", lambda e, c=cv, k=card: self._on_bg_resize(c, k))
+
+        # Right-click on the Current card -> Export context menu
+        def _on_right_click(event, k=card):
+            if k is not self._orig_card:
+                return
+            bg = self._selected_bg()
+            if not bg or not self._asset_cache.get(bg):
+                return
+            m = tk.Menu(self, tearoff=0,
+                        bg=C["card"], fg=C["text"],
+                        activebackground=C["accent"], activeforeground="white",
+                        bd=0, relief="flat")
+            m.add_command(label="Export original as PNG…",
+                          command=self._act_export_orig)
+            m.tk_popup(event.x_root, event.y_root)
+        cv.bind("<Button-3>", _on_right_click)
+
         # Don't draw placeholder at construction time — canvas has no real size yet.
         # It will be drawn correctly on the first <Configure> event once laid out.
         return card
@@ -133646,8 +133925,9 @@ class CHSuite(tk.Tk):
         tk.Label(pw, text="PROFILE", font=("Lato", 7, "bold"),
                  bg=BG_PROF, fg=C["text_dim"]).pack(anchor="w")
         self._ng_prof_var = tk.StringVar()
-        self._ng_prof_cb  = ttk.Combobox(pw, textvariable=self._ng_prof_var,
-                                          state="readonly", width=22, font=FT)
+        self._ng_prof_cb  = StyledDropdown(pw, textvariable=self._ng_prof_var,
+                                           state="readonly", width=22, font=FT,
+                                           canvas_bg=C["card2"], height=32)
         self._ng_prof_cb.pack()
         self._ng_prof_cb.bind("<<ComboboxSelected>>", self._ng_on_prof_selected)
 
@@ -134885,8 +135165,8 @@ class CHSuite(tk.Tk):
                             "timeout /t 2 /nobreak >NUL 2>&1\r\n"
                             + f"xcopy /E /Y /I /Q \"{source_str}\\*\""
                               f" \"{run_dir_str}\\\" >NUL 2>&1\r\n"
-                            + f"rd /S /Q \"{str(tmp_dir)}\" 2>NUL\r\n"
                             + f"start \"\" \"{exe_target}\"\r\n"
+                            + f"rd /S /Q \"{str(tmp_dir)}\" 2>NUL\r\n"
                             + "powershell -NoProfile -Command \""
                             f"$n='{exe_stem}';"
                             "$w=40;$p=0;"
