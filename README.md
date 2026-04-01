@@ -26,6 +26,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 
 | Tool | Description |
 |--|--|
+| **About This Tool** | Read each tools description and quickly launch that tool |
 | **CHMenuChanger** | Swap Clone Hero's menu background textures directly via UnityPy asset editing |
 | **CHNameGen** | Create gradient or per-letter colored player names with styling and export to `profiles.ini` |
 | **CHNoteGen** | Create gradient or per-note colors and export to `(ProfileName).ini` |
