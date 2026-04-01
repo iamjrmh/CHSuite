@@ -24,7 +24,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 
 ## ✨ What's Inside
 
-| Tool | Description |
+| Tab | Description |
 |--|--|
 | **About This Tool** | Read each tools description and quickly launch that tool |
 | **CHMenuChanger** | Swap Clone Hero's menu background textures directly via UnityPy asset editing |
