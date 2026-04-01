@@ -8,9 +8,40 @@ updates directly into the running CHSuite window.
 No need to keep CHSuite as a .py file.
 """
 import tkinter as tk
-from tkinter import colorchooser, filedialog, messagebox
+from tkinter import filedialog, messagebox
+import colorsys
 import json, os, socket, struct, subprocess, sys, threading, time
 from pathlib import Path
+
+# ── colour / font constants (used by _ColorPickerDialog) ──────────────────────
+
+C = dict(
+    bg="#0c0e13",
+    panel="#13161f",
+    card="#181c28",
+    card2="#1c2030",
+    sidebar="#0f111a",
+    border="#252b3d",
+    border2="#2e3650",
+    accent="#6c3bff",
+    accent_dim="#3d2299",
+    accent2="#ff3b8a",
+    accent3="#00d4aa",
+    text="#e9ecf8",
+    text_dim="#636b82",
+    text_mid="#9aa3bf",
+    success="#22c55e",
+    warn="#f59e0b",
+    error="#ef4444",
+    selected="#341a7a",
+    hover="#1e2235",
+    nav_active="#6c3bff",
+    nav_hover="#1e2235",
+)
+
+FT  = ("Lato", 10)
+FTB = ("Lato", 10, "bold")
+FTS = ("Lato", 8)
 
 # ── constants (must match CHSuite.py) ─────────────────────────────────────────
 IPC_PORT = 59832
@@ -116,6 +147,205 @@ def _exe_is_running() -> bool:
         return EXE_NAME.lower() in out.lower()
     except Exception:
         return False
+
+# ── colour helpers ─────────────────────────────────────────────────────────────
+
+def _ng_hex_to_rgb(h: str):
+    """int-based hex→(r,g,b)."""
+    h = h.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+def _ng_rgb_to_hex(r: int, g: int, b: int) -> str:
+    return "#{:02X}{:02X}{:02X}".format(max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
+
+
+# ── custom colour picker (HSV square + hue bar) ────────────────────────────────
+
+class _ColorPickerDialog(tk.Toplevel):
+    """Full HSV square + hue bar colour picker — replaces tkinter's colorchooser."""
+    _SQ = 220
+    _HH = 20
+
+    def __init__(self, parent, initial_hex: str, title: str = "Pick Color"):
+        super().__init__(parent)
+        self.title(title); self.resizable(False, False)
+        self.configure(bg=C["bg"]); self.transient(parent); self.grab_set()
+        self.result = None
+        try: ri, gi, bi = _ng_hex_to_rgb(initial_hex)
+        except Exception: ri, gi, bi = 255, 255, 255
+        h, s, v = colorsys.rgb_to_hsv(ri / 255, gi / 255, bi / 255)
+        self._h, self._s, self._v = h, s, v
+        self._orig = _ng_rgb_to_hex(ri, gi, bi).upper()
+        self._r = tk.IntVar(value=ri); self._g = tk.IntVar(value=gi); self._b = tk.IntVar(value=bi)
+        self._hex_var = tk.StringVar(value=self._orig)
+        self._busy = False; self._sq_cur_ids = []; self._hue_cur_ids = []
+        self._sq_photo = None
+        self._build_ui(); self._render_sq(); self._render_hue()
+        self._refresh_cursors(); self._update_preview()
+        self.update_idletasks()
+        pw, ph = parent.winfo_width(), parent.winfo_height()
+        px, py = parent.winfo_rootx(), parent.winfo_rooty()
+        ww, wh = self.winfo_reqwidth(), self.winfo_reqheight()
+        self.geometry(f"+{px + (pw - ww) // 2}+{py + (ph - wh) // 2}")
+        self.wait_window()
+
+    def _build_ui(self):
+        SQ = self._SQ
+        outer = tk.Frame(self, bg=C["bg"], padx=18, pady=16); outer.pack()
+        left = tk.Frame(outer, bg=C["bg"]); left.pack(side="left", padx=(0, 20))
+        sq_wrap = tk.Frame(left, bg="#252845", padx=1, pady=1); sq_wrap.pack()
+        self._sq_cv = tk.Canvas(sq_wrap, width=SQ, height=SQ, highlightthickness=0, cursor="crosshair")
+        self._sq_cv.pack()
+        self._sq_cv.bind("<Button-1>", self._sq_drag)
+        self._sq_cv.bind("<B1-Motion>", self._sq_drag)
+        tk.Frame(left, bg=C["border"], height=1).pack(fill="x", pady=(10, 0))
+        hue_wrap = tk.Frame(left, bg="#252845", padx=1, pady=1); hue_wrap.pack(pady=(8, 0))
+        self._hue_cv = tk.Canvas(hue_wrap, width=SQ, height=self._HH, highlightthickness=0, cursor="sb_h_double_arrow")
+        self._hue_cv.pack()
+        self._hue_cv.bind("<Button-1>", self._hue_drag)
+        self._hue_cv.bind("<B1-Motion>", self._hue_drag)
+        right = tk.Frame(outer, bg=C["bg"]); right.pack(side="left", fill="both")
+        pv = tk.Frame(right, bg=C["bg"]); pv.pack(fill="x", pady=(0, 14))
+        tk.Label(pv, text="BEFORE", bg=C["bg"], fg=C["text_dim"], font=("Lato", 7, "bold")).pack(side="left")
+        self._sw_old = tk.Frame(pv, bg=self._orig, width=54, height=36); self._sw_old.pack(side="left", padx=(5, 2)); self._sw_old.pack_propagate(False)
+        self._sw_new = tk.Frame(pv, bg=self._orig, width=54, height=36); self._sw_new.pack(side="left", padx=(2, 5)); self._sw_new.pack_propagate(False)
+        tk.Label(pv, text="AFTER", bg=C["bg"], fg=C["text_dim"], font=("Lato", 7, "bold")).pack(side="left")
+        for label, var, trough in [("R", self._r, "#5c1212"), ("G", self._g, "#124a22"), ("B", self._b, "#12265c")]:
+            row = tk.Frame(right, bg=C["bg"]); row.pack(fill="x", pady=3)
+            tk.Label(row, text=label, bg=C["bg"], fg=C["text"], font=FTB, width=2).pack(side="left")
+            tk.Scale(row, variable=var, from_=0, to=255, orient="horizontal", length=200, showvalue=True,
+                     bg=C["bg"], fg=C["text_mid"], troughcolor=trough, highlightthickness=0, bd=0,
+                     sliderrelief="flat", font=("Lato", 8), command=lambda _v: self._on_rgb()).pack(side="left", padx=(4, 0))
+        tk.Frame(right, bg=C["border"], height=1).pack(fill="x", pady=(10, 8))
+        hx = tk.Frame(right, bg=C["bg"]); hx.pack(fill="x", pady=(0, 4))
+        tk.Label(hx, text="HEX", bg=C["bg"], fg=C["text_dim"], font=("Lato", 7, "bold")).pack(side="left", padx=(0, 8))
+        self._hex_entry = tk.Entry(hx, textvariable=self._hex_var, font=("Lato", 10), width=9,
+                                   bg=C["card2"], fg=C["accent"], insertbackground=C["accent"],
+                                   relief="flat", bd=0, highlightthickness=1,
+                                   highlightbackground=C["border"], highlightcolor=C["accent"])
+        self._hex_entry.pack(side="left", ipady=4, padx=4)
+        self._hex_entry.bind("<Return>", self._on_hex); self._hex_entry.bind("<FocusOut>", self._on_hex)
+        hsv_row = tk.Frame(right, bg=C["bg"]); hsv_row.pack(fill="x", pady=(8, 0))
+        self._lh = tk.Label(hsv_row, text="H: 0°", bg=C["bg"], fg=C["text_dim"], font=FTS)
+        self._ls = tk.Label(hsv_row, text="S: 0%", bg=C["bg"], fg=C["text_dim"], font=FTS)
+        self._lv = tk.Label(hsv_row, text="V: 100%", bg=C["bg"], fg=C["text_dim"], font=FTS)
+        for lbl in (self._lh, self._ls, self._lv): lbl.pack(side="left", padx=(0, 10))
+        btn_row = tk.Frame(right, bg=C["bg"]); btn_row.pack(fill="x", pady=(18, 0))
+        tk.Button(btn_row, text="Cancel", font=FT, bg=C["card2"], fg=C["text_mid"],
+                  activebackground=C["border2"], activeforeground=C["text"],
+                  relief="flat", bd=0, padx=12, pady=7, cursor="hand2",
+                  command=self.destroy).pack(side="right", padx=(4, 0))
+        tk.Button(btn_row, text="✓  Apply", font=FTB, bg=C["accent"], fg="#fff",
+                  activebackground=C["accent_dim"], activeforeground="#fff",
+                  relief="flat", bd=0, padx=16, pady=7, cursor="hand2",
+                  command=self._ok).pack(side="right")
+
+    def _render_sq(self):
+        SQ = self._SQ
+        try:
+            import numpy as np
+            from PIL import Image as _PI
+            from PIL import ImageTk as _ITk
+            xs = np.linspace(0, 1, SQ); ys = np.linspace(1, 0, SQ)
+            S, V = np.meshgrid(xs, ys); h = self._h
+            hi = np.floor(h * 6).astype(int) % 6; f = h * 6 - np.floor(h * 6)
+            p = V * (1 - S); q = V * (1 - f * S); t_ = V * (1 - (1 - f) * S)
+            cR = np.select([hi==0, hi==1, hi==2, hi==3, hi==4], [V, q, p, p, t_], V)
+            cG = np.select([hi==0, hi==1, hi==2, hi==3, hi==4], [t_, V, V, q, p], p)
+            cB = np.select([hi==0, hi==1, hi==2, hi==3, hi==4], [p, p, t_, V, V], q)
+            rgb = (np.stack([cR, cG, cB], axis=2) * 255).astype(np.uint8)
+            photo = _ITk.PhotoImage(_PI.fromarray(rgb, "RGB"))
+        except Exception:
+            photo = tk.PhotoImage(width=SQ, height=SQ)
+            rows = []
+            for y in range(SQ):
+                v = 1. - y / max(SQ - 1, 1)
+                cols = [_ng_rgb_to_hex(*[int(c * 255) for c in colorsys.hsv_to_rgb(self._h, x / max(SQ - 1, 1), v)]) for x in range(SQ)]
+                rows.append("{" + ' '.join(cols) + "}")
+            photo.put(' '.join(rows))
+        self._sq_photo = photo
+        self._sq_cv.delete("all")
+        self._sq_cv.create_image(0, 0, anchor="nw", image=photo)
+
+    def _render_hue(self):
+        SQ = self._SQ; HH = self._HH
+        try:
+            import numpy as np
+            from PIL import Image as _PI
+            from PIL import ImageTk as _ITk
+            xs = np.linspace(0, 1, SQ)
+            r, g, b = np.vectorize(lambda h: colorsys.hsv_to_rgb(h, 1, 1))(xs)
+            row = (np.stack([r, g, b], axis=1) * 255).astype(np.uint8)
+            arr = np.tile(row[np.newaxis, :, :], (HH, 1, 1))
+            photo = _ITk.PhotoImage(_PI.fromarray(arr, "RGB"))
+        except Exception:
+            photo = tk.PhotoImage(width=SQ, height=HH)
+            rows = []
+            for _ in range(HH):
+                cols = [_ng_rgb_to_hex(*[int(c * 255) for c in colorsys.hsv_to_rgb(x / max(SQ - 1, 1), 1, 1)]) for x in range(SQ)]
+                rows.append("{" + ' '.join(cols) + "}")
+            photo.put(' '.join(rows))
+        self._hue_photo = photo
+        self._hue_cv.delete("all")
+        self._hue_cv.create_image(0, 0, anchor="nw", image=photo)
+
+    def _refresh_cursors(self):
+        for iid in self._sq_cur_ids: self._sq_cv.delete(iid)
+        for iid in self._hue_cur_ids: self._hue_cv.delete(iid)
+        self._sq_cur_ids = []; self._hue_cur_ids = []
+        SQ = self._SQ; cx = int(self._s * (SQ - 1)); cy = int((1. - self._v) * (SQ - 1)); cr = 8
+        self._sq_cur_ids = [self._sq_cv.create_oval(cx-cr, cy-cr, cx+cr, cy+cr, outline="#ffffff", width=2),
+                            self._sq_cv.create_oval(cx-cr+2, cy-cr+2, cx+cr-2, cy+cr-2, outline="#000000", width=1)]
+        hx = int(self._h * (SQ - 1))
+        self._hue_cur_ids = [self._hue_cv.create_line(hx, 0, hx, self._HH, fill="#ffffff", width=2),
+                             self._hue_cv.create_line(hx, 0, hx, self._HH, fill="#000000", width=1, dash=(3, 3))]
+
+    def _update_preview(self):
+        hx = _ng_rgb_to_hex(self._r.get(), self._g.get(), self._b.get())
+        self._sw_new.config(bg=hx); self._hex_var.set(hx.upper())
+        self._lh.config(text=f"H: {int(self._h * 360)}°")
+        self._ls.config(text=f"S: {int(self._s * 100)}%")
+        self._lv.config(text=f"V: {int(self._v * 100)}%")
+
+    def _sq_drag(self, ev):
+        SQ = self._SQ; self._s = max(0., min(1., ev.x / (SQ - 1))); self._v = max(0., min(1., 1. - ev.y / (SQ - 1)))
+        self._sq_cv.delete("all"); self._sq_cv.create_image(0, 0, anchor="nw", image=self._sq_photo)
+        cx = int(self._s * (SQ - 1)); cy = int((1. - self._v) * (SQ - 1)); cr = 8
+        self._sq_cv.create_oval(cx-cr, cy-cr, cx+cr, cy+cr, outline="#ffffff", width=2)
+        self._sq_cv.create_oval(cx-cr+2, cy-cr+2, cx+cr-2, cy+cr-2, outline="#000000", width=1)
+        r, g, b = colorsys.hsv_to_rgb(self._h, self._s, self._v)
+        self._busy = True; self._r.set(int(r*255+.5)); self._g.set(int(g*255+.5)); self._b.set(int(b*255+.5))
+        self._busy = False; self._update_preview()
+
+    def _hue_drag(self, ev):
+        self._h = max(0., min(1., ev.x / (self._SQ - 1)))
+        self._render_sq(); self._refresh_cursors()
+        r, g, b = colorsys.hsv_to_rgb(self._h, self._s, self._v)
+        self._busy = True; self._r.set(int(r*255+.5)); self._g.set(int(g*255+.5)); self._b.set(int(b*255+.5))
+        self._busy = False; self._update_preview()
+
+    def _on_rgb(self):
+        if self._busy: return
+        self._busy = True
+        self._h, self._s, self._v = colorsys.rgb_to_hsv(self._r.get()/255, self._g.get()/255, self._b.get()/255)
+        self._render_sq(); self._render_hue(); self._refresh_cursors(); self._update_preview()
+        self._busy = False
+
+    def _on_hex(self, _ = None):
+        val = self._hex_var.get().strip().lstrip("#")
+        if len(val) == 6:
+            try: ri, gi, bi = int(val[0:2], 16), int(val[2:4], 16), int(val[4:6], 16)
+            except ValueError: return
+            if self._busy: return
+            self._busy = True; self._r.set(ri); self._g.set(gi); self._b.set(bi)
+            self._h, self._s, self._v = colorsys.rgb_to_hsv(ri/255, gi/255, bi/255)
+            self._render_sq(); self._render_hue(); self._refresh_cursors(); self._update_preview()
+            self._busy = False
+
+    def _ok(self):
+        self.result = _ng_rgb_to_hex(self._r.get(), self._g.get(), self._b.get()).upper()
+        self.destroy()
+
 
 # ── main app ──────────────────────────────────────────────────────────────────
 
@@ -245,9 +475,9 @@ class ThemeLab:
 
     def _pick_color(self, key: str):
         old = self.current_theme.get(key, "#888888")
-        result = colorchooser.askcolor(initialcolor=old, title=f"Pick color — {key}")
-        if result and result[1]:
-            self.current_theme[key] = result[1].upper()
+        dlg = _ColorPickerDialog(self.root, old, title=f"Pick color — {key}")
+        if dlg.result:
+            self.current_theme[key] = dlg.result.upper()
             self._push_theme()
             self._refresh_list()
 
