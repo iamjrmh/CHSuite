@@ -41,15 +41,15 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
   
 ## 📁 Direct Install (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.exe).
-2. Double-click **CHSuite_Setup.exe** to run the installer.
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteWindows.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.exe).
+2. Double-click **CHSuiteWindows.exe** to run the installer.
 3. By default it installs to `C:\CHSuite`. Change it if you prefer.
 4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
 5. On first launch, select your Clone Hero installation folder - CHSuite will derive the `Clone Hero_Data` path automatically and patch your install in the background.
 
 ## 🚀 Portable Install
 
-1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip).
+1. Download **[CHSuiteWindows.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip).
 2. Extract the ZIP anywhere on your PC.
 3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted.
@@ -79,7 +79,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 
 ## 🚀 Portable Install
 
-1. Download **[CHSuite.zip](https://github.com/iamjrmh/CHSuite/releases/download/v1.1.0/CHSuite.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip).
+1. Download **[CHSuiteLinux.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip).
 2. Extract the ZIP anywhere on your PC.
 3. Double-click **CHSuite** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
