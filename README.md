@@ -41,7 +41,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
   
 ## 📁 Direct Install (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuite_Setup.exe).
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuite_Setup.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.exe).
 2. Double-click **CHSuite_Setup.exe** to run the installer.
 3. By default it installs to `C:\CHSuite`. Change it if you prefer.
 4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
