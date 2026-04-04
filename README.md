@@ -107,42 +107,8 @@ Stay tuned.
 
 ---
 
-## 🎨 Suite Menu
-
-<h3 align="center">CHMenuChanger</h3>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite1.png">
-</p>
-
-<h3 align="center">CHNameGen</h3>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite2.png">
-</p>
-
-<h3 align="center">CHNoteGen</h3>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite5.png">
-</p>
-
-<h3 align="center">CHCleaner</h3>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite3.png">
-</p>
-
-<h3 align="center">CHPatcher</h3>
-<p align="center">
-  <img src="https://i.imgur.com/vwUTFPr.png">
-</p>
-
-<h3 align="center">CHManager</h3>
-<p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSuite6.png">
-</p>
-
----
-
-## 🎨 CHMenuChanger
-
+<details>
+  <summary><h3>🎨 CHMenuChanger</h3></summary>
 Reads and writes Unity `.assets` files directly using UnityPy. No external tools or config file edits required.
 
 <h3 align="center">Menu Preview</h3>
@@ -215,9 +181,13 @@ On the first **Load & Scan** of any folder, CHSuite automatically copies the ori
 - The **Restore Backups** button copies all backed-up files back over the live game files and triggers a fresh scan.
 - **Apply & Save is blocked** if no backups exist, as a safety measure.
 
+</details>
+
 ---
 
-## ✏️ CHNameGen
+<details>
+  
+<summary><h3>✏️ CHNameGen</h3></summary>
 
 Create unique colored player names for Clone Hero using gradient fills or per-letter customization, then export directly to your `profiles.ini`.
 
@@ -253,9 +223,12 @@ Colors use standard hex format: `#RRGGBB`
 - For gradient: 2–3 colors for smooth transitions - similar hues = subtle, contrasting hues = bold
 - For rainbow: Red → Orange → Yellow → Green → Blue → Purple per letter
 
+</details>
+
 ---
 
-## 🗑️ CHCleaner
+<details>
+<summary><h3> 🗑️ CHCleaner</h3></summary>
 
 Parses Clone Hero's `badsongs.txt` error log and lets you bulk-delete the problematic song folders.
 
@@ -296,9 +269,12 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 | `badsongs.txt` | `Documents\Clone Hero\badsongs.txt` |
 | Deletion log | `Documents\Clone Hero\deletedsongs.log` |
 
+</details>
+
 ---
 
-## ⚙️ CHPatcher
+<details>
+<summary><h3> ⚙️ CHPatcher</h3></summary>
 
 Lists every install registered in `game_installs.json` and lets you patch or unpatch them on the fly.
 
@@ -309,9 +285,12 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 - `game_installs.json` is backed up to `.bak` automatically before every write
 - **Refresh** button to re-read the file at any time without restarting
 
+</details>
+
 ---
 
-## 📦 CHManager
+<details>
+<summary><h3> 📦 CHManager</h3></summary>
 
 An all-in-one install manager for Clone Hero. View every registered install at a glance, manage them directly, and download any release or PTB build straight from GitHub — all without leaving the tab.
 
@@ -333,6 +312,8 @@ An all-in-one install manager for Clone Hero. View every registered install at a
 - **PTB tab** — pre-release builds only, sorted by version number newest to oldest
 - **Architecture detection** — automatically detects whether your system is x64 or x32 and shows only matching builds
 - Clicking **⬇ Download & Install** prompts you to choose a destination folder, then downloads and installs silently with no dialogs or prompts
+
+</details>
 
 ---
 
@@ -445,10 +426,10 @@ MIT License - free to use, modify, and distribute.
 
 ## ⚠️ Disclaimer
 
-**The BG Changer and Bad Songs Cleaner make permanent changes to files.** CHSuite includes safety features (auto-backup, confirmation dialogs, restore functionality) but:
+**The CHMenuChanger and CHCleaner make permanent changes to files.** CHSuite includes safety features (auto-backup, confirmation dialogs, restore functionality) but:
 
 - Always keep your own backups of important files and songs
-- The BG Changer's auto-backup covers asset files, not your entire Clone Hero install
+- **CHMenuChangers**'s auto-backup covers asset files, not your entire Clone Hero install
 - Song deletions cannot be undone
 - By using this tool you assume all responsibility for the results
 
