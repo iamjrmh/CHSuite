@@ -363,8 +363,10 @@ They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
 ---
 
 ## 🔨 Building from Source
+<details>
+  <summary>Windows</summary>
 
-**Requirements**
+  **Requirements**
 - Windows 10 or 11 (64-bit)
 - Python 3.11 (64-bit) - from [python.org](https://python.org), check "Add Python to PATH" during install
 - NSIS 3.x (optional, for building the installer) - from [nsis.sourceforge.io](https://nsis.sourceforge.io/Download)
@@ -379,6 +381,9 @@ They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
    - `rthook_texture2d.py`
    - `CHSuite_Installer.nsi` *(optional, for installer)*
    - `JURMRWEED.ico` *(optional, for icon)*
+   - `ThemeGen.py`
+   - `/themes`
+   - `/Images`
 3. Double-click **`build.bat`**
 
 The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable - do not ship the `.exe` alone.
@@ -395,6 +400,41 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 | brotli / brotlicffi / lz4 | Compression support |
 | requests | Name Generator update checks |
 | PyInstaller | Executable bundling |
+</details>
+
+<details>
+  <summary>Linux</summary>
+
+  **Requirements**
+- Ubuntu 24.04.4 (64-bit)
+- Python 3.11 (64-bit) - from [python.org](https://python.org), check "Add Python to PATH" during install
+
+**Steps**
+
+1. Clone or download this repository into a single folder (e.g. `/home/YourUsername/downloads/CHSuite`)
+2. Ensure the following files are all present in that folder:
+   - `CHSuite.py`
+   - `build.sh`
+   - `write_spec.py`
+   - `rthook_texture2d.py`
+   - `ThemeGen.py`
+   - `/themes`
+   - `/Images`
+3. Open terminal, cd to your working directory and run **`./build.sh`**
+
+The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable.
+
+**Dependencies installed by build.sh**
+
+| Package | Purpose |
+|--|--|
+| Pillow | Image decoding and encoding |
+| UnityPy | Unity asset file reading/writing |
+| texture2ddecoder | GPU texture format decoding |
+| brotli / brotlicffi / lz4 | Compression support |
+| requests | Name Generator update checks |
+| PyInstaller | Executable bundling |
+</details>
 
 ---
 
@@ -402,7 +442,7 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 
 MIT License - free to use, modify, and distribute.
 
---
+---
 
 ## ⚠️ Disclaimer
 
