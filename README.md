@@ -3,6 +3,7 @@
 An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate custom colored player names, and clean up bad songs from your library. All three tools in a single unified application.
 
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/iamjrmh/CHSuite)
+[![Platform](https://img.shields.io/badge/platform-Linux-blue)](https://github.com/iamjrmh/CHSuite)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/iamjrmh/CHSuite)
 [![Python Version](https://img.shields.io/badge/python-3.11-blue)](https://python.org)
 
