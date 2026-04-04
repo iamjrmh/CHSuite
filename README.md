@@ -74,7 +74,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 ## 📁 Direct Install (Recommended)
 
 1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.AppImage).
-2. Double-click **CHSuiteLinux.AppImage ** to run CHSuite.
+2. Double-click **CHSuiteLinux.AppImage** to run CHSuite.
 3. On first launch, select your Clone Hero installation folder - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
 
 ## 🚀 Portable Install
