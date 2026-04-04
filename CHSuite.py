@@ -29,6 +29,18 @@ import subprocess
 import tempfile
 import platform
 import configparser
+
+# ── OS detection (set once, used everywhere) ──────────────────────────────────
+_IS_WINDOWS = sys.platform == "win32"
+_IS_LINUX   = sys.platform.startswith("linux")
+_IS_MAC     = sys.platform == "darwin"
+
+# Clone Hero's data folder is named differently on Linux
+_CH_DATA_DIR = "clonehero_Data" if _IS_LINUX else "Clone Hero_Data"
+
+# Executable candidates (in priority order)
+_CH_EXE_CANDIDATES_WIN = ("Clone Hero.exe", "clonehero.exe", "CloneHero.exe")
+_CH_EXE_CANDIDATES_LIN = ("clonehero", "Clone Hero", "clonehero.x86_64")
 import datetime
 import urllib.request
 from pathlib import Path
@@ -128899,11 +128911,22 @@ def _load_theme(name: str) -> bool:
         C[k] = raw[k]
     return True
 
-# ── CH Launcher registry path ─────────────────────────────────────────────────
-_INSTALLS_FILE = (
-    Path(os.environ.get("APPDATA", "")) /
-    "net.clonehero" / "ch_launcher" / "game_installs.json"
-)
+# ── CH Launcher registry path (platform-aware) ───────────────────────────────
+if _IS_WINDOWS:
+    _INSTALLS_FILE = (
+        Path(os.environ.get("APPDATA", "")) /
+        "net.clonehero" / "ch_launcher" / "game_installs.json"
+    )
+elif _IS_MAC:
+    _INSTALLS_FILE = (
+        Path.home() / "Library" / "Application Support" /
+        "net.clonehero" / "ch_launcher" / "game_installs.json"
+    )
+else:  # Linux — XDG config dir, falls back to ~/.config
+    _INSTALLS_FILE = (
+        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) /
+        "net.clonehero" / "ch_launcher" / "game_installs.json"
+    )
 _LAUNCHER_PROCS = ("CloneHeroLauncher.exe", "ch_launcher.exe", "clone-hero-launcher.exe")
 
 
@@ -129731,14 +129754,19 @@ class HoverTooltip:
 # ──────────────────────────────────────────────────────────────────────────────
 
 DEFAULT_PROFILE_NAME = "Default (Original)"
-DEFAULT_DATA = str(Path.home() / "Documents" / "Clone Hero" / "Clone Hero_Data")
+# On Linux the default install lives alongside the AppImage as clonehero-linux/
+# On Windows it lives in ~/Documents/Clone Hero/
+if _IS_LINUX:
+    DEFAULT_DATA = str(_app_dir() / "clonehero-linux" / _CH_DATA_DIR)
+else:
+    DEFAULT_DATA = str(Path.home() / "Documents" / "Clone Hero" / _CH_DATA_DIR)
 
 def _get_default_data():
-    """Return the best known Clone Hero_Data path.
+    """Return the best known game data path (Clone Hero_Data on Windows, clonehero_Data on Linux).
     Priority:
       1. Explicitly saved default_data_path — returned as-is, no existence check
          (user set it deliberately; don't second-guess it)
-      2. Clone Hero_Data derived from ch_default_install / ch_install_dir
+      2. Game data dir (_CH_DATA_DIR) derived from ch_default_install / ch_install_dir
          (only used when default_data_path has never been set)
       3. Hardcoded Documents fallback
     """
@@ -129749,7 +129777,7 @@ def _get_default_data():
     for key in ("ch_default_install", "ch_install_dir"):
         install = cfg.get(key, "")
         if install:
-            derived = os.path.join(install, "Clone Hero_Data")
+            derived = os.path.join(install, _CH_DATA_DIR)
             if os.path.isdir(derived):
                 return derived
     return DEFAULT_DATA
@@ -130029,7 +130057,7 @@ class SetupDialog:
     """
 
     def __init__(self, root: tk.Tk):
-        self.result = None   # Clone Hero_Data path
+        self.result = None   # game data path (Clone Hero_Data / clonehero_Data)
 
         self.win = tk.Toplevel(root)
         self.win.title("Welcome to CHSuite")
@@ -130091,8 +130119,9 @@ class SetupDialog:
         self._derived_lbl.pack(fill="x", pady=(10, 0))
         self._path_var.trace_add("write", self._on_path_change)
 
-        # Try to pre-fill with the default Documents location if it exists
-        default = str(Path.home() / "Documents" / "Clone Hero")
+        # Try to pre-fill with the most likely install location
+        default = str(_app_dir() / "clonehero-linux") if _IS_LINUX \
+                  else str(Path.home() / "Documents" / "Clone Hero")
         if os.path.isdir(default):
             self._path_var.set(default)
 
@@ -130103,7 +130132,7 @@ class SetupDialog:
         info_card.pack(fill="x", pady=(4, 0))
         tk.Label(info_card,
                  text="This is the folder that contains \"Clone Hero.exe\".\n"
-                      "CHSuite will look for game assets inside the \"Clone Hero_Data\"\n"
+                      f"CHSuite will look for game assets inside the \"{_CH_DATA_DIR}\"\n"
                       "subfolder found within it.",
                  font=FT, fg=C["text_mid"], bg=C["card2"],
                  justify="left").pack(anchor="w")
@@ -130146,7 +130175,7 @@ class SetupDialog:
 
     def _on_path_change(self, *_):
         p = self._path_var.get().strip()
-        data_path = os.path.join(p, "Clone Hero_Data") if p else ""
+        data_path = os.path.join(p, _CH_DATA_DIR) if p else ""
         if p and os.path.isdir(data_path):
             self._derived_lbl.config(
                 text=f"  Data folder found:  {data_path}",
@@ -130167,11 +130196,11 @@ class SetupDialog:
                                  "Please choose your Clone Hero install folder.",
                                  parent=self.win)
             return
-        data_path = os.path.join(p, "Clone Hero_Data")
+        data_path = os.path.join(p, _CH_DATA_DIR)
         if not os.path.isdir(data_path):
             if not messagebox.askyesno(
                     "Folder not found",
-                    f"\"Clone Hero_Data\" was not found inside:\n{p}\n\n"
+                    f"\"{_CH_DATA_DIR}\" was not found inside:\n{p}\n\n"
                     "This might not be the right folder.  Continue anyway?",
                     parent=self.win):
                 return
@@ -132531,13 +132560,14 @@ class CHSuite(tk.Tk):
 
     # ── Theme Lab launcher ────────────────────────────────────────────────────
     def _open_theme_lab(self):
-        """Launch ThemeGen.exe from the same folder as CHSuite (hidden file)."""
-        exe = _app_dir() / "ThemeGen.exe"
+        """Launch ThemeGen from the same folder as CHSuite (hidden file)."""
+        _tg_name = "ThemeGen.exe" if _IS_WINDOWS else "ThemeGen"
+        exe = _app_dir() / _tg_name
         if not exe.is_file():
             messagebox.showerror(
                 "Theme Lab",
-                f"ThemeGen.exe not found in:\n{_app_dir()}\n\n"
-                "Make sure ThemeGen.exe is in the same folder as CHSuite.",
+                f"{_tg_name} not found in:\n{_app_dir()}\n\n"
+                f"Make sure {_tg_name} is in the same folder as CHSuite.",
                 parent=self,
             )
             return
@@ -132549,7 +132579,7 @@ class CHSuite(tk.Tk):
                 stderr=subprocess.DEVNULL,
             )
         except Exception as exc:
-            messagebox.showerror("Theme Lab", f"Failed to launch ThemeGen.exe:\n{exc}", parent=self)
+            messagebox.showerror("Theme Lab", f"Failed to launch {_tg_name}:\n{exc}", parent=self)
 
     # ── theme change ──────────────────────────────────────────────────────────
     def _on_theme_change(self, event=None):
@@ -132801,7 +132831,7 @@ class CHSuite(tk.Tk):
                            highlightbackground=C["border"], highlightthickness=1)
         ggm_bar.pack(fill="x")
         gi = tk.Frame(ggm_bar, bg=C["card"], padx=14, pady=9); gi.pack(fill="x")
-        tk.Label(gi, text="Clone Hero_Data folder:", font=FTB,
+        tk.Label(gi, text=f"{_CH_DATA_DIR} folder:", font=FTB,
                  bg=C["card"], fg=C["text_mid"]).pack(side="left")
         self._data_v = tk.StringVar(value=_get_default_data())
         tk.Entry(gi, textvariable=self._data_v,
@@ -133095,8 +133125,9 @@ class CHSuite(tk.Tk):
 
     # ── BG loading ────────────────────────────────────────────────────────────
     def _browse_data(self):
-        p = filedialog.askdirectory(title="Select Clone Hero_Data folder",
-                                    initialdir=str(Path.home()/"Documents"/"Clone Hero"))
+        p = filedialog.askdirectory(title=f"Select {_CH_DATA_DIR} folder",
+                                    initialdir=str(_app_dir() / "clonehero-linux") if _IS_LINUX
+                                              else str(Path.home()/"Documents"/"Clone Hero"))
         if p: self._data_v.set(p)
 
     def _load_ggm(self):
@@ -133108,7 +133139,7 @@ class CHSuite(tk.Tk):
         if not os.path.isdir(path):
             messagebox.showerror("Not found",
                 "Folder not found:\n" + path +
-                "\n\nPlease select your Clone Hero_Data folder."); return
+                f"\n\nPlease select your {_CH_DATA_DIR} folder."); return
         if not self._is_default_profile():
             self._active_prof["data_path"] = path
             _save_profiles(self._profiles)
@@ -133135,7 +133166,7 @@ class CHSuite(tk.Tk):
                     self._status("Load error: " + msg),
                     messagebox.showerror("Load Error",
                         "Could not scan folder:\n\n" + msg +
-                        "\n\nMake sure you selected the Clone Hero_Data folder.")))
+                        f"\n\nMake sure you selected the {_CH_DATA_DIR} folder.")))
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_ggm_ready(self, am):
@@ -133161,7 +133192,7 @@ class CHSuite(tk.Tk):
 
     def _act_restore_backups(self):
         if self._am is None:
-            messagebox.showwarning("No folder", "Load a Clone Hero_Data folder first."); return
+            messagebox.showwarning("No folder", f"Load a {_CH_DATA_DIR} folder first.f"); return
         bd = self._am.backup_dir()
         if not os.path.isdir(bd):
             messagebox.showinfo("No backups", "No backup folder found at:\n" + bd); return
@@ -133239,7 +133270,7 @@ class CHSuite(tk.Tk):
                 self._orig_card._info.config(text="")
         else:
             self._bg_placeholder(self._orig_card._cv,
-                                  "Select and scan a Clone Hero_Data folder first.")
+                                  f"Select and scan a {_CH_DATA_DIR} folder first.f")
             self._orig_card._info.config(text="")
 
         reps     = self._active_prof.get("replacements", {})
@@ -133321,7 +133352,7 @@ class CHSuite(tk.Tk):
     # ── BG action buttons ─────────────────────────────────────────────────────
     def _act_export_orig(self):
         if self._am is None:
-            messagebox.showwarning("No folder", "Select and scan a Clone Hero_Data folder first.")
+            messagebox.showwarning("No folder", f"Select and scan a {_CH_DATA_DIR} folder first.f")
             return
         bg = self._selected_bg(); an = self._asset_cache.get(bg)
         if not an:
@@ -133383,7 +133414,7 @@ class CHSuite(tk.Tk):
 
     def _act_apply_all(self):
         if self._am is None:
-            messagebox.showwarning("No folder", "Select and scan a Clone Hero_Data folder first.")
+            messagebox.showwarning("No folder", f"Select and scan a {_CH_DATA_DIR} folder first.f")
             return
         if self._is_default_profile():
             if messagebox.askyesno("Create a profile first",
@@ -133414,7 +133445,7 @@ class CHSuite(tk.Tk):
         msg = "\n".join(summary)
         if skipped: msg += "\n\nSkipped:\n" + "\n".join(skipped)
         if not messagebox.askyesno("Apply & Save in-place",
-                "Apply these replacements directly to Clone Hero_Data:\n\n" +
+                f"Apply these replacements directly to {_CH_DATA_DIR}:\n\n" +
                 msg + "\n\nOriginals are backed up in _CH_BG_Backups.\nProceed?"):
             return
         self._status("Applying…"); self.update_idletasks()
@@ -135477,16 +135508,18 @@ class CHSuite(tk.Tk):
                 parent=self)
             if not answer:
                 return
+            _ft = [("Executable", "*.exe"), ("All files", "*.*")] if _IS_WINDOWS \
+                  else [("All files", "*.*")]
             exe = filedialog.askopenfilename(
-                title="Select Clone Hero.exe",
-                filetypes=[("Executable", "*.exe"), ("All files", "*.*")],
+                title="Select Clone Hero executable",
+                filetypes=_ft,
                 initialdir=default_dir or str(Path.home()))
             if not exe:
                 return
             found_dir = str(Path(exe).parent)
             self._cfg["ch_default_install"] = found_dir
             self._cfg["ch_install_dir"]     = found_dir
-            data_path = os.path.join(found_dir, "Clone Hero_Data")
+            data_path = os.path.join(found_dir, _CH_DATA_DIR)
             if os.path.isdir(data_path):
                 self._cfg["default_data_path"] = data_path
                 if hasattr(self, "_data_v"):
@@ -135497,16 +135530,35 @@ class CHSuite(tk.Tk):
 
     @staticmethod
     def _find_ch_exe(directory: str):
-        """Return path to Clone Hero.exe in directory, or None."""
+        """Return path to the Clone Hero executable in directory, or None.
+        Windows: looks for .exe files.
+        Linux:   looks for .AppImage first, then plain executables.
+        """
         if not directory or not os.path.isdir(directory):
             return None
-        for candidate in ("Clone Hero.exe", "clonehero.exe", "CloneHero.exe"):
-            p = Path(directory) / candidate
-            if p.is_file():
-                return str(p)
-        for p in Path(directory).glob("*.exe"):
-            if "clone" in p.stem.lower() and "hero" in p.stem.lower():
-                return str(p)
+        if _IS_WINDOWS:
+            for candidate in _CH_EXE_CANDIDATES_WIN:
+                p = Path(directory) / candidate
+                if p.is_file():
+                    return str(p)
+            for p in Path(directory).glob("*.exe"):
+                if "clone" in p.stem.lower() and "hero" in p.stem.lower():
+                    return str(p)
+        else:  # Linux / macOS
+            # Prefer AppImage
+            for p in sorted(Path(directory).glob("*.AppImage")):
+                if "clone" in p.name.lower() or "hero" in p.name.lower():
+                    return str(p)
+            # Fall back to plain executables
+            for candidate in _CH_EXE_CANDIDATES_LIN:
+                p = Path(directory) / candidate
+                if p.is_file() and os.access(str(p), os.X_OK):
+                    return str(p)
+            # Last resort: any executable in the folder matching name pattern
+            for p in Path(directory).iterdir():
+                if p.is_file() and os.access(str(p), os.X_OK):
+                    if "clone" in p.name.lower() or "hero" in p.name.lower():
+                        return str(p)
         return None
 
     def _do_launch_exe(self, exe_path: str):
@@ -135545,7 +135597,7 @@ class CHSuite(tk.Tk):
         work correctly even if the user skipped the initial setup dialog."""
         self._cfg["ch_default_install"] = path
         self._cfg["ch_install_dir"]     = path
-        data_path = os.path.join(path, "Clone Hero_Data")
+        data_path = os.path.join(path, _CH_DATA_DIR)
         if os.path.isdir(data_path):
             self._cfg["default_data_path"] = data_path
             # Sync active profile data path
@@ -135741,7 +135793,7 @@ class CHSuite(tk.Tk):
         removed_any = False
         for inst in installs:
             p = inst.get("directoryPath", "")
-            if p and not (Path(p) / "Clone Hero.exe").is_file():
+            if p and self._find_ch_exe(p) is None:
                 # Remove from game_installs.json silently
                 try:
                     data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
@@ -135772,10 +135824,10 @@ class CHSuite(tk.Tk):
         for inst in installs:
             path     = inst.get("directoryPath", "?")
             ver      = inst.get("version") or ""
-            # If version is missing/empty, try reading Clone Hero_Data/version.json
+            # If version is missing/empty, try reading {_CH_DATA_DIR}/version.json
             if not ver:
                 try:
-                    ver_json_path = Path(path) / "Clone Hero_Data" / "version.json"
+                    ver_json_path = Path(path) / _CH_DATA_DIR / "version.json"
                     if ver_json_path.is_file():
                         ver_data = json.loads(ver_json_path.read_text(encoding="utf-8"))
                         ver = (ver_data.get("version") or "?").lstrip("v")
@@ -135785,8 +135837,8 @@ class CHSuite(tk.Tk):
                     ver = "?"
             is_man   = inst.get("isFromLauncher") is False
             disabled = inst.get("disabled", False)
-            exe_path = Path(path) / "Clone Hero.exe"
-            exe_ok   = exe_path.is_file()
+            exe_path = self._find_ch_exe(path)
+            exe_ok   = exe_path is not None
             is_def   = os.path.normcase(os.path.normpath(path)) == default_dir
 
             row_bg = C["card2"] if is_def else C["card"]
@@ -135834,7 +135886,7 @@ class CHSuite(tk.Tk):
             # Right: buttons
             # ── Buttons: 2-column grid, uniform width ────────────────────────
             btn_col = tk.Frame(ri, bg=row_bg)
-            btn_col.pack(side="right", padx=(8, 0))
+            btn_col.pack(side="right", padx=(8, 12))
 
             def _rb(parent, text, cmd, bg, fg, row, col, rowspan=1, colspan=1, pad_l=0, pad_t=0):
                 b = RoundedButton(parent, text, cmd,
@@ -135868,13 +135920,17 @@ class CHSuite(tk.Tk):
                 lambda p=path: self._gm_open_folder(p),
                 C["border"], C["text"], row=1, col=1, pad_l=0, pad_t=3)
 
-            # Row 2: Patch | Unpatch
-            _rb(btn_col, "⚙ Patch",
+            # Row 2: Patch | Unpatch  (grayed out if game_installs.json is absent)
+            _installs_exist = _INSTALLS_FILE.is_file()
+            patch_btn = _rb(btn_col, "⚙ Patch",
                 lambda p=path: self._gm_patch_install(p),
                 "#1a2a1a", C["success"], row=2, col=0, pad_t=3)
-            _rb(btn_col, "↺ Unpatch",
+            unpatch_btn = _rb(btn_col, "↺ Unpatch",
                 lambda p=path: self._gm_unpatch_install(p),
                 C["card2"], C["warn"], row=2, col=1, pad_l=0, pad_t=3)
+            if not _installs_exist:
+                patch_btn.set_state(False)
+                unpatch_btn.set_state(False)
 
             # Row 3: Delete (spans both cols)
             _rb(btn_col, "🗑 Delete",
@@ -135972,20 +136028,26 @@ class CHSuite(tk.Tk):
         if not folder:
             return
 
-        exe = Path(folder) / "Clone Hero.exe"
-        if not exe.is_file():
+        exe = self._find_ch_exe(folder)
+        _exe_label = "Clone Hero.exe" if _IS_WINDOWS else "Clone Hero executable"
+        if not exe:
             if not messagebox.askyesno(
                     "Exe not found",
-                    f"Clone Hero.exe was not found in:\n{folder}\n\n"
+                    f"{_exe_label} was not found in:\n{folder}\n\n"
                     "Add it anyway?", parent=self):
                 return
 
         if not _INSTALLS_FILE.is_file():
-            messagebox.showerror(
-                "Launcher not found",
-                "game_installs.json doesn't exist yet.\n"
-                "Run the Clone Hero Launcher at least once first.", parent=self)
-            return
+            # No launcher file yet — create a minimal one so we can register
+            try:
+                _INSTALLS_FILE.parent.mkdir(parents=True, exist_ok=True)
+                _INSTALLS_FILE.write_text(
+                    json.dumps({"installs": []}, indent=2), encoding="utf-8")
+            except Exception as e:
+                messagebox.showerror(
+                    "Error",
+                    f"Could not create game_installs.json:\n{e}", parent=self)
+                return
 
         try:
             shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
@@ -136105,6 +136167,46 @@ class CHSuite(tk.Tk):
             pool.sort(key=_ext_rank)
             return pool[0] if pool else None
 
+        def _linux_asset(release):
+            """Return the Linux asset matching the host architecture.
+            Priority: .AppImage → .tar.xz → .tar (arch-matched first).
+            """
+            LINUX_EXTS = (".appimage", ".tar.xz", ".tar")
+            arch_tag  = "x86_64" if _is_64 else "x86"
+            anti_tag  = "x86" if _is_64 else "x86_64"
+            candidates, fallback = [], []
+            for a in release.get("assets", []):
+                n = a["name"].lower()
+                if not any(n.endswith(ext) for ext in LINUX_EXTS):
+                    continue
+                if "win" in n or "windows" in n or "mac" in n or "osx" in n:
+                    continue          # definitely not Linux
+                if anti_tag in n:
+                    continue
+                if arch_tag in n or "linux" in n:
+                    candidates.append(a)
+                else:
+                    fallback.append(a)
+            pool = candidates if candidates else fallback
+            # Prefer .AppImage → .tar.xz → .tar
+            def _ext_rank_linux(a):
+                n = a["name"].lower()
+                for i, ext in enumerate(LINUX_EXTS):
+                    if n.endswith(ext):
+                        return i
+                return 99
+            pool.sort(key=_ext_rank_linux)
+            return pool[0] if pool else None
+
+        def _pick_asset(release):
+            """Return the best release asset for the current OS."""
+            if _IS_WINDOWS:
+                return _win_asset(release)
+            elif _IS_LINUX:
+                return _linux_asset(release)
+            else:  # macOS — fall back to zip/tar, skip exe
+                return _linux_asset(release) or _win_asset(release)
+
         def _populate_frame(frame, releases):
             if not releases:
                 tk.Label(frame, text="No releases found.", font=FT,
@@ -136118,7 +136220,7 @@ class CHSuite(tk.Tk):
                 _cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
             for rel in releases:
-                asset = _win_asset(rel)
+                asset = _pick_asset(rel)
                 if not asset:
                     continue
                 rtag    = rel.get("tag_name", "?")
@@ -136157,7 +136259,9 @@ class CHSuite(tk.Tk):
             return
 
         # Ask the user where to install
-        initial = self._cfg.get("ch_install_dir", str(Path.home() / "Documents" / "Clone Hero"))
+        _default_install_base = str(_app_dir()) if _IS_LINUX \
+                                else str(Path.home() / "Documents" / "Clone Hero")
+        initial = self._cfg.get("ch_install_dir", _default_install_base)
         dest_base = filedialog.askdirectory(
             title=f"Choose install folder for Clone Hero {tag}",
             initialdir=initial,
@@ -136319,6 +136423,19 @@ class CHSuite(tk.Tk):
                                 "Cannot extract .7z: install py7zr (pip install py7zr) "
                                 "or 7-Zip.")
                     zip_path.unlink(missing_ok=True)
+                elif fname_lower.endswith(".appimage"):
+                    _log(f"[gm] Installing .AppImage {zip_path} → {dest_dir}")
+                    # AppImages are self-contained — just ensure +x; no extraction
+                    import stat
+                    current = zip_path.stat().st_mode
+                    zip_path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                    # Leave the AppImage in dest_dir — do NOT delete it
+                elif fname_lower.endswith((".tar.xz", ".tar.gz", ".tar.bz2", ".tar")):
+                    _log(f"[gm] Extracting {fname_lower} {zip_path} → {dest_dir}")
+                    import tarfile
+                    with tarfile.open(zip_path, "r:*") as tf:
+                        tf.extractall(dest_dir)
+                    zip_path.unlink(missing_ok=True)
                 else:
                     _log(f"[gm] Extracting .zip {zip_path} → {dest_dir}")
                     import zipfile
@@ -136347,9 +136464,15 @@ class CHSuite(tk.Tk):
         # Look for the actual game folder inside dest (zip may have a subfolder)
         actual = install_dir
         for item in Path(install_dir).iterdir():
-            if item.is_dir() and (item / "Clone Hero.exe").is_file():
+            if item.is_dir() and self._find_ch_exe(str(item)) is not None:
                 actual = str(item)
                 break
+        # AppImage case: the asset IS the executable — chmod +x and keep in folder
+        if actual == install_dir and self._find_ch_exe(install_dir) is None:
+            for f in Path(install_dir).iterdir():
+                if f.suffix.lower() == ".appimage":
+                    f.chmod(f.stat().st_mode | 0o111)   # ensure +x
+                    break
 
         # Register in game_installs.json as Manual
         if _INSTALLS_FILE.is_file():
@@ -136376,7 +136499,7 @@ class CHSuite(tk.Tk):
         # Save as default install dir
         self._cfg["ch_install_dir"]     = actual
         self._cfg["ch_default_install"] = actual
-        data_path = os.path.join(actual, "Clone Hero_Data")
+        data_path = os.path.join(actual, _CH_DATA_DIR)
         if os.path.isdir(data_path):
             self._cfg["default_data_path"] = data_path
             if hasattr(self, "_data_v"):

@@ -1,15 +1,24 @@
 """
 write_spec.py  --  writes CHSuite.spec to the current directory.
-Called by build.bat during the build process.
-All project files live in E:\\Downloads\\JURMR CHSuite
+Called by build.bat (Windows) or build.sh (Linux) during the build process.
 
-Produces two executables inside dist\CHSuite\ sharing one _internal folder:
-  CHSuite.exe   -- the main app
-  ThemeGen.exe  -- the live theme designer (hidden file, launched by CHSuite)
+Windows project root : E:\\\\Downloads\\\\JURMR CHSuite
+Linux project root   : ~/Documents/Clone Hero  (or any directory)
+
+Produces two executables inside dist/CHSuite/ sharing one _internal folder:
+  CHSuite.exe / CHSuite   -- the main app
+  ThemeGen.exe / ThemeGen -- the live theme designer (hidden, launched by CHSuite)
+
+On Linux:
+  - No .ico icon (Linux bundles use .desktop + .png)
+  - Images/themes dirs resolved relative to CWD instead of hardcoded path
 """
 import sys
 import os
 from pathlib import Path
+
+_IS_LINUX = sys.platform.startswith("linux")
+_IS_WIN   = sys.platform == "win32"
 
 # ---------------------------------------------------------------------------
 # Resolve texture2ddecoder .pyd on the build machine.
@@ -48,8 +57,13 @@ except Exception:
 
 # ---------------------------------------------------------------------------
 # Images folder — bundle alongside the exe so NoteGen finds its templates
+# On Linux, resolved relative to CWD. On Windows, uses the hardcoded path.
 # ---------------------------------------------------------------------------
-IMAGES_DIR = r"E:\Downloads\JURMR CHSuite\Images"
+if _IS_WIN:
+    IMAGES_DIR = r"E:\Downloads\JURMR CHSuite\Images"
+else:
+    IMAGES_DIR = str(Path.cwd() / "Images")
+
 if os.path.isdir(IMAGES_DIR):
     images_datas = [(IMAGES_DIR, "Images")]
     print(f"  Images folder: {IMAGES_DIR}")
@@ -58,15 +72,19 @@ else:
     print(f"  WARNING: Images folder not found at {IMAGES_DIR!r} -- NoteGen templates won't be bundled.")
 
 # ---------------------------------------------------------------------------
-# Icon path  (update if your icon lives elsewhere)
+# Icon path  (Windows only — Linux uses a .desktop file + .png, not .ico)
 # ---------------------------------------------------------------------------
-ICON_PATH = r"E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
-if not os.path.isfile(ICON_PATH):
-    print(f"  WARNING: icon not found at {ICON_PATH!r} -- building without icon.")
-    icon_line = "    # icon not found at build time"
+if _IS_WIN:
+    ICON_PATH = r"E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
+    if not os.path.isfile(ICON_PATH):
+        print(f"  WARNING: icon not found at {ICON_PATH!r} -- building without icon.")
+        icon_line = "    # icon not found at build time"
+    else:
+        icon_line = f'    icon={ICON_PATH!r},'
+        print(f"  Icon: {ICON_PATH}")
 else:
-    icon_line = f'    icon={ICON_PATH!r},'
-    print(f"  Icon: {ICON_PATH}")
+    icon_line = "    # icon: set via .desktop file on Linux (no .ico needed)"
+    print("  Icon: skipped on Linux (handled by .desktop + .png in AppImage)")
 
 # ---------------------------------------------------------------------------
 # Write the spec
