@@ -4,6 +4,7 @@ An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate cus
 
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/iamjrmh/CHSuite)
 [![Platform](https://img.shields.io/badge/platform-Linux-blue)](https://github.com/iamjrmh/CHSuite)
+[![Platform](https://img.shields.io/badge/platform-MacOS-blue)](https://github.com/iamjrmh/CHSuite)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/iamjrmh/CHSuite)
 [![Python Version](https://img.shields.io/badge/python-3.11-blue)](https://python.org)
 
