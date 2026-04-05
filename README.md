@@ -38,7 +38,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 
 ---
 <details>
-  <summary>Windows Installation</summary>
+  <summary><h3>Windows Installation</h3></summary>
   
 ## 📁 Direct Install (Recommended)
 
@@ -70,7 +70,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 </details>
 
 <details>
-  <summary>Linux Installation</summary>
+  <summary><h3>Linux Installation</h3></summary>
   
 ## 📁 Direct Install (Recommended)
 
@@ -100,7 +100,7 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 </details>
 
 <details>
-  <summary>macOS Installation</summary>
+  <summary><h3>macOS Installation</h3></summary>
   
 Stay tuned.
 
