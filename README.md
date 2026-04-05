@@ -387,13 +387,16 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
   <summary>Linux</summary>
 
   **Requirements**
-- Ubuntu 24.04.4 (64-bit)
-- Python 3.11 (64-bit) - from [python.org](https://python.org), check "Add Python to PATH" during install
+- Linux (64-bit)
+- Python 3.11 (`python3.11`) with venv support
+  - Ubuntu/Debian: `sudo apt install python3.11 python3.11-venv`
+- Standard tools: `wget` or `curl`, `zip`, `chmod`, `cp`
+- `appimagetool` *(optional — auto-downloaded if missing)*
 
 **Steps**
 
-1. Clone or download this repository into a single folder (e.g. `/home/YourUsername/downloads/CHSuite`)
-2. Ensure the following files are all present in that folder:
+1. Clone or download this repository into a single folder (e.g. `~/CHSuite`)
+2. Ensure the following files are present:
    - `CHSuite.py`
    - `build.sh`
    - `write_spec.py`
@@ -401,20 +404,51 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
    - `ThemeGen.py`
    - `/themes`
    - `/Images`
-3. Open terminal, cd to your working directory and run **`./build.sh`**
+   - `JURMRWEED.png` *(optional, for AppImage icon)*
+3. Open a terminal in that folder
+4. Run:
+   ```bash
+   ./build.sh
 
-The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable.
+## The script will automatically:
 
-**Dependencies installed by build.sh**
+- Locate Python 3.11
+- Create and activate a .venv
+- Install all dependencies
+- Patch astc_encoder to prevent enum shadowing crashes
+- Generate CHSuite.spec
+- Build using PyInstaller
+- Stage assets (themes, Images)
 
-| Package | Purpose |
-|--|--|
-| Pillow | Image decoding and encoding |
-| UnityPy | Unity asset file reading/writing |
-| texture2ddecoder | GPU texture format decoding |
-| brotli / brotlicffi / lz4 | Compression support |
-| requests | Name Generator update checks |
-| PyInstaller | Executable bundling |
+## Create:
+  
+- dist/CHSuite/ (portable build)
+- CHSuiteLinux.zip (recommended for distribution)
+- CHSuiteLinux.AppImage (fully self-contained, if AppImage build succeeds)
+
+## Output
+
+| File                    | Purpose                             |
+| ----------------------- | ----------------------------------- |
+| `dist/CHSuite/CHSuite`  | Raw PyInstaller binary (portable)   |
+| `CHSuiteLinux.zip`      | Portable distribution (recommended) |
+| `CHSuiteLinux.AppImage` | Fully self-contained executable     |
+
+
+Do not distribute the binary alone — it depends on bundled assets.
+
+Dependencies installed by build.sh
+
+| Package                   | Purpose                          |
+| ------------------------- | -------------------------------- |
+| Pillow                    | Image decoding and encoding      |
+| UnityPy                   | Unity asset file reading/writing |
+| texture2ddecoder          | GPU texture decoding             |
+| brotli / brotlicffi / lz4 | Compression support              |
+| requests                  | Update checks                    |
+| pypresence                | Discord Rich Presence            |
+| PyInstaller               | Executable bundling              |
+
 </details>
 
 ---
