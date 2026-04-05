@@ -37,79 +37,8 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 | **CHManager** | Install or uninstall any version of Clone Hero directly from the CHSuite |
 
 ---
-<details>
-  <summary><h3>Windows Installation</h3></summary>
-  
-## 📁 Direct Install (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteWindows.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.exe).
-2. Double-click **CHSuiteWindows.exe** to run the installer.
-3. By default it installs to `C:\CHSuite`. Change it if you prefer.
-4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
-5. On first launch, select your Clone Hero installation folder - CHSuite will derive the `Clone Hero_Data` path automatically and patch your install in the background.
-
-## 🚀 Portable Install
-
-1. Download **[CHSuiteWindows.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip).
-2. Extract the ZIP anywhere on your PC.
-3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
-4. On first launch, select your Clone Hero installation folder when prompted.
-
-## 🔄 Updating (Direct)
-
-1. Click on "Check for Update".
-2. If an update is found, press update.
-3. It will automatically install - once done, CHSuite should restart.
-
-## 🔄 Updating (Portable)
-
-1. Click on "Check for Update".
-2. If an update is found, press update.
-3. It will automatically download and extract the latest zip and replace your current install - once done, CHSuite should restart.
-
-</details>
-
-<details>
-  <summary><h3>Linux Installation</h3></summary>
-  
-## 📁 Direct Install (Recommended)
-
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.AppImage).
-2. Double-click **CHSuiteLinux.AppImage** to run CHSuite.
-3. On first launch, select your Clone Hero installation folder - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
-
-## 🚀 Portable Install
-
-1. Download **[CHSuiteLinux.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip).
-2. Extract the ZIP anywhere on your PC.
-3. Double-click **CHSuite** - no install, no Python, nothing else needed.
-4. On first launch, select your Clone Hero installation folder when prompted - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
-
-## 🔄 Updating (Direct)
-
-1. Click on "Check for Update".
-2. If an update is found, press update.
-3. It will automatically install - once done, CHSuite should restart.
-
-## 🔄 Updating (Portable)
-
-1. Click on "Check for Update".
-2. If an update is found, press update.
-3. It will automatically download and extract the latest zip and replace your current install - once done, CHSuite should restart.
-
-</details>
-
-<details>
-  <summary><h3>macOS Installation</h3></summary>
-  
-Stay tuned.
-
-</details>
-
----
-
-<details>
-  <summary><h3>🎨 CHMenuChanger</h3></summary>
+## 🎨 CHMenuChanger
 Reads and writes Unity `.assets` files directly using UnityPy. No external tools or config file edits required.
 
 <h3 align="center">Menu Preview</h3>
@@ -182,13 +111,9 @@ On the first **Load & Scan** of any folder, CHSuite automatically copies the ori
 - The **Restore Backups** button copies all backed-up files back over the live game files and triggers a fresh scan.
 - **Apply & Save is blocked** if no backups exist, as a safety measure.
 
-</details>
-
 ---
-
-<details>
   
-<summary><h3>✏️ CHNameGen</h3></summary>
+## ✏️ CHNameGen
 
 Create unique colored player names for Clone Hero using gradient fills or per-letter customization, then export directly to your `profiles.ini`.
 
@@ -224,12 +149,9 @@ Colors use standard hex format: `#RRGGBB`
 - For gradient: 2–3 colors for smooth transitions - similar hues = subtle, contrasting hues = bold
 - For rainbow: Red → Orange → Yellow → Green → Blue → Purple per letter
 
-</details>
-
 ---
 
-<details>
-<summary><h3> 🗑️ CHCleaner</h3></summary>
+## 🗑️ CHCleaner
 
 Parses Clone Hero's `badsongs.txt` error log and lets you bulk-delete the problematic song folders.
 
@@ -270,12 +192,9 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 | `badsongs.txt` | `Documents\Clone Hero\badsongs.txt` |
 | Deletion log | `Documents\Clone Hero\deletedsongs.log` |
 
-</details>
-
 ---
 
-<details>
-<summary><h3> ⚙️ CHPatcher</h3></summary>
+## ⚙️ CHPatcher
 
 Lists every install registered in `game_installs.json` and lets you patch or unpatch them on the fly.
 
@@ -286,12 +205,10 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 - `game_installs.json` is backed up to `.bak` automatically before every write
 - **Refresh** button to re-read the file at any time without restarting
 
-</details>
 
 ---
 
-<details>
-<summary><h3> 📦 CHManager</h3></summary>
+## 📦 CHManager
 
 An all-in-one install manager for Clone Hero. View every registered install at a glance, manage them directly, and download any release or PTB build straight from GitHub — all without leaving the tab.
 
@@ -314,20 +231,78 @@ An all-in-one install manager for Clone Hero. View every registered install at a
 - **Architecture detection** — automatically detects whether your system is x64 or x32 and shows only matching builds
 - Clicking **⬇ Download & Install** prompts you to choose a destination folder, then downloads and installs silently with no dialogs or prompts
 
-</details>
+
+---
+
+## Windows Installation
+  
+## 📁 Direct Install (Recommended)
+
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteWindows.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.exe).
+2. Double-click **CHSuiteWindows.exe** to run the installer.
+3. By default it installs to `C:\CHSuite`. Change it if you prefer.
+4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
+5. On first launch, select your Clone Hero installation folder - CHSuite will derive the `Clone Hero_Data` path automatically and patch your install in the background.
+
+## 🚀 Portable Install
+
+1. Download **[CHSuiteWindows.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip).
+2. Extract the ZIP anywhere on your PC.
+3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
+4. On first launch, select your Clone Hero installation folder when prompted.
+
+## 🔄 Updating (Direct)
+
+1. Click on "Check for Update".
+2. If an update is found, press update.
+3. It will automatically install - once done, CHSuite should restart.
+
+## 🔄 Updating (Portable)
+
+1. Click on "Check for Update".
+2. If an update is found, press update.
+3. It will automatically download and extract the latest zip and replace your current install - once done, CHSuite should restart.
+
+## Linux Installation
+  
+## 📁 Direct Install (Recommended)
+
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.AppImage).
+2. Double-click **CHSuiteLinux.AppImage** to run CHSuite.
+3. On first launch, select your Clone Hero installation folder - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
+
+## 🚀 Portable Install
+
+1. Download **[CHSuiteLinux.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip).
+2. Extract the ZIP anywhere on your PC.
+3. Double-click **CHSuite** - no install, no Python, nothing else needed.
+4. On first launch, select your Clone Hero installation folder when prompted - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
+
+## 🔄 Updating (Direct)
+
+1. Click on "Check for Update".
+2. If an update is found, press update.
+3. It will automatically install - once done, CHSuite should restart.
+
+## 🔄 Updating (Portable)
+
+1. Click on "Check for Update".
+2. If an update is found, press update.
+3. It will automatically download and extract the latest zip and replace your current install - once done, CHSuite should restart.
+
+## macOS Installation
+  
+being worked on :^)
 
 ---
 
 ## 🐛 Troubleshooting
 
 **Backgrounds show "No texture matched"**  
-Make sure you selected the `Clone Hero_Data` folder, not the game's root folder or a subfolder inside it.
+Make sure you selected the `Clone Hero_Data` (windows) or `clonehero_Data` (linux) folder, not the game's root folder or a subfolder inside it.
 
 **Changes are reverted after launching Clone Hero**  
 The launcher patch may not have applied correctly. Check the welcome screen badge - if it showed `✗ Not Patched`, your install may not be registered in `game_installs.json` yet. Open the Launcher, add the install, then head to the **Launcher Patcher** page and patch it manually. Also make sure the install is set as your default in Launcher → Settings.
-
-**Apply & Save fails or does nothing**  
-CHSuite is not running as Administrator. Right-click the exe and select Run as administrator.
 
 **Image rejected as too small**  
 Your replacement must meet the minimum resolution for that slot. Upscale to at least 1920×1080 (or exactly 2030×1328 for Logo_Transparent).
