@@ -38,18 +38,38 @@ If your backgrounds still aren't saving after patching, open the Launcher → Se
 
 ---
 
+## ⓘ About This Tool
+Read each tools description and quickly launch each tool from here
+<details>
+<summary><h3 align="center">About This Tool Preview</h3></summary>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/About%20This%20Tool.png">
+</p>
+</details>
+
+---
+
 ## 🎨 CHMenuChanger
 Reads and writes Unity `.assets` files directly using UnityPy. No external tools or config file edits required.
 
-<h3 align="center">Menu Preview</h3>
+<details>
+<summary><h3 align="center">CHMenuChanger Preview (Before)</h3></summary>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHMenuChanger/main/Screenshots/Menu.gif">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHMenuChanger1.png">
 </p>
-
-<h3 align="center">Clone Hero Preview</h3>
+</details>
+<details>
+<summary><h3 align="center">CHMenuChanger Preview (After)</h3></summary>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHMenuChanger2.png">
+</p>
+</details>
+<details>
+<summary><h3 align="center">Clone Hero Preview</h3></summary>
 <p align="center">
   <img src="https://raw.githubusercontent.com/iamjrmh/CHMenuChanger/main/Screenshots/CHMenu.gif">
 </p>
+</details>
 
 ### Features
 - **Direct asset editing** - reads and writes Unity `.assets` files, no external tools needed
@@ -115,6 +135,13 @@ On the first **Load & Scan** of any folder, CHSuite automatically copies the ori
   
 ## ✏️ CHNameGen
 
+<details>
+<summary><h3 align="center">CHNameGen Preview</h3></summary>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHNameGen.png">
+</p>
+</details>
+
 Create unique colored player names for Clone Hero using gradient fills or per-letter customization, then export directly to your `profiles.ini`.
 
 ### Gradient Mode
@@ -152,6 +179,13 @@ Colors use standard hex format: `#RRGGBB`
 ---
 
 ## 🗑️ CHCleaner
+
+<details>
+<summary><h3 align="center">CHCleaner Preview</h3></summary>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHCleaner.png">
+</p>
+</details>
 
 Parses Clone Hero's `badsongs.txt` error log and lets you bulk-delete the problematic song folders.
 
@@ -196,6 +230,13 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 
 ## ⚙️ CHPatcher
 
+<details>
+<summary><h3 align="center">CHPatcher Preview</h3></summary>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHPatcher.png">
+</p>
+</details>
+
 Lists every install registered in `game_installs.json` and lets you patch or unpatch them on the fly.
 
 - Each install displays its current state: `✓ Manual` (patched) or `⚙ Launcher` (unpatched)
@@ -209,6 +250,13 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 ---
 
 ## 📦 CHManager
+
+<details>
+<summary><h3 align="center">CHManager Preview</h3></summary>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHManager.png">
+</p>
+</details>
 
 An all-in-one install manager for Clone Hero. View every registered install at a glance, manage them directly, and download any release or PTB build straight from GitHub — all without leaving the tab.
 
