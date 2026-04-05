@@ -5,7 +5,8 @@
 #
 #  Produces:
 #    dist/CHSuite/CHSuite          (plain PyInstaller bundle, runnable as-is)
-#    CHSuite-x86_64.AppImage       (self-contained portable AppImage)
+#    CHSuiteLinux.zip              (zip of full bundle including themes + Images)
+#    CHSuiteLinux.AppImage         (self-contained portable AppImage)
 #
 #  Requirements:
 #    • Python 3.11   (python3.11 or python3 resolving to 3.11)
@@ -162,9 +163,11 @@ pyinstaller CHSuite.spec
 ok "PyInstaller finished."
 echo
 
-# Mark ThemeGen as hidden (Linux equivalent: hidden dot-prefix OR just chmod -x to
-# prevent accidental double-click; we keep the name but clear execute bit on the
-# non-AppImage binary so only CHSuite can launch it by full path).
+# ── [7b] Stage assets into dist/CHSuite/ before packaging ────────────────────
+info "[7b] Staging assets into dist/CHSuite/…"
+
+# Mark ThemeGen non-executable so users can't launch it directly;
+# CHSuite re-adds the execute bit at runtime when it needs to open it.
 if [[ -f "dist/CHSuite/ThemeGen" ]]; then
     chmod a-x "dist/CHSuite/ThemeGen"
     ok "ThemeGen marked non-executable (launched only by CHSuite internally)."
@@ -186,6 +189,21 @@ else
     warn "Images/ not found — NoteGen templates will be missing."
 fi
 
+echo
+
+# ── [7c] Package dist/CHSuite/ into CHSuiteLinux.zip ─────────────────────────
+# Runs AFTER all assets are staged so themes/ and Images/ are included.
+info "[7c] Creating CHSuiteLinux.zip from dist/CHSuite/…"
+
+ZIP_OUT="$SCRIPT_DIR/CHSuiteLinux.zip"
+rm -f "$ZIP_OUT"
+(cd "$SCRIPT_DIR/dist/CHSuite" && zip -r "$ZIP_OUT" .)
+
+if [[ -f "$ZIP_OUT" ]]; then
+    ok "Zip created: $ZIP_OUT"
+else
+    warn "zip command ran but CHSuiteLinux.zip was not found — is 'zip' installed?"
+fi
 echo
 
 # ── [8/8] Build AppImage ──────────────────────────────────────────────────────
@@ -271,7 +289,7 @@ DESKTOP
 
     # ── Run appimagetool ──────────────────────────────────────────────────────
     ARCH=x86_64
-    OUTPUT="$SCRIPT_DIR/CHSuite-${ARCH}.AppImage"
+    OUTPUT="$SCRIPT_DIR/CHSuiteLinux.AppImage"
     ARCH=$ARCH "$APPIMAGETOOL" "$APPDIR" "$OUTPUT"
 
     if [[ -f "$OUTPUT" ]]; then
@@ -289,8 +307,9 @@ echo "  BUILD SUCCESSFUL"
 echo " ============================================================="
 echo
 echo "  Portable bundle : dist/CHSuite/CHSuite"
-if [[ -f "CHSuite-x86_64.AppImage" ]]; then
-echo "  AppImage        : CHSuite-x86_64.AppImage  ← distribute this"
+echo "  Portable zip    : CHSuiteLinux.zip        ← distribute this"
+if [[ -f "CHSuiteLinux.AppImage" ]]; then
+echo "  AppImage        : CHSuiteLinux.AppImage   ← or distribute this"
 fi
 echo
 echo "  The AppImage is fully self-contained."

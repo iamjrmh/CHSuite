@@ -45,7 +45,7 @@ FTS = ("Lato", 8)
 
 # ── constants (must match CHSuite.py) ─────────────────────────────────────────
 IPC_PORT = 59832
-EXE_NAME = "CHSuite.exe"
+EXE_NAME = "CHSuite.exe" if sys.platform == "win32" else "CHSuite"
 
 _THEME_KEYS = (
     "bg", "panel", "card", "card2", "sidebar",
@@ -134,19 +134,56 @@ def _find_exe() -> "Path | None":
                             return p
             except Exception:
                 pass
+
+    # 3. Running processes on Linux via /proc/*/exe symlinks
+    if sys.platform.startswith("linux"):
+        try:
+            import glob
+            for exe_link in glob.glob("/proc/*/exe"):
+                try:
+                    target = os.readlink(exe_link)
+                    if os.path.basename(target) == EXE_NAME:
+                        p = Path(target)
+                        if p.is_file():
+                            return p
+                except (OSError, PermissionError):
+                    pass
+        except Exception:
+            pass
+
     return None
 
 def _exe_is_running() -> bool:
-    if os.name != "nt":
-        return False
-    try:
-        out = subprocess.check_output(
-            ["tasklist", "/FI", f"IMAGENAME eq {EXE_NAME}", "/NH", "/FO", "CSV"],
-            creationflags=0x08000000, stderr=subprocess.DEVNULL, timeout=5
-        ).decode(errors="replace")
-        return EXE_NAME.lower() in out.lower()
-    except Exception:
-        return False
+    if os.name == "nt":
+        try:
+            out = subprocess.check_output(
+                ["tasklist", "/FI", f"IMAGENAME eq {EXE_NAME}", "/NH", "/FO", "CSV"],
+                creationflags=0x08000000, stderr=subprocess.DEVNULL, timeout=5
+            ).decode(errors="replace")
+            return EXE_NAME.lower() in out.lower()
+        except Exception:
+            return False
+    else:
+        # Linux/macOS: use pgrep to check for a running CHSuite process.
+        # -x matches the exact process name; fall back to a broader -f search
+        # in case the binary runs under a slightly different argv[0].
+        try:
+            ret = subprocess.run(
+                ["pgrep", "-x", EXE_NAME],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            ).returncode
+            if ret == 0:
+                return True
+        except Exception:
+            pass
+        try:
+            ret = subprocess.run(
+                ["pgrep", "-f", EXE_NAME],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            ).returncode
+            return ret == 0
+        except Exception:
+            return False
 
 # ── colour helpers ─────────────────────────────────────────────────────────────
 
@@ -529,12 +566,20 @@ class ThemeLab:
             if self._exe_path:
                 self._set_status("Launching CHSuite\u2026", "#f59e0b")
                 try:
-                    subprocess.Popen(
-                        [str(self._exe_path)],
-                        creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
+                    if sys.platform == "win32":
+                        subprocess.Popen(
+                            [str(self._exe_path)],
+                            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
+                    else:
+                        subprocess.Popen(
+                            [str(self._exe_path)],
+                            start_new_session=True,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
                     time.sleep(3.5)   # let CHSuite open its socket
                 except Exception as exc:
                     self._set_status(f"Launch failed: {exc}", "#ef4444")

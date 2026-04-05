@@ -1,5 +1,5 @@
 """
-CHSuite  by JURMR  v4.0
+CHSuite  by JURMR  v5.0
 =======================
 All-in-one Clone Hero utility suite.
 
@@ -132138,8 +132138,8 @@ class CHSuite(tk.Tk):
         self._update_discord_dot()
 
         # ── What's New — show once per version ───────────────────────────────
-        if self._cfg.get("last_seen_version") != "4.0":
-            self._cfg["last_seen_version"] = "4.0"
+        if self._cfg.get("last_seen_version") != "5.0":
+            self._cfg["last_seen_version"] = "5.0"
             _save_json(CONFIG_FILE, self._cfg)
             self.after(300, self._show_whats_new)
 
@@ -132198,12 +132198,29 @@ class CHSuite(tk.Tk):
         # Build a hex-remap table:  old_value.lower() -> new_value
         remap = {}
         for k in _THEME_KEYS:
-            if old_c[k].lower() != C[k].lower():
-                remap[old_c[k].lower()] = C[k]
+            old = self._norm_color(old_c[k])
+            new = C[k]
+            if old != new.lower():
+                remap[old] = new
 
         if remap:
             self._recolor_walk(self, remap)
             self.update_idletasks()
+
+    @staticmethod
+    def _norm_color(raw: str) -> str:
+        """Normalize a color string returned by widget.cget() to 6-digit lowercase hex.
+
+        On Linux/X11, tkinter expands stored colors to 12-digit form:
+          #0c0e13  →  #0c0c0e0e1313
+        Taking the first two hex digits of each 4-digit channel group recovers
+        the original 6-digit value so remap lookups work on all platforms.
+        """
+        s = raw.lower()
+        if len(s) == 13 and s.startswith("#"):
+            # #rrrrggggbbbb  →  #rrggbb
+            s = "#" + s[1:3] + s[5:7] + s[9:11]
+        return s
 
     def _recolor_walk(self, widget, remap: dict):
         """Recursively remap every colour attribute on every widget."""
@@ -132217,7 +132234,7 @@ class CHSuite(tk.Tk):
             for attr in ATTRS:
                 if attr in info:
                     try:
-                        cur = widget.cget(attr).lower()
+                        cur = self._norm_color(widget.cget(attr))
                         if cur in remap:
                             widget.configure(**{attr: remap[cur]})
                     except Exception:
@@ -132292,7 +132309,7 @@ class CHSuite(tk.Tk):
                  bg=C["panel"], fg=C["accent"]).pack(side="left", padx=(0, 10))
         tk.Label(inner_tb, text="CHSuite",
                  font=FTT, bg=C["panel"], fg=C["text"]).pack(side="left")
-        tk.Label(inner_tb, text="  by JURMR  v4.0",
+        tk.Label(inner_tb, text="  by JURMR  v5.0",
                  font=("Lato", 13), bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(6,0))
 
         # Discord status dot
@@ -132458,7 +132475,7 @@ class CHSuite(tk.Tk):
         ver_row = tk.Frame(self._nav, bg=C["sidebar"])
         ver_row.pack(pady=(0, 12), padx=12, fill="x")
 
-        tk.Label(ver_row, text="CHSuite v4.0", font=("Lato", 8),
+        tk.Label(ver_row, text="CHSuite v5.0", font=("Lato", 8),
                  fg=C["text_dim"], bg=C["sidebar"]).pack(side="left")
 
         info_lbl = tk.Label(ver_row, text=" ⓘ", font=("Lato", 9),
@@ -132478,13 +132495,12 @@ class CHSuite(tk.Tk):
             f = tk.Frame(tip, bg=C["card"], padx=14, pady=12)
             f.pack(padx=1, pady=1)
 
-            tk.Label(f, text="What's New in v4.0", font=("Lato", 9, "bold"),
+            tk.Label(f, text="What's New in v5.0", font=("Lato", 9, "bold"),
                      fg=C["text"], bg=C["card"]).pack(anchor="w")
 
             items = [
-                (C["success"],  "New GUI!"),
-                (C["success"],  "Updated Fonts"),
-                (C["error"],  "Fixed Keyboard Shortcut"),
+                (C["success"],  "LINUX SUPPORT!"),
+                (C["warn"],  "macOS support in the works."),
             ]
             for clr, txt in items:
                 row = tk.Frame(f, bg=C["card"])
@@ -132572,12 +132588,28 @@ class CHSuite(tk.Tk):
             )
             return
         try:
-            subprocess.Popen(
-                [str(exe)],
-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            if _IS_WINDOWS:
+                subprocess.Popen(
+                    [str(exe)],
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                # Ensure the binary is executable before launching (build.sh
+                # intentionally strips +x from ThemeGen so users can't run it
+                # directly, but CHSuite needs to be able to launch it).
+                import stat as _stat
+                _mode = exe.stat().st_mode
+                if not (_mode & _stat.S_IXUSR):
+                    exe.chmod(_mode | _stat.S_IXUSR | _stat.S_IXGRP | _stat.S_IXOTH)
+                # DETACHED_PROCESS is Windows-only; start_new_session is the POSIX equivalent
+                subprocess.Popen(
+                    [str(exe)],
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
         except Exception as exc:
             messagebox.showerror("Theme Lab", f"Failed to launch {_tg_name}:\n{exc}", parent=self)
 
@@ -132703,13 +132735,13 @@ class CHSuite(tk.Tk):
 
         # Footer
         _sep(inner, bg=C["border"]).pack(fill="x", pady=(8, 6))
-        tk.Label(inner, text="CHSuite v4.0  ·  by JURMR",
+        tk.Label(inner, text="CHSuite v5.0  ·  by JURMR",
                  font=("Lato", 8), fg=C["text_dim"], bg=C["bg"]).pack(anchor="w")
 
     # ── What's New popup ──────────────────────────────────────────────────────
     def _show_whats_new(self):
-        """Show a one-time What's New dialog for v4.0"""
-        win = self._make_toplevel("What's New in CHSuite v4.0")
+        """Show a one-time What's New dialog for v5.0"""
+        win = self._make_toplevel("What's New in CHSuite v5.0")
         win.configure(bg=C["bg"])
         win.resizable(False, False)
         win.grab_set()
@@ -132728,7 +132760,7 @@ class CHSuite(tk.Tk):
         title_row.pack(anchor="center")
         tk.Label(title_row, text="🎉", font=("Lato", 18),
                  fg=C["text"], bg=C["bg"]).pack(side="left", padx=(0, 10))
-        tk.Label(title_row, text="What's New in v4.0",
+        tk.Label(title_row, text="What's New in v5.0",
                  font=("Lato", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(side="left")
         tk.Label(header, text="Here's everything that changed in this release:",
                  font=FT, fg=C["text_dim"], bg=C["bg"], justify="center").pack(anchor="center", pady=(6, 0))
@@ -132763,15 +132795,11 @@ class CHSuite(tk.Tk):
         self._bind_mousewheel_to_canvas(canvas)
 
         changes = [
-            (C["success"],  "New GUI!",
-             "The GUI has been reworked a little bit, given some fresh updates. All so I can "
-             "  work on editing the ad for this suite..."),
-            (C["success"],  "Updated Fonts",
-             "The fonts used have been updated from Lato to \"SF-Pro-Display\" for a  "
-             "cleaner  look."),
-            (C["error"],  "Fixed Keyboard Shortcut",
-             "Fixed an issue where pressing Ctrl+S wouldn't save your backgrounds or export  "
-             "your name / note profile."),
+            (C["success"],  "LINUX SUPPORT!",
+             "Linux support has officially been added with the release of v5.0!"),
+            (C["warn"],  "macOS support in the works.",
+             "I am currently working on trying to port over to macos. need to either buy a "
+             "mac device or get a working virtual machine. we'll see."),
         ]
 
         for accent, heading, body in changes:
@@ -135065,17 +135093,25 @@ class CHSuite(tk.Tk):
     # ── Check for Updates ─────────────────────────────────────────────────────
     def _check_for_updates(self):
         """Fetch the latest GitHub release, compare versions, and auto-install."""
-        CURRENT = "4.0"
+        CURRENT = "5.0"
         API_URL  = "https://api.github.com/repos/iamjrmh/CHSuite/releases/latest"
-        INSTALL_DIR = Path("C:/CHSuite")
+        INSTALL_DIR = Path("C:/CHSuite")  # Windows full-install path
 
-        # Portable = not running from C:\CHSuite
         if getattr(sys, "frozen", False):
             _run_dir = Path(sys.executable).parent.resolve()
         else:
             _run_dir = Path(__file__).parent.resolve()
-        is_portable = not str(_run_dir).lower().startswith(
-            str(INSTALL_DIR.resolve()).lower())
+
+        if _IS_LINUX:
+            # On Linux: running inside an AppImage = full install; anything else = portable
+            is_portable = not bool(os.environ.get("APPIMAGE"))
+            # The "install location" for a Linux AppImage is where the AppImage lives
+            _linux_appimage = os.environ.get("APPIMAGE", "")
+            _linux_install_dir = Path(_linux_appimage).parent if _linux_appimage else _run_dir
+        else:
+            # Windows: portable = not running from C:\CHSuite
+            is_portable = not str(_run_dir).lower().startswith(
+                str(INSTALL_DIR.resolve()).lower())
 
         win = self._make_toplevel("Check for Updates")
         win.configure(bg=C["bg"])
@@ -135150,6 +135186,107 @@ class CHSuite(tk.Tk):
             self.after(1500, self.destroy)
 
         def _apply(tmp_file, tmp_dir):
+            # ── Linux branch (shell-script updater, no cmd.exe) ───────────────
+            if _IS_LINUX:
+                import zipfile, stat as _stat
+
+                def _linux_apply():
+                    try:
+                        if is_portable:
+                            # Portable (zip): extract over current dir then relaunch
+                            def _start_prog():
+                                prog_bar.config(mode="indeterminate")
+                                prog_bar.start(15)
+                                prog_lbl.config(text="Extracting…")
+                                prog_frame.pack(anchor="w", fill="x", pady=(8, 0))
+                                win.geometry(f"390x290+{x}+{y}")
+                                status_var.set("Extracting archive…")
+                                status_lbl.config(fg=C["text_mid"])
+                                close_btn.config(state="disabled")
+                            self.after(0, _start_prog)
+
+                            with zipfile.ZipFile(str(tmp_file), "r") as zf:
+                                names = zf.namelist()
+                            total = max(len(names), 1)
+
+                            staging_dir = Path(tmp_dir) / "staging"
+                            staging_dir.mkdir(parents=True, exist_ok=True)
+                            with zipfile.ZipFile(str(tmp_file), "r") as zf:
+                                for i, name in enumerate(names, 1):
+                                    zf.extract(name, staging_dir)
+                                    if i % 4 == 0 or i == total:
+                                        pct = int(i * 100 / total)
+                                        def _upd(n=i, t=total, p=pct):
+                                            prog_bar.stop()
+                                            prog_bar.config(mode="determinate",
+                                                            maximum=t, value=n)
+                                            prog_lbl.config(
+                                                text=f"{n} / {t} files  ({p}%)")
+                                        self.after(0, _upd)
+
+                            contents = list(staging_dir.iterdir())
+                            source_dir = (contents[0]
+                                          if len(contents) == 1 and contents[0].is_dir()
+                                          else staging_dir)
+
+                            if getattr(sys, "frozen", False):
+                                exe_target = str(_run_dir / Path(sys.executable).name)
+                            else:
+                                exe_target = sys.executable
+
+                            sh_path = Path(tmp_dir) / "ch_updater.sh"
+                            sh_content  = "#!/bin/bash\n"
+                            sh_content += "sleep 2\n"
+                            sh_content += f'cp -a "{source_dir}/"* "{str(_run_dir)}/"\n'
+                            sh_content += f'chmod +x "{exe_target}" 2>/dev/null || true\n'
+                            sh_content += f'"{exe_target}" &\n'
+                            sh_content += f'rm -rf "{str(tmp_dir)}"\n'
+                            sh_content += 'rm -- "$0"\n'
+                            sh_path.write_text(sh_content, encoding="utf-8")
+                            sh_path.chmod(sh_path.stat().st_mode | 0o111)
+                            subprocess.Popen(["bash", str(sh_path)])
+
+                        else:
+                            # Full install (AppImage): replace current AppImage
+                            appimage_src = str(tmp_file)
+                            if _linux_appimage:
+                                appimage_dest = _linux_appimage
+                            else:
+                                appimage_dest = str(_linux_install_dir / "CHSuiteLinux.AppImage")
+
+                            sh_path = Path(tmp_dir) / "ch_updater.sh"
+                            sh_content  = "#!/bin/bash\n"
+                            sh_content += "sleep 2\n"
+                            sh_content += f'cp "{appimage_src}" "{appimage_dest}"\n'
+                            sh_content += f'chmod +x "{appimage_dest}"\n'
+                            sh_content += f'"{appimage_dest}" &\n'
+                            sh_content += f'rm -rf "{str(tmp_dir)}"\n'
+                            sh_content += 'rm -- "$0"\n'
+                            sh_path.write_text(sh_content, encoding="utf-8")
+                            sh_path.chmod(sh_path.stat().st_mode | 0o111)
+                            subprocess.Popen(["bash", str(sh_path)])
+
+                        def _quit_linux():
+                            status_var.set("Update ready — restarting…")
+                            status_lbl.config(fg=C["success"])
+                            prog_lbl.config(text="")
+                            self.after(1200, lambda: (self.destroy(), os._exit(0)))
+                        self.after(0, _quit_linux)
+
+                    except Exception as exc:
+                        self.after(0, lambda e=exc: (
+                            prog_bar.stop(),
+                            prog_frame.pack_forget(),
+                            win.geometry(f"390x230+{x}+{y}"),
+                            status_var.set(f"Update failed: {e}"),
+                            status_lbl.config(fg=C["error"]),
+                            close_btn.config(state="normal", text="Close",
+                                             command=win.destroy)))
+
+                threading.Thread(target=_linux_apply, daemon=True).start()
+                return  # skip Windows path below
+
+            # ── Windows branch ────────────────────────────────────────────────
             if is_portable:
                 # ── Portable: show extraction progress, then hand off to batch ──
                 import zipfile
@@ -135385,7 +135522,7 @@ class CHSuite(tk.Tk):
                 try:
                     req = urllib.request.Request(
                         asset_url,
-                        headers={"User-Agent": "CHSuite-Updater/4.0"})
+                        headers={"User-Agent": "CHSuite-Updater/5.0"})
                     with urllib.request.urlopen(req, timeout=60) as resp:
                         total      = int(resp.headers.get("Content-Length", 0))
                         downloaded = 0
@@ -135428,7 +135565,7 @@ class CHSuite(tk.Tk):
             try:
                 req = urllib.request.Request(
                     API_URL,
-                    headers={"User-Agent": "CHSuite-UpdateChecker/4.0",
+                    headers={"User-Agent": "CHSuite-UpdateChecker/5.0",
                              "Accept": "application/vnd.github+json"})
                 with urllib.request.urlopen(req, timeout=8) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
@@ -135443,7 +135580,16 @@ class CHSuite(tk.Tk):
             assets = data.get("assets", [])
 
             # Pick the right asset for this install type
-            if is_portable:
+            if _IS_LINUX:
+                # Linux: use fixed direct-download URLs — ignore the assets list
+                if is_portable:
+                    _linux_url  = "https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip"
+                    _linux_name = "CHSuiteLinux.zip"
+                else:
+                    _linux_url  = "https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.AppImage"
+                    _linux_name = "CHSuiteLinux.AppImage"
+                asset = {"browser_download_url": _linux_url, "name": _linux_name}
+            elif is_portable:
                 asset = next(
                     (a for a in assets
                      if "portable" in a["name"].lower()
@@ -135544,7 +135690,38 @@ class CHSuite(tk.Tk):
             for p in Path(directory).glob("*.exe"):
                 if "clone" in p.stem.lower() and "hero" in p.stem.lower():
                     return str(p)
-        else:  # Linux / macOS
+        elif _IS_LINUX:
+            # ── Linux only ────────────────────────────────────────────────────
+            # Priority 1: exact file named "clonehero" (the standard Linux build)
+            ch_exact = Path(directory) / "clonehero"
+            if ch_exact.is_file():
+                # Ensure the file is executable before returning it
+                if not os.access(str(ch_exact), os.X_OK):
+                    try:
+                        ch_exact.chmod(ch_exact.stat().st_mode | 0o111)
+                    except Exception:
+                        pass
+                return str(ch_exact)
+            # Priority 2: AppImage
+            for p in sorted(Path(directory).glob("*.AppImage")):
+                if "clone" in p.name.lower() or "hero" in p.name.lower():
+                    return str(p)
+            # Priority 3: other known Linux candidates
+            for candidate in _CH_EXE_CANDIDATES_LIN:
+                p = Path(directory) / candidate
+                if p.is_file():
+                    if not os.access(str(p), os.X_OK):
+                        try:
+                            p.chmod(p.stat().st_mode | 0o111)
+                        except Exception:
+                            pass
+                    return str(p)
+            # Priority 4: any executable matching name pattern
+            for p in Path(directory).iterdir():
+                if p.is_file() and os.access(str(p), os.X_OK):
+                    if "clone" in p.name.lower() or "hero" in p.name.lower():
+                        return str(p)
+        else:  # macOS (unchanged)
             # Prefer AppImage
             for p in sorted(Path(directory).glob("*.AppImage")):
                 if "clone" in p.name.lower() or "hero" in p.name.lower():
@@ -135769,17 +135946,28 @@ class CHSuite(tk.Tk):
     # ── Game Manager helpers ──────────────────────────────────────────────────
 
     def _gm_refresh_installs(self):
-        """Rebuild the local installs list from game_installs.json."""
+        """Rebuild the local installs list.
+        Linux:   reads from cfg['linux_installs'] (ignores game_installs.json entirely).
+        Windows: reads from game_installs.json as before.
+        """
         for w in self._gm_inst_inner.winfo_children():
             w.destroy()
         self._gm_inst_canvas.yview_moveto(0)
 
-        installs = _read_installs()
+        if _IS_LINUX:
+            installs = list(self._cfg.get("linux_installs", []))
+            _empty_msg = ("No installs found.\n"
+                          "Add an install manually below,\n"
+                          "or download one from GitHub above.")
+        else:
+            installs = _read_installs()
+            _empty_msg = ("No installs found in game_installs.json.\n"
+                          "Run the Clone Hero Launcher at least once,\n"
+                          "or add an install manually below.")
+
         if not installs:
             tk.Label(self._gm_inst_inner,
-                     text="No installs found in game_installs.json.\n"
-                          "Run the Clone Hero Launcher at least once,\n"
-                          "or add an install manually below.",
+                     text=_empty_msg,
                      font=FT, fg=C["text_dim"], bg=C["card"],
                      justify="left").pack(padx=14, pady=14, anchor="w")
             return
@@ -135788,35 +135976,41 @@ class CHSuite(tk.Tk):
             self._cfg.get("ch_default_install", "") or
             self._cfg.get("ch_install_dir", "")))
 
-        # Auto-remove entries whose exe is missing
+        # Auto-remove entries whose folder/exe is missing
         valid_installs = []
-        removed_any = False
         for inst in installs:
             p = inst.get("directoryPath", "")
             if p and self._find_ch_exe(p) is None:
-                # Remove from game_installs.json silently
-                try:
-                    data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+                if _IS_LINUX:
+                    # Remove from cfg["linux_installs"] silently
                     norm = os.path.normcase(os.path.normpath(p))
-                    data["installs"] = [
-                        i for i in data.get("installs", [])
+                    self._cfg["linux_installs"] = [
+                        i for i in self._cfg.get("linux_installs", [])
                         if os.path.normcase(os.path.normpath(
                             i.get("directoryPath", ""))) != norm
                     ]
-                    _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-                    removed_any = True
-                    _log(f"[gm] Auto-removed missing install: {p}")
-                except Exception as e:
-                    _log(f"[gm] Could not remove missing entry: {e}")
+                    _save_json(CONFIG_FILE, self._cfg)
+                else:
+                    # Remove from game_installs.json silently
+                    try:
+                        data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+                        norm = os.path.normcase(os.path.normpath(p))
+                        data["installs"] = [
+                            i for i in data.get("installs", [])
+                            if os.path.normcase(os.path.normpath(
+                                i.get("directoryPath", ""))) != norm
+                        ]
+                        _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                    except Exception as e:
+                        _log(f"[gm] Could not remove missing entry: {e}")
+                _log(f"[gm] Auto-removed missing install: {p}")
             else:
                 valid_installs.append(inst)
         installs = valid_installs
 
         if not installs:
             tk.Label(self._gm_inst_inner,
-                     text="No installs found in game_installs.json.\n"
-                          "Run the Clone Hero Launcher at least once,\n"
-                          "or add an install manually below.",
+                     text=_empty_msg,
                      font=FT, fg=C["text_dim"], bg=C["card"],
                      justify="left").pack(padx=14, pady=14, anchor="w")
             return
@@ -135997,11 +136191,19 @@ class CHSuite(tk.Tk):
             messagebox.showerror("Delete failed",
                                  f"Could not delete folder:\n{e}", parent=self)
             return
-        # Remove from game_installs.json
-        if _INSTALLS_FILE.is_file():
+        # Remove from the install registry
+        norm = os.path.normcase(os.path.normpath(path))
+        if _IS_LINUX:
+            # Linux: remove from cfg["linux_installs"]
+            self._cfg["linux_installs"] = [
+                i for i in self._cfg.get("linux_installs", [])
+                if os.path.normcase(os.path.normpath(
+                    i.get("directoryPath", ""))) != norm
+            ]
+            _save_json(CONFIG_FILE, self._cfg)
+        elif _INSTALLS_FILE.is_file():
             try:
                 data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
-                norm = os.path.normcase(os.path.normpath(path))
                 data["installs"] = [
                     i for i in data.get("installs", [])
                     if os.path.normcase(os.path.normpath(
@@ -136021,7 +136223,10 @@ class CHSuite(tk.Tk):
         self._gm_refresh_installs()
 
     def _gm_add_install(self):
-        """Browse to a Clone Hero install folder and register it in game_installs.json."""
+        """Browse to a Clone Hero install folder and register it.
+        Linux:   saves to cfg['linux_installs'] (ignores game_installs.json).
+        Windows: saves to game_installs.json as before.
+        """
         folder = filedialog.askdirectory(
             title="Select Clone Hero install folder",
             initialdir=str(Path.home()))
@@ -136037,41 +136242,59 @@ class CHSuite(tk.Tk):
                     "Add it anyway?", parent=self):
                 return
 
-        if not _INSTALLS_FILE.is_file():
-            # No launcher file yet — create a minimal one so we can register
-            try:
-                _INSTALLS_FILE.parent.mkdir(parents=True, exist_ok=True)
-                _INSTALLS_FILE.write_text(
-                    json.dumps({"installs": []}, indent=2), encoding="utf-8")
-            except Exception as e:
-                messagebox.showerror(
-                    "Error",
-                    f"Could not create game_installs.json:\n{e}", parent=self)
-                return
-
-        try:
-            shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
-            data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
-            existing = [os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
-                        for i in data.get("installs", [])]
+        if _IS_LINUX:
+            # ── Linux: store in chsuite_config.json, never touch game_installs.json
             norm = os.path.normcase(os.path.normpath(folder))
+            existing = [os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
+                        for i in self._cfg.get("linux_installs", [])]
             if norm in existing:
                 messagebox.showinfo("Already registered",
-                                    "That folder is already in game_installs.json.", parent=self)
+                                    "That folder is already in the installs list.", parent=self)
                 return
-            data.setdefault("installs", []).append({
+            self._cfg.setdefault("linux_installs", []).append({
                 "directoryPath": folder,
                 "isFromLauncher": False,
                 "version": None,
-                "manifestVersion": None,
-                "manifestDate": None,
-                "releaseChannel": "stable",
                 "disabled": False,
             })
-            _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            _save_json(CONFIG_FILE, self._cfg)
             self._gm_status(f"Added: {os.path.basename(folder)}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not update game_installs.json:\n{e}", parent=self)
+        else:
+            if not _INSTALLS_FILE.is_file():
+                # No launcher file yet — create a minimal one so we can register
+                try:
+                    _INSTALLS_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    _INSTALLS_FILE.write_text(
+                        json.dumps({"installs": []}, indent=2), encoding="utf-8")
+                except Exception as e:
+                    messagebox.showerror(
+                        "Error",
+                        f"Could not create game_installs.json:\n{e}", parent=self)
+                    return
+
+            try:
+                shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
+                data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+                existing = [os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
+                            for i in data.get("installs", [])]
+                norm = os.path.normcase(os.path.normpath(folder))
+                if norm in existing:
+                    messagebox.showinfo("Already registered",
+                                        "That folder is already in game_installs.json.", parent=self)
+                    return
+                data.setdefault("installs", []).append({
+                    "directoryPath": folder,
+                    "isFromLauncher": False,
+                    "version": None,
+                    "manifestVersion": None,
+                    "manifestDate": None,
+                    "releaseChannel": "stable",
+                    "disabled": False,
+                })
+                _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                self._gm_status(f"Added: {os.path.basename(folder)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not update game_installs.json:\n{e}", parent=self)
         self._gm_refresh_installs()
 
     def _gm_check_releases(self):
@@ -136474,14 +136697,28 @@ class CHSuite(tk.Tk):
                     f.chmod(f.stat().st_mode | 0o111)   # ensure +x
                     break
 
-        # Register in game_installs.json as Manual
-        if _INSTALLS_FILE.is_file():
+        # Register the new install
+        norm_actual = os.path.normcase(os.path.normpath(actual))
+        if _IS_LINUX:
+            # Linux: save to cfg["linux_installs"] — never touch game_installs.json
+            existing = {os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
+                        for i in self._cfg.get("linux_installs", [])}
+            if norm_actual not in existing:
+                self._cfg.setdefault("linux_installs", []).append({
+                    "directoryPath": actual,
+                    "isFromLauncher": False,
+                    "version": tag.lstrip("v"),
+                    "disabled": False,
+                })
+                _save_json(CONFIG_FILE, self._cfg)
+                _log(f"[gm] Registered {actual} in linux_installs (cfg)")
+        elif _INSTALLS_FILE.is_file():
             try:
                 shutil.copy2(str(_INSTALLS_FILE), str(_INSTALLS_FILE) + ".bak")
                 data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
                 existing = {os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
                             for i in data.get("installs", [])}
-                if os.path.normcase(os.path.normpath(actual)) not in existing:
+                if norm_actual not in existing:
                     data.setdefault("installs", []).append({
                         "directoryPath": actual,
                         "isFromLauncher": False,

@@ -225,17 +225,41 @@ if exist "themes\" (
 )
 echo.
 
+:: ── Rename CHSuite.exe → CHSuiteWindows.exe ──────────────────────────────────
+echo  Renaming CHSuite.exe to CHSuiteWindows.exe...
+if exist "dist\CHSuite\CHSuite.exe" (
+    rename "dist\CHSuite\CHSuite.exe" "CHSuiteWindows.exe"
+    echo  Renamed: dist\CHSuite\CHSuiteWindows.exe
+) else (
+    echo  [WARNING] dist\CHSuite\CHSuite.exe not found -- skipping rename.
+)
+echo.
+
+:: ── Create CHSuiteWindows.zip ─────────────────────────────────────────────────
+:: Uses PowerShell's Compress-Archive (available on all Windows 10+ / PS 5+).
+:: Runs AFTER all assets are staged so themes\ and Images\ are included.
+echo  Creating CHSuiteWindows.zip...
+if exist "CHSuiteWindows.zip" del /f /q "CHSuiteWindows.zip"
+powershell -NoProfile -Command ^
+    "Compress-Archive -Path 'dist\CHSuite\*' -DestinationPath 'CHSuiteWindows.zip' -Force"
+if !errorlevel! neq 0 (
+    echo  [WARNING] PowerShell zip failed -- CHSuiteWindows.zip was not created.
+) else (
+    echo  Created: CHSuiteWindows.zip
+)
+echo.
+
 :: ── Done ─────────────────────────────────────────────────────────────────────
 echo.
 echo  =============================================================
 echo   BUILD SUCCESSFUL
 echo  =============================================================
 echo.
-echo   Executable : dist\CHSuite\CHSuite.exe
+echo   Executable : dist\CHSuite\CHSuiteWindows.exe
 echo   Theme Lab  : dist\CHSuite\ThemeGen.exe  (hidden)
 echo   Full bundle: dist\CHSuite\
 echo.
-echo   ZIP the entire dist\CHSuite\ folder to distribute.
+echo   Distribute CHSuiteWindows.zip (includes themes\ and Images\).
 echo   Do NOT ship the .exe alone -- it needs _internal\ beside it.
 echo.
 echo   Test now: run dist\CHSuite\CHSuite.exe from this window.
@@ -274,11 +298,12 @@ echo  =============================================================
 echo   BUILD SUCCESSFUL
 echo  =============================================================
 echo.
-echo   Executable : dist\CHSuite\CHSuite.exe
+echo   Executable : dist\CHSuite\CHSuiteWindows.exe
 echo   Theme Lab  : dist\CHSuite\ThemeGen.exe  (hidden)
+echo   Zip        : CHSuiteWindows.zip
 echo   Installer  : CHSuite_Setup.exe  (if NSIS was installed)
 echo.
-echo   Without installer: ZIP the entire dist\CHSuite\ folder.
+echo   Without installer: distribute CHSuiteWindows.zip.
 echo   With installer:    ship CHSuite_Setup.exe standalone.
 echo.
 echo   Test: run dist\CHSuite\CHSuite.exe from this window.
