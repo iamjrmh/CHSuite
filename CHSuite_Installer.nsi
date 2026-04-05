@@ -21,7 +21,7 @@
 ; Basic info
 ; ---------------------------------------------------------------------------
 Name                "CHSuite"
-OutFile             "CHSuite_Setup.exe"
+OutFile             "CHSuiteWindows.exe"
 InstallDir          "C:\CHSuite"
 InstallDirRegKey    HKCU "Software\CHSuite" "InstallDir"
 RequestExecutionLevel admin
@@ -30,12 +30,12 @@ SetCompressor       /SOLID lzma
 ; ---------------------------------------------------------------------------
 ; Version info
 ; ---------------------------------------------------------------------------
-VIProductVersion    "1.0.0.0"
+VIProductVersion    "5.0.0.0"
 VIAddVersionKey     "ProductName"     "CHSuite"
-VIAddVersionKey     "ProductVersion"  "1.0.0"
+VIAddVersionKey     "ProductVersion"  "5.0.0"
 VIAddVersionKey     "CompanyName"     "JURMR"
 VIAddVersionKey     "FileDescription" "CHSuite Installer"
-VIAddVersionKey     "FileVersion"     "1.0.0"
+VIAddVersionKey     "FileVersion"     "5.0.0"
 VIAddVersionKey     "LegalCopyright"  "JURMR"
 
 ; ---------------------------------------------------------------------------

@@ -183,6 +183,45 @@ if !errorlevel! neq 0 (
     goto :fail
 )
 
+
+:: ── Copy Images folder ───────────────────────────────────────────────
+echo  Copying Images folder to dist\CHSuite...
+if exist "Images\" (
+    xcopy /E /I /Y "Images" "dist\CHSuite\Images" >nul
+    echo  Images folder copied and hidden.
+) else (
+    echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
+    echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
+)
+echo.
+
+
+:: ── Copy themes folder ────────────────────────────────────────────────────────
+echo  Copying themes folder to dist\CHSuite...
+if exist "themes\" (
+    xcopy /E /I /Y "themes" "dist\CHSuite\themes" >nul
+    echo  themes folder copied.
+) else (
+    echo  [WARNING] themes\ folder not found in %~dp0 -- skipping copy.
+    echo  Users will see no themes until a themes\ folder with .json files is present.
+)
+echo.
+
+
+:: ── Create CHSuiteWindows.zip ─────────────────────────────────────────────────
+:: Uses PowerShell's Compress-Archive (available on all Windows 10+ / PS 5+).
+:: Runs AFTER all assets are staged so themes\ and Images\ are included.
+echo  Creating CHSuiteWindows.zip...
+if exist "CHSuiteWindows.zip" del /f /q "CHSuiteWindows.zip"
+powershell -NoProfile -Command ^
+    "Compress-Archive -Path 'dist\CHSuite\*' -DestinationPath 'CHSuiteWindows.zip' -Force"
+if !errorlevel! neq 0 (
+    echo  [WARNING] PowerShell zip failed -- CHSuiteWindows.zip was not created.
+) else (
+    echo  Created: CHSuiteWindows.zip
+)
+echo.
+
 :: ── Hide _internal folder ─────────────────────────────────────────────────────
 echo  Hiding _internal folder...
 if exist "dist\CHSuite\_internal" (
@@ -202,7 +241,7 @@ if exist "dist\CHSuite\ThemeGen.exe" (
 )
 echo.
 
-:: ── Copy and hide Images folder ───────────────────────────────────────────────
+:: ── Hide Images folder ───────────────────────────────────────────────
 echo  Copying Images folder to dist\CHSuite...
 if exist "Images\" (
     xcopy /E /I /Y "Images" "dist\CHSuite\Images" >nul
@@ -211,41 +250,6 @@ if exist "Images\" (
 ) else (
     echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
     echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
-)
-echo.
-
-:: ── Copy themes folder ────────────────────────────────────────────────────────
-echo  Copying themes folder to dist\CHSuite...
-if exist "themes\" (
-    xcopy /E /I /Y "themes" "dist\CHSuite\themes" >nul
-    echo  themes folder copied.
-) else (
-    echo  [WARNING] themes\ folder not found in %~dp0 -- skipping copy.
-    echo  Users will see no themes until a themes\ folder with .json files is present.
-)
-echo.
-
-:: ── Rename CHSuite.exe → CHSuiteWindows.exe ──────────────────────────────────
-echo  Renaming CHSuite.exe to CHSuiteWindows.exe...
-if exist "dist\CHSuite\CHSuite.exe" (
-    rename "dist\CHSuite\CHSuite.exe" "CHSuiteWindows.exe"
-    echo  Renamed: dist\CHSuite\CHSuiteWindows.exe
-) else (
-    echo  [WARNING] dist\CHSuite\CHSuite.exe not found -- skipping rename.
-)
-echo.
-
-:: ── Create CHSuiteWindows.zip ─────────────────────────────────────────────────
-:: Uses PowerShell's Compress-Archive (available on all Windows 10+ / PS 5+).
-:: Runs AFTER all assets are staged so themes\ and Images\ are included.
-echo  Creating CHSuiteWindows.zip...
-if exist "CHSuiteWindows.zip" del /f /q "CHSuiteWindows.zip"
-powershell -NoProfile -Command ^
-    "Compress-Archive -Path 'dist\CHSuite\*' -DestinationPath 'CHSuiteWindows.zip' -Force"
-if !errorlevel! neq 0 (
-    echo  [WARNING] PowerShell zip failed -- CHSuiteWindows.zip was not created.
-) else (
-    echo  Created: CHSuiteWindows.zip
 )
 echo.
 
