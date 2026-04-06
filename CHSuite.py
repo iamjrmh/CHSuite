@@ -132067,6 +132067,29 @@ def _ipc_recv_msg(conn, timeout: float = 5.0) -> dict | None:
     except Exception:
         return None
 
+
+def _flatten_platform_subdir(dest_dir: "Path", platform_name: str):
+    """After extraction, if dest_dir contains exactly one subfolder whose name
+    matches platform_name (case-insensitive), move its contents up to dest_dir
+    and remove the now-empty subfolder.  This flattens archives like:
+      dest/{tag}/Linux/clonehero  →  dest/{tag}/clonehero   (Linux)
+      dest/{tag}/Windows/Clone Hero.exe  →  dest/{tag}/Clone Hero.exe  (Windows)
+    """
+    try:
+        subdirs = [p for p in dest_dir.iterdir() if p.is_dir()]
+        if len(subdirs) == 1 and subdirs[0].name.lower() == platform_name:
+            sub = subdirs[0]
+            _log(f"[gm] Flattening subfolder '{sub.name}' into {dest_dir}")
+            for item in list(sub.iterdir()):
+                shutil.move(str(item), str(dest_dir / item.name))
+            try:
+                sub.rmdir()
+            except Exception:
+                shutil.rmtree(str(sub), ignore_errors=True)
+            _log(f"[gm] Removed subfolder '{sub.name}'")
+    except Exception as e:
+        _log(f"[gm] _flatten_platform_subdir error: {e}")
+
 class CHSuite(tk.Tk):
     # ── init ──────────────────────────────────────────────────────────────────
     def __init__(self):
@@ -132075,6 +132098,19 @@ class CHSuite(tk.Tk):
         self.configure(bg=C["bg"])
         self.minsize(1200, 780)
         self.geometry("1350x860")
+
+        # ── Windows 10 drag-performance tweaks ────────────────────────────────
+        if _IS_WINDOWS:
+            try:
+                import ctypes
+                # Full opacity — any alpha value < 1 forces DWM to composite
+                # every frame through a separate layered-window pass.
+                self.attributes("-alpha", 1.0)
+                # Tell Tk to flush GDI commands immediately rather than batching;
+                # reduces the visual lag between pointer movement and window redraw.
+                self.tk.call("tk", "useinputmethods", "0")
+            except Exception:
+                pass
 
         # Set embedded window icon
         try:
@@ -136051,15 +136087,61 @@ class CHSuite(tk.Tk):
             name_fg = C["text_dim"] if disabled else C["text"]
             name_row = tk.Frame(info, bg=row_bg); name_row.pack(anchor="w")
 
+            # Display name: stored "displayName" or fallback to basename
+            display_name = inst.get("displayName") or os.path.basename(path)
+
             # Default star badge
             if is_def:
                 tk.Label(name_row, text="★", font=("Lato", 12),
                          fg=C["warn"], bg=row_bg).pack(side="left", padx=(0, 5))
-            tk.Label(name_row, text=os.path.basename(path), font=FTB,
-                     fg=name_fg, bg=row_bg).pack(side="left")
 
-            tk.Label(info, text=path, font=FTM, fg=C["text_dim"],
-                     bg=row_bg).pack(anchor="w")
+            # Clickable name label — click to rename
+            name_lbl = tk.Label(name_row, text=display_name, font=FTB,
+                                fg=name_fg, bg=row_bg, cursor="hand2")
+            name_lbl.pack(side="left")
+            tk.Label(name_row, text=" ✎", font=FTS,
+                     fg=C["text_dim"], bg=row_bg, cursor="hand2").pack(side="left")
+
+            def _rename(p=path, lbl=name_lbl, i=inst):
+                current = i.get("displayName") or os.path.basename(p)
+                new_name = simpledialog.askstring(
+                    "Rename Install", "Enter a new display name:",
+                    initialvalue=current, parent=self)
+                if new_name and new_name.strip() and new_name.strip() != current:
+                    new_name = new_name.strip()
+                    i["displayName"] = new_name
+                    lbl.config(text=new_name)
+                    if _IS_LINUX:
+                        # Persist into cfg["linux_installs"]
+                        for entry in self._cfg.get("linux_installs", []):
+                            if os.path.normcase(os.path.normpath(
+                                    entry.get("directoryPath", ""))) == \
+                               os.path.normcase(os.path.normpath(p)):
+                                entry["displayName"] = new_name
+                                break
+                        _save_json(CONFIG_FILE, self._cfg)
+                    else:
+                        # Persist into game_installs.json
+                        try:
+                            data = json.loads(_INSTALLS_FILE.read_text(encoding="utf-8"))
+                            for entry in data.get("installs", []):
+                                if os.path.normcase(os.path.normpath(
+                                        entry.get("directoryPath", ""))) == \
+                                   os.path.normcase(os.path.normpath(p)):
+                                    entry["displayName"] = new_name
+                                    break
+                            _INSTALLS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                        except Exception as e:
+                            _log(f"[gm] Could not save display name: {e}")
+
+            name_lbl.bind("<Button-1>", lambda e, fn=_rename: fn())
+            name_row.winfo_children()[-1].bind("<Button-1>", lambda e, fn=_rename: fn())
+
+            # Truncated path — show up to 55 chars, ellipsis in the middle if longer
+            _max = 45
+            _short_path = (path[:_max] + "…") if len(path) > _max else path
+            tk.Label(info, text=_short_path, font=FTM, fg=C["text_dim"],
+                     bg=row_bg, anchor="w", wraplength=320).pack(anchor="w")
 
             tag_r = tk.Frame(info, bg=row_bg); tag_r.pack(anchor="w", pady=(2, 0))
             tk.Label(tag_r, text=f"v{ver}", font=FTS, fg=C["text_dim"],
@@ -136392,31 +136474,47 @@ class CHSuite(tk.Tk):
 
         def _linux_asset(release):
             """Return the Linux asset matching the host architecture.
-            Priority: .AppImage → .tar.xz → .tar (arch-matched first).
+            Priority: Standalone .tar.xz → Standalone .tar → .tar.xz → .tar → .7z → .AppImage.
+            Launcher assets (any file with 'launcher' in the name) are always skipped.
             """
-            LINUX_EXTS = (".appimage", ".tar.xz", ".tar")
-            arch_tag  = "x86_64" if _is_64 else "x86"
-            anti_tag  = "x86" if _is_64 else "x86_64"
+            LINUX_EXTS = (".appimage", ".tar.xz", ".tar", ".7z")
+            arch_tag = "x86_64" if _is_64 else "x86"
             candidates, fallback = [], []
             for a in release.get("assets", []):
                 n = a["name"].lower()
                 if not any(n.endswith(ext) for ext in LINUX_EXTS):
                     continue
+                if "launcher" in n:
+                    continue          # skip ch_launcher and any other launcher assets
                 if "win" in n or "windows" in n or "mac" in n or "osx" in n:
                     continue          # definitely not Linux
-                if anti_tag in n:
-                    continue
-                if arch_tag in n or "linux" in n:
+                # Arch filtering: use a word-boundary-aware check so "x86" doesn't
+                # accidentally match the "x86" inside "x86_64".
+                if _is_64 and re.search(r'x86(?!_64)', n):
+                    continue          # 32-bit-only asset, skip on 64-bit host
+                if not _is_64 and "x86_64" in n:
+                    continue          # 64-bit-only asset, skip on 32-bit host
+                if arch_tag in n or "linux" in n or "standalone" in n:
                     candidates.append(a)
                 else:
                     fallback.append(a)
             pool = candidates if candidates else fallback
-            # Prefer .AppImage → .tar.xz → .tar
+            # Rank: Standalone tarballs first (actual game), generic tarballs next,
+            # then .7z, AppImage last (often the launcher on PTB).
             def _ext_rank_linux(a):
                 n = a["name"].lower()
-                for i, ext in enumerate(LINUX_EXTS):
-                    if n.endswith(ext):
-                        return i
+                if "standalone" in n and n.endswith(".tar.xz"):
+                    return 0
+                if "standalone" in n and n.endswith(".tar"):
+                    return 1
+                if n.endswith(".tar.xz"):
+                    return 2
+                if n.endswith(".tar"):
+                    return 3
+                if n.endswith(".7z"):
+                    return 4
+                if n.endswith(".appimage"):
+                    return 5
                 return 99
             pool.sort(key=_ext_rank_linux)
             return pool[0] if pool else None
@@ -136481,18 +136579,8 @@ class CHSuite(tk.Tk):
         if not _REQUESTS_OK:
             return
 
-        # Ask the user where to install
-        _default_install_base = str(_app_dir()) if _IS_LINUX \
-                                else str(Path.home() / "Documents" / "Clone Hero")
-        initial = self._cfg.get("ch_install_dir", _default_install_base)
-        dest_base = filedialog.askdirectory(
-            title=f"Choose install folder for Clone Hero {tag}",
-            initialdir=initial,
-            parent=self)
-        if not dest_base:
-            return  # user cancelled
-
-        dest_dir = Path(dest_base)
+        # Determine install destination — no dialog on either platform
+        dest_dir = Path.home() / "Documents" / "Clone Hero" / tag
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
@@ -136646,6 +136734,9 @@ class CHSuite(tk.Tk):
                                 "Cannot extract .7z: install py7zr (pip install py7zr) "
                                 "or 7-Zip.")
                     zip_path.unlink(missing_ok=True)
+                    # Windows: flatten single subfolder (e.g. "Windows") after 7z extract
+                    if _IS_WINDOWS:
+                        _flatten_platform_subdir(dest_dir, "windows")
                 elif fname_lower.endswith(".appimage"):
                     _log(f"[gm] Installing .AppImage {zip_path} → {dest_dir}")
                     # AppImages are self-contained — just ensure +x; no extraction
@@ -136659,12 +136750,18 @@ class CHSuite(tk.Tk):
                     with tarfile.open(zip_path, "r:*") as tf:
                         tf.extractall(dest_dir)
                     zip_path.unlink(missing_ok=True)
+                    # Linux: flatten single subfolder (e.g. "Linux") into dest_dir root
+                    if _IS_LINUX:
+                        _flatten_platform_subdir(dest_dir, "linux")
                 else:
                     _log(f"[gm] Extracting .zip {zip_path} → {dest_dir}")
                     import zipfile
                     with zipfile.ZipFile(zip_path, "r") as zf:
                         zf.extractall(dest_dir)
                     zip_path.unlink(missing_ok=True)
+                    # Windows: flatten single subfolder (e.g. "Windows") into dest_dir root
+                    if _IS_WINDOWS:
+                        _flatten_platform_subdir(dest_dir, "windows")
 
                 # Register in game_installs.json if launcher JSON exists
                 self.after(0, lambda: self._gm_post_install(str(dest_dir), tag))
@@ -136830,13 +136927,47 @@ class CHSuite(tk.Tk):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
-    if not getattr(sys, "frozen", False) and sys.platform == "win32":
-        import ctypes
+    if sys.platform == "win32":
+        import ctypes, ctypes.wintypes
         try:
-            ctypes.windll.user32.ShowWindow(
-                ctypes.windll.kernel32.GetConsoleWindow(), 0)
+            # ── Hide console window when running from source ──────────────────
+            if not getattr(sys, "frozen", False):
+                ctypes.windll.user32.ShowWindow(
+                    ctypes.windll.kernel32.GetConsoleWindow(), 0)
+
+            kernel32 = ctypes.windll.kernel32
+
+            # ── HIGH_PRIORITY_CLASS: more CPU time for the UI thread ──────────
+            # 0x00000080 = HIGH_PRIORITY_CLASS
+            kernel32.SetPriorityClass(kernel32.GetCurrentProcess(), 0x00000080)
+
+            # ── 1 ms system timer resolution ──────────────────────────────────
+            # Windows 10 defaults to 15.6 ms, meaning the tkinter event loop
+            # can only fire ~64×/sec — exactly why dragging feels sluggish.
+            # Windows 11 already defaults to ~0.5 ms; this call is a no-op there.
+            ctypes.WinDLL("winmm").timeBeginPeriod(1)
+
+            # ── Per-Monitor v2 DPI awareness ──────────────────────────────────
+            # Without this, DWM scales the window bitmap on Win10 HiDPI screens,
+            # adding a compositing pass on every frame during a drag.
+            try:
+                # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 (-4), Win10 1703+
+                ctypes.windll.user32.SetProcessDpiAwarenessContext(-4)
+            except Exception:
+                try:
+                    # PROCESS_PER_MONITOR_DPI_AWARE (2), Win8.1+
+                    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+                except Exception:
+                    ctypes.windll.user32.SetProcessDPIAware()
+
+            # ── Disable window ghosting ───────────────────────────────────────
+            # Stops Windows from drawing the "Not Responding" translucent
+            # overlay, which triggers an extra DWM compositing pass mid-drag.
+            ctypes.windll.user32.DisableProcessWindowsGhosting()
+
         except Exception:
             pass
+
     CHSuite().mainloop()
 
 

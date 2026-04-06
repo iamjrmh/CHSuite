@@ -184,18 +184,6 @@ if !errorlevel! neq 0 (
 )
 
 
-:: ── Copy Images folder ───────────────────────────────────────────────
-echo  Copying Images folder to dist\CHSuite...
-if exist "Images\" (
-    xcopy /E /I /Y "Images" "dist\CHSuite\Images" >nul
-    echo  Images folder copied and hidden.
-) else (
-    echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
-    echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
-)
-echo.
-
-
 :: ── Copy themes folder ────────────────────────────────────────────────────────
 echo  Copying themes folder to dist\CHSuite...
 if exist "themes\" (
@@ -207,22 +195,18 @@ if exist "themes\" (
 )
 echo.
 
-
-:: ── Create CHSuiteWindows.zip ─────────────────────────────────────────────────
-:: Uses PowerShell's Compress-Archive (available on all Windows 10+ / PS 5+).
-:: Runs AFTER all assets are staged so themes\ and Images\ are included.
-echo  Creating CHSuiteWindows.zip...
-if exist "CHSuiteWindows.zip" del /f /q "CHSuiteWindows.zip"
-powershell -NoProfile -Command ^
-    "Compress-Archive -Path 'dist\CHSuite\*' -DestinationPath 'CHSuiteWindows.zip' -Force"
-if !errorlevel! neq 0 (
-    echo  [WARNING] PowerShell zip failed -- CHSuiteWindows.zip was not created.
+:: ── Copy Images folder ───────────────────────────────────────────────────────
+echo  Copying Images folder to dist\CHSuite...
+if exist "Images\" (
+    xcopy /E /I /Y "Images" "dist\CHSuite\Images" >nul
+    echo  Images folder copied.
 ) else (
-    echo  Created: CHSuiteWindows.zip
+    echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
+    echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
 )
 echo.
 
-:: ── Hide _internal folder ─────────────────────────────────────────────────────
+:: ── Hide _internal folder ────────────────────────────────────────────────────
 echo  Hiding _internal folder...
 if exist "dist\CHSuite\_internal" (
     attrib +h "dist\CHSuite\_internal"
@@ -231,7 +215,7 @@ if exist "dist\CHSuite\_internal" (
     echo  [WARNING] dist\CHSuite\_internal not found -- skipping attrib.
 )
 
-:: ── Hide ThemeGen.exe ─────────────────────────────────────────────────────────
+:: ── Hide ThemeGen.exe ────────────────────────────────────────────────────────
 echo  Hiding ThemeGen.exe...
 if exist "dist\CHSuite\ThemeGen.exe" (
     attrib +h "dist\CHSuite\ThemeGen.exe"
@@ -239,17 +223,29 @@ if exist "dist\CHSuite\ThemeGen.exe" (
 ) else (
     echo  [WARNING] dist\CHSuite\ThemeGen.exe not found -- build may have failed.
 )
+
+:: ── Hide Images folder ───────────────────────────────────────────────────────
+echo  Hiding Images folder...
+if exist "dist\CHSuite\Images" (
+    attrib +h "dist\CHSuite\Images"
+    echo  dist\CHSuite\Images is now hidden.
+) else (
+    echo  [WARNING] dist\CHSuite\Images not found -- skipping attrib.
+)
 echo.
 
-:: ── Hide Images folder ───────────────────────────────────────────────
-echo  Copying Images folder to dist\CHSuite...
-if exist "Images\" (
-    xcopy /E /I /Y "Images" "dist\CHSuite\Images" >nul
-    attrib +h "dist\CHSuite\Images"
-    echo  Images folder copied and hidden.
+:: ── Create CHSuiteWindows.zip ─────────────────────────────────────────────────
+:: Must run AFTER all attrib calls. Uses ZipFile::CreateFromDirectory which
+:: reads the filesystem directly and includes hidden files/folders, unlike
+:: Compress-Archive whose wildcard (*) silently skips hidden items.
+echo  Creating CHSuiteWindows.zip...
+if exist "CHSuiteWindows.zip" del /f /q "CHSuiteWindows.zip"
+powershell -NoProfile -Command ^
+    "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory((Resolve-Path 'dist\CHSuite').Path, (Join-Path (Resolve-Path '.').Path 'CHSuiteWindows.zip'))"
+if !errorlevel! neq 0 (
+    echo  [WARNING] PowerShell zip failed -- CHSuiteWindows.zip was not created.
 ) else (
-    echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
-    echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
+    echo  Created: CHSuiteWindows.zip
 )
 echo.
 
