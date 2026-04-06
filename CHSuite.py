@@ -132068,12 +132068,37 @@ def _ipc_recv_msg(conn, timeout: float = 5.0) -> dict | None:
         return None
 
 
+def _flatten_single_subdir(dest_dir: "Path"):
+    """If dest_dir contains exactly one subfolder (any name), move its contents
+    up into dest_dir and remove the now-empty subfolder.  Used as a second pass
+    after _flatten_platform_subdir to handle archives like:
+      dest/{tag}/Windows/CloneHero-Win-x64/<files>
+    which need two levels of flattening on Windows.
+    """
+    try:
+        subdirs = [p for p in dest_dir.iterdir() if p.is_dir()]
+        if len(subdirs) == 1:
+            sub = subdirs[0]
+            _log(f"[gm] Flattening inner subfolder '{sub.name}' into {dest_dir}")
+            for item in list(sub.iterdir()):
+                shutil.move(str(item), str(dest_dir / item.name))
+            try:
+                sub.rmdir()
+            except Exception:
+                shutil.rmtree(str(sub), ignore_errors=True)
+            _log(f"[gm] Removed inner subfolder '{sub.name}'")
+    except Exception as e:
+        _log(f"[gm] _flatten_single_subdir error: {e}")
+
+
 def _flatten_platform_subdir(dest_dir: "Path", platform_name: str):
     """After extraction, if dest_dir contains exactly one subfolder whose name
     matches platform_name (case-insensitive), move its contents up to dest_dir
     and remove the now-empty subfolder.  This flattens archives like:
       dest/{tag}/Linux/clonehero  →  dest/{tag}/clonehero   (Linux)
-      dest/{tag}/Windows/Clone Hero.exe  →  dest/{tag}/Clone Hero.exe  (Windows)
+      dest/{tag}/Windows/CloneHero-Win-x64/<files>  →  dest/{tag}/<files>  (Windows)
+    On Windows the zip nests two levels deep (Windows/CloneHero-Win-x64/), so a
+    second pass via _flatten_single_subdir is performed automatically.
     """
     try:
         subdirs = [p for p in dest_dir.iterdir() if p.is_dir()]
@@ -132087,6 +132112,10 @@ def _flatten_platform_subdir(dest_dir: "Path", platform_name: str):
             except Exception:
                 shutil.rmtree(str(sub), ignore_errors=True)
             _log(f"[gm] Removed subfolder '{sub.name}'")
+            # Second pass: flatten the inner subfolder (e.g. CloneHero-Win-x64)
+            # that Windows zips place inside the platform folder.
+            if platform_name == "windows":
+                _flatten_single_subdir(dest_dir)
     except Exception as e:
         _log(f"[gm] _flatten_platform_subdir error: {e}")
 
@@ -132537,6 +132566,8 @@ class CHSuite(tk.Tk):
             items = [
                 (C["success"],  "LINUX SUPPORT!"),
                 (C["warn"],  "macOS support in the works."),
+                (C["success"],  "CHManager Fixes"),
+                (C["success"],  "Theme Lab Fixes"),
             ]
             for clr, txt in items:
                 row = tk.Frame(f, bg=C["card"])
@@ -132834,8 +132865,19 @@ class CHSuite(tk.Tk):
             (C["success"],  "LINUX SUPPORT!",
              "Linux support has officially been added with the release of v5.0!"),
             (C["warn"],  "macOS support in the works.",
-             "I am currently working on trying to port over to macos. need to either buy a "
+             "I am currently working on trying to port over to macos. need to either buy a   "
              "mac device or get a working virtual machine. we'll see."),
+            (C["success"],  "Theme Lab Fixes",
+             "Fixed an issue where Linux would force open a new instance of CHSuite when  "
+             "opening the Theme Lab"),
+            (C["success"],  "CHManager Fixes",
+             "Fixed a bug on Linux where it would only show downloads for the Clone Hero  "
+             "Launcher instead of the actual game."),
+            (C["success"],  "CHManager Fixes",
+             "Fixed a bug on Linux that wouldn't properly show new Installs inside of the "
+             "CHSuite."),
+            (C["success"],  "CHManager Fixes",
+             "Added a button to modify Clone Hero install names on both Linux/Windows."),
         ]
 
         for accent, heading, body in changes:

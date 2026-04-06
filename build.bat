@@ -160,8 +160,20 @@ echo.
 :: ── [6/7] Clean old build artifacts ──────────────────────────────────────────
 echo  [6/7] Cleaning previous build and dist folders...
 
+:: Kill any running CHSuite / ThemeGen so their DLLs aren't locked during rmdir.
+echo  Stopping any running CHSuite.exe / ThemeGen.exe...
+taskkill /f /im CHSuite.exe  >nul 2>&1
+taskkill /f /im ThemeGen.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
+
 if exist "build" ( rmdir /s /q "build" && echo  Removed: build\ )
-if exist "dist"  ( rmdir /s /q "dist"  && echo  Removed: dist\  )
+
+:: Strip hidden flags before rmdir -- rmdir /s /q silently fails on hidden items.
+if exist "dist\CHSuite" (
+    attrib -h -r -s /s /d "dist\CHSuite\*" >nul 2>&1
+    attrib -h -r -s      "dist\CHSuite"     >nul 2>&1
+)
+if exist "dist" ( rmdir /s /q "dist" && echo  Removed: dist\ )
 echo.
 
 :: ── [7/7] Run PyInstaller ─────────────────────────────────────────────────────
@@ -169,7 +181,7 @@ echo  [7/7] Running PyInstaller (takes 1-3 minutes, output below)...
 echo  ---------------------------------------------------------
 echo.
 
-pyinstaller CHSuite.spec
+pyinstaller --noconfirm CHSuite.spec
 if !errorlevel! neq 0 (
     echo.
     echo  ---------------------------------------------------------
@@ -234,19 +246,42 @@ if exist "dist\CHSuite\Images" (
 )
 echo.
 
-:: ── Create CHSuiteWindows.zip ─────────────────────────────────────────────────
-:: Must run AFTER all attrib calls. Uses ZipFile::CreateFromDirectory which
-:: reads the filesystem directly and includes hidden files/folders, unlike
-:: Compress-Archive whose wildcard (*) silently skips hidden items.
-echo  Creating CHSuiteWindows.zip...
-if exist "CHSuiteWindows.zip" del /f /q "CHSuiteWindows.zip"
-powershell -NoProfile -Command ^
-    "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory((Resolve-Path 'dist\CHSuite').Path, (Join-Path (Resolve-Path '.').Path 'CHSuiteWindows.zip'))"
-if !errorlevel! neq 0 (
-    echo  [WARNING] PowerShell zip failed -- CHSuiteWindows.zip was not created.
-) else (
-    echo  Created: CHSuiteWindows.zip
+:: ── Create dist\CHSuiteWindows.zip ──────────────────────────────────────────
+:: Must run AFTER all attrib calls so hidden flags are already set on disk.
+:: Uses 7-Zip CLI: cd into dist\CHSuite then "7z a CHSuiteWindows.zip * -mx=9"
+:: which preserves Windows file attributes (including the hidden bit) in the
+:: ZIP external-attributes field. Output is moved to dist\ when done.
+echo  Creating dist\CHSuiteWindows.zip via 7-Zip...
+if exist "dist\CHSuiteWindows.zip" del /f /q "dist\CHSuiteWindows.zip"
+
+:: Locate 7z.exe
+set "SEVENZIP="
+if exist "C:\Program Files\7-Zip\7z.exe"       set "SEVENZIP=C:\Program Files\7-Zip\7z.exe"
+if exist "C:\Program Files (x86)\7-Zip\7z.exe" set "SEVENZIP=C:\Program Files (x86)\7-Zip\7z.exe"
+
+if not defined SEVENZIP (
+    echo  [ERROR] 7-Zip not found. Install from https://www.7-zip.org then rerun.
+    echo  dist\CHSuiteWindows.zip was NOT created.
+    goto :zip_done
 )
+
+:: Run exactly the command that works: cd into dist\CHSuite, zip everything with *.
+:: The zip lands inside dist\CHSuite first, then we move it up to dist\.
+pushd "%~dp0dist\CHSuite"
+"%SEVENZIP%" a CHSuiteWindows.zip * -mx=9
+set _ZIP_ERR=!errorlevel!
+popd
+
+if !_ZIP_ERR! neq 0 (
+    echo  [WARNING] 7-Zip reported an error -- check dist\CHSuiteWindows.zip.
+    goto :zip_done
+)
+
+:: Move the zip from inside dist\CHSuite up to dist\
+move /y "%~dp0dist\CHSuite\CHSuiteWindows.zip" "%~dp0dist\CHSuiteWindows.zip" >nul
+echo  Created: dist\CHSuiteWindows.zip
+
+:zip_done
 echo.
 
 :: ── Done ─────────────────────────────────────────────────────────────────────
@@ -259,7 +294,7 @@ echo   Executable : dist\CHSuite\CHSuiteWindows.exe
 echo   Theme Lab  : dist\CHSuite\ThemeGen.exe  (hidden)
 echo   Full bundle: dist\CHSuite\
 echo.
-echo   Distribute CHSuiteWindows.zip (includes themes\ and Images\).
+echo   Distribute dist\CHSuiteWindows.zip (includes themes\ and Images\).
 echo   Do NOT ship the .exe alone -- it needs _internal\ beside it.
 echo.
 echo   Test now: run dist\CHSuite\CHSuite.exe from this window.
@@ -275,7 +310,7 @@ if exist "C:\Program Files\NSIS\makensis.exe" set "MAKENSIS=C:\Program Files\NSI
 
 if not defined MAKENSIS (
     echo  NSIS not found -- skipping installer.
-    echo  Install from https://nsis.sourceforge.io/Download then rerun to get CHSuite_Setup.exe
+    echo  Install from https://nsis.sourceforge.io/Download then rerun to get CHSuiteWindows.exe
     goto :done_nsis
 )
 
@@ -290,7 +325,11 @@ if !errorlevel! neq 0 (
     echo  [WARNING] NSIS compile failed. .exe build is still good.
     goto :done_nsis
 )
-echo  Installer built: CHSuite_Setup.exe
+echo  Installer built: CHSuiteWindows.exe
+if exist "CHSuiteWindows.exe" (
+    move /y "CHSuiteWindows.exe" "dist\CHSuiteWindows.exe" >nul
+    echo  Moved installer to dist\CHSuiteWindows.exe
+)
 
 :done_nsis
 echo.
@@ -300,11 +339,11 @@ echo  =============================================================
 echo.
 echo   Executable : dist\CHSuite\CHSuiteWindows.exe
 echo   Theme Lab  : dist\CHSuite\ThemeGen.exe  (hidden)
-echo   Zip        : CHSuiteWindows.zip
-echo   Installer  : CHSuite_Setup.exe  (if NSIS was installed)
+echo   Zip        : dist\CHSuiteWindows.zip
+echo   Installer  : dist\CHSuiteWindows.exe  (if NSIS was installed)
 echo.
-echo   Without installer: distribute CHSuiteWindows.zip.
-echo   With installer:    ship CHSuite_Setup.exe standalone.
+echo   Without installer: distribute dist\CHSuiteWindows.zip.
+echo   With installer:    ship dist\CHSuiteWindows.exe standalone.
 echo.
 echo   Test: run dist\CHSuite\CHSuite.exe from this window.
 echo.
