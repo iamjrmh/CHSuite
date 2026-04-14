@@ -249,6 +249,41 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 
 ---
 
+## 🎵 CHSongManager
+
+<details>
+<summary><h3 align="center">CHSongManager Preview</h3></summary>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/Screenshots/CHSongManager.png">
+</p>
+</details>
+
+* CHSongManager - a dedicated tool for discovering and downloading songs for Clone Hero
+* Integrated with the public ChorusEncore API for fast, reliable song lookup
+* Streamlined search functionality with improved filtering and query handling
+* Direct download support built into the workflow, reducing manual steps
+* Designed for scalability with large song libraries
+* Bulk download songs
+* Quickly see the progress of the current song download by hovering over the "Active Downloads" button
+
+---
+
+## 🔎 Improved Song Discovery
+
+* **Enhanced** song browsing experience with faster query responses
+* Better metadata handling for more accurate search results
+* Simplified access to community-maintained charts
+
+---
+
+## ⚙️ Integration & Workflow
+
+* Reduced friction between searching, downloading, and managing songs
+* Improved internal handling of song assets and storage paths
+
+
+---
+
 ## 📦 CHManager
 
 <details>
