@@ -10,20 +10,6 @@ An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate cus
 
 ---
 
-## ✅ Clone Hero Launcher - Handled Automatically
-
-The Clone Hero launcher used to reset your game files back to default after every launch, undoing any background changes made with the BG Changer.
-
-**This is now handled automatically.** On first launch, CHSuite patches your install as Manual in the background so the launcher leaves your files alone. A `✓ Patched` / `✗ Not Patched` badge in the welcome screen confirms the result before it closes.
-
-You can also manage patch state at any time from the **Launcher Patcher** page in the sidebar - patch or unpatch any registered install on the fly, with auto-kill of the launcher process if it's running.
-
-If your backgrounds still aren't saving after patching, open the Launcher → Settings and set this install as your default.
-
-***You do NOT need the Clone Hero Launcher installed to be able to use this tool. You can use the custom Clone Hero Installer "```CHManager```" to completely bypass it.***
-
----
-
 ## ✨ What's Inside
 
 | Tab | Description |
