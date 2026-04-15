@@ -1,0 +1,65 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* Inter or Helvetica are also great fits for this 'tech' look */
+  font-family: 'Inter', Arial, sans-serif; 
+}
+
+body {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  /* Centering the gradient origin to match your preview image */
+  background: radial-gradient(
+    circle at center, 
+    #1b4d0e 0%,    
+    #0a2205 40%,   
+    #040d02 80%,   
+    #000000 100%
+  );
+
+  color: #ffffff;
+  overflow: hidden;
+}
+
+.container {
+  /* Flex ensures the content inside the container is also centered */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+h1 {
+  font-size: 4.5rem;
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+  letter-spacing: -3px;
+  /* Subtle glow to the text itself */
+  text-shadow: 0 0 20px rgba(38, 224, 22, 0.2);
+}
+
+p {
+  font-size: 1rem;
+  font-weight: 400;
+  opacity: 0.8;
+  letter-spacing: 0.5px;
+}
+
+.inline-link {
+  color: #26e016;
+  text-decoration: none;
+  font-weight: 700;
+  transition: all 0.2s ease-in-out;
+}
+
+.inline-link:hover {
+  text-shadow: 0 0 10px rgba(38, 224, 22, 0.8);
+  filter: brightness(1.3);
+}
