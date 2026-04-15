@@ -1,5 +1,5 @@
 """
-CHSuite  by JURMR  v6.0
+CHSuite  by JURMR  v6.1
 =======================
 All-in-one Clone Hero utility suite.
 
@@ -129168,6 +129168,50 @@ def _log(msg: str):
     except Exception:
         pass
 
+_CRASH_LOG_DIR = _app_dir() / "Logs"
+
+def _write_crash_log(exc_info=None, simulated=False):
+    """Write a crash report including system specs to Logs/[Date].log."""
+    try:
+        _CRASH_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        fname = datetime.datetime.now().strftime("%Y-%m-%d") + ".log"
+        fpath = _CRASH_LOG_DIR / fname
+        with open(fpath, "a", encoding="utf-8") as f:
+            f.write("=" * 60 + "\n")
+            f.write(f"CHSuite Crash Report\n")
+            f.write(f"Timestamp : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            if simulated:
+                f.write(f"Type      : SIMULATED (F12)\n")
+            else:
+                f.write(f"Type      : UNHANDLED EXCEPTION\n")
+            f.write(f"\n--- System Info ---\n")
+            f.write(f"OS        : {platform.platform()}\n")
+            f.write(f"OS Name   : {platform.system()} {platform.release()}\n")
+            f.write(f"Machine   : {platform.machine()}\n")
+            f.write(f"Processor : {platform.processor()}\n")
+            f.write(f"Python    : {sys.version}\n")
+            try:
+                import psutil
+                mem = psutil.virtual_memory()
+                f.write(f"RAM Total : {mem.total // (1024**2)} MB\n")
+                f.write(f"RAM Avail : {mem.available // (1024**2)} MB\n")
+                f.write(f"CPU Count : {psutil.cpu_count(logical=True)}\n")
+            except Exception:
+                f.write(f"CPU Count : {os.cpu_count()}\n")
+            f.write(f"\n--- CHSuite ---\n")
+            f.write(f"Frozen    : {getattr(sys, 'frozen', False)}\n")
+            f.write(f"App Dir   : {_app_dir()}\n")
+            if exc_info and exc_info[0] is not None:
+                import traceback
+                f.write(f"\n--- Traceback ---\n")
+                traceback.print_exception(*exc_info, file=f)
+            f.write("=" * 60 + "\n\n")
+        return fpath
+    except Exception as _ce:
+        print(f"[crash log] Could not write crash log: {_ce}")
+        return None
+
+
 def _load_json(path: Path, default):
     try:
         if path.is_file():
@@ -130328,7 +130372,7 @@ def _generate_individual_name(letters_data, global_size=None, global_spacing=Non
 _NG_PROFILES_FILE = _app_dir() / "ch_notegen_profiles.json"
 _NG_CONFIG_FILE   = _app_dir() / "ch_notegen_config.json"
 _NG_DEFAULT_INI   = _app_dir() / "DefaultColors.ini"
-_NG_IMAGES_DIR    = _app_dir() / "Images"
+_NG_IMAGES_DIR    = _app_dir() / "_internal" / "Images"
 _NG_DEFAULT_PROFILE_NAME = "Default (Read-Only)"
 
 _NOTE_FILE_MAP = [
@@ -132291,6 +132335,9 @@ class CHSongManagerTab(tk.Frame):
         self._row_chk_vars: list = []
         self._row_bg:       list = []
 
+        # Virtual scroll
+        self._virt_rendered: dict = {}   # idx → frame (currently live widgets)
+
         # Sidebar
         self._active_idx:    int | None  = None
         self._art_image_ref: object      = None   # keep PhotoImage alive
@@ -132685,6 +132732,10 @@ class CHSongManagerTab(tk.Frame):
             btn.grid(row=0, column=gcol, sticky="ew")
             self._col_header_btns[field] = btn
 
+    # ── Virtual scroll constants ──────────────────────────────────────────────
+    _VROW_H      = 34    # estimated row height in pixels (pady=8 → ~34px)
+    _VROW_BUFFER = 15    # extra rows to render above/below visible area
+
     def _build_scroll_table(self, parent):
         wrap = tk.Frame(parent, bg=_bc("card"))
         wrap.grid(row=1, column=0, sticky="nsew")
@@ -132698,7 +132749,7 @@ class CHSongManagerTab(tk.Frame):
             wrap, bg=_bc("card"), highlightthickness=0,
             yscrollcommand=vsb.set)
         self._canvas.grid(row=0, column=0, sticky="nsew")
-        vsb.config(command=self._canvas.yview)
+        vsb.config(command=self._vscroll_cmd)
 
         for w in (self._canvas,):
             w.bind("<MouseWheel>", self._on_mwheel)
@@ -132706,19 +132757,90 @@ class CHSongManagerTab(tk.Frame):
             w.bind("<Button-5>",   self._on_mwheel)
             w.bind("<Button-2>",   self._on_mmb_click)
 
+        # _table_inner is a plain frame; we position it manually.
+        # For virtual scrolling we DON'T pack children into it —
+        # instead we use place() so we control y-position ourselves.
         self._table_inner = tk.Frame(self._canvas, bg=_bc("card"))
         self._table_win   = self._canvas.create_window(
             (0, 0), window=self._table_inner, anchor="nw")
 
-        self._table_inner.bind(
-            "<Configure>",
-            lambda _: self._canvas.configure(
-                scrollregion=self._canvas.bbox("all")))
         self._canvas.bind(
             "<Configure>",
-            lambda e: self._canvas.itemconfig(self._table_win, width=e.width))
+            self._on_canvas_configure)
         self._canvas.bind("<Enter>", lambda _: None)
         self._canvas.bind("<Leave>", lambda _: None)
+
+        # Virtual scroll state
+        self._virt_rendered: dict = {}   # idx → frame (currently live widgets)
+        self._virt_scroll_y: int  = 0    # current pixel scroll offset
+
+    def _vscroll_cmd(self, *args):
+        """Intercept scrollbar commands to update virtual scroll state."""
+        self._canvas.yview(*args)
+        self._refresh_virtual_rows()
+
+    def _on_canvas_configure(self, event):
+        """Called when canvas is resized — update inner frame width + refresh."""
+        self._canvas.itemconfig(self._table_win, width=event.width)
+        self._refresh_virtual_rows()
+
+    def _virt_total_height(self) -> int:
+        return max(len(self._songs) * self._VROW_H, 1)
+
+    def _update_virt_scrollregion(self):
+        total = self._virt_total_height()
+        self._table_inner.config(height=total)
+        self._canvas.configure(scrollregion=(0, 0,
+            self._canvas.winfo_width(), total))
+
+    def _refresh_virtual_rows(self, _event=None):
+        """
+        Render only rows visible in the viewport (± _VROW_BUFFER).
+        Destroy rows that have scrolled out of range.
+        """
+        if not self._songs:
+            return
+        canvas_h = self._canvas.winfo_height()
+        if canvas_h <= 1:
+            self.after(50, self._refresh_virtual_rows)
+            return
+
+        # Current scroll offset in pixels
+        lo, hi = self._canvas.yview()
+        total   = self._virt_total_height()
+        y_top   = int(lo * total)
+        y_bot   = int(hi * total)
+
+        row_h   = self._VROW_H
+        buf     = self._VROW_BUFFER
+        n       = len(self._songs)
+
+        vis_start = max(0, y_top  // row_h - buf)
+        vis_end   = min(n - 1,  y_bot // row_h + buf)
+
+        # Destroy rows outside visible range
+        for idx in list(self._virt_rendered.keys()):
+            if idx < vis_start or idx > vis_end:
+                try:
+                    self._virt_rendered[idx].destroy()
+                except Exception:
+                    pass
+                del self._virt_rendered[idx]
+
+        # Create rows that are now in range but not yet rendered
+        for idx in range(vis_start, vis_end + 1):
+            if idx not in self._virt_rendered:
+                self._virt_render_row(idx)
+
+    def _virt_render_row(self, idx: int):
+        """Build and place a single row frame at its virtual y position."""
+        if idx >= len(self._songs):
+            return
+        song = self._songs[idx]
+        row  = self._build_row_frame(idx, song)
+        row.place(x=0, y=idx * self._VROW_H,
+                  relwidth=1.0, height=self._VROW_H)
+        self._virt_rendered[idx] = row
 
     def _build_pagination_bar(self, parent):
         foot = tk.Frame(parent, bg=_bc("panel"), pady=6)
@@ -133209,6 +133331,7 @@ class CHSongManagerTab(tk.Frame):
             self._canvas.yview_scroll(-1, "units")
         elif event.num == 5:
             self._canvas.yview_scroll(1, "units")
+        self._refresh_virtual_rows()
         self._check_scroll_bottom()
 
     # ── Middle-mouse-button click-to-drag scroll ──────────────────────────────
@@ -133240,6 +133363,7 @@ class CHSongManagerTab(tk.Frame):
                 speed = (delta - (dead if delta > 0 else -dead)) / 25.0
                 units = int(speed) or (1 if speed > 0 else -1)
                 self._canvas.yview_scroll(units, "units")
+                self._refresh_virtual_rows()
                 self._check_scroll_bottom()
         except Exception:
             pass
@@ -133508,14 +133632,23 @@ class CHSongManagerTab(tk.Frame):
             f'Showing {n} of {found:,} results for "{self._query}"',
             _bc("success"))
         self._load_more_btn.config(state="normal" if has_more else "disabled")
+        # Update scroll region + render newly visible rows
+        self._update_virt_scrollregion()
+        self._refresh_virtual_rows()
 
     # =========================================================================
     #  ROW RENDERING
     # =========================================================================
 
     def _clear_rows(self):
-        for w in self._table_inner.winfo_children():
-            w.destroy()
+        # Destroy all currently rendered virtual row frames
+        for frame in self._virt_rendered.values():
+            try:
+                frame.destroy()
+            except Exception:
+                pass
+        self._virt_rendered.clear()
+        # Legacy lists kept for compatibility with sidebar / toggle_all
         self._row_frames.clear()
         self._row_chk_vars.clear()
         self._row_bg.clear()
@@ -133526,38 +133659,39 @@ class CHSongManagerTab(tk.Frame):
         # Uncheck header select-all
         self._chk_all_var.set(False)
         self._redraw_hdr_chk()
+        # Reset virtual scroll region
+        self._update_virt_scrollregion()
 
     def _add_row(self, idx: int, song: dict):
+        """
+        Record row metadata — does NOT build any widgets.
+        Widget construction is deferred to _build_row_frame(), called
+        on-demand by the virtual scroll engine as rows enter the viewport.
+        """
         bg = _bc("card") if idx % 2 == 0 else _bc("card2")
         self._row_bg.append(bg)
+        # Extend per-row state arrays so index lookups stay consistent
+        self._row_frames.append(None)       # filled lazily when rendered
+        self._row_chk_vars.append(None)     # filled lazily when rendered
+        self._dl_bars[idx]   = None
+        self._dl_labels[idx] = None
+        if not hasattr(self, "_chk_draws"): self._chk_draws = []
+        self._chk_draws.append([])          # placeholder; filled on render
+        # Update virtual scroll region so the canvas knows the new total height
+        self._update_virt_scrollregion()
+        # Ask the virtual engine to render if this row is currently in view
+        self._refresh_virtual_rows()
 
-        row = tk.Frame(self._table_inner, bg=bg, pady=4, padx=0)
-        row.pack(fill="x")
-        self._row_frames.append(row)
+    def _build_row_frame(self, idx: int, song: dict) -> tk.Frame:
+        """
+        Construct all widgets for a single song row and return the frame.
+        Called by the virtual scroll engine when the row enters the viewport.
+        """
+        bg = _bc("card") if idx % 2 == 0 else _bc("card2")
+
+        row = tk.Frame(self._table_inner, bg=bg, pady=0, padx=0)
 
         def _is_active(): return self._active_idx == idx
-
-        def _enter(_e, r=row):
-            if not _is_active():
-                col = _bc("hover")
-                r.config(bg=col)
-                for c in r.winfo_children():
-                    try: c.config(bg=col)
-                    except Exception: pass
-
-        def _leave(_e, r=row):
-            col = _bc("selected") if _is_active() else bg
-            r.config(bg=col)
-            for c in r.winfo_children():
-                try: c.config(bg=col)
-                except Exception: pass
-
-        row.bind("<Enter>", _enter)
-        row.bind("<Leave>", _leave)
-        row.bind("<Button-1>", lambda _, i=idx: self._row_clicked(i))
-        for ev in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
-            row.bind(ev, self._on_mwheel)
-        row.bind("<Button-2>", self._on_mmb_click)
 
         # ── Grid columns — same config as header ─────────────────────────────
         row.columnconfigure(_CHK_COL, minsize=_CHK_MINW)
@@ -133567,19 +133701,17 @@ class CHSongManagerTab(tk.Frame):
 
         # Collect all coloured widgets for hover repainting
         _row_widgets = [row]
+        _row_chk_fns = []   # holds (bg_colour) → redraw lambdas for this row
 
         def _repaint(colour):
             for w in _row_widgets:
-                try:
-                    w.config(bg=colour)
-                except Exception:
-                    pass
-            # Redraw canvas checkboxes with new bg
+                try: w.config(bg=colour)
+                except Exception: pass
             for fn in _row_chk_fns:
                 try: fn(colour)
                 except Exception: pass
 
-        def _enter(_e): 
+        def _enter(_e):
             if not _is_active(): _repaint(_bc("hover"))
         def _leave(_e):
             _repaint(_bc("selected") if _is_active() else bg)
@@ -133593,8 +133725,11 @@ class CHSongManagerTab(tk.Frame):
 
         # ── Canvas checkbox ───────────────────────────────────────────────────
         chk_v = tk.BooleanVar(value=idx in self._selected)
-        self._row_chk_vars.append(chk_v)
-        _row_chk_fns = []   # holds (bg_colour) → redraw lambdas for this row
+        # Store in the per-row arrays so toggle_all can reach them
+        if idx < len(self._row_chk_vars):
+            self._row_chk_vars[idx] = chk_v
+        if idx < len(self._row_frames):
+            self._row_frames[idx] = row
 
         def _on_chk(i=idx, v=chk_v):
             if v.get(): self._selected.add(i)
@@ -133603,14 +133738,14 @@ class CHSongManagerTab(tk.Frame):
 
         chk_cv = self._make_chk_canvas(row, chk_v, _on_chk, bg,
                                         row_chk_fns=_row_chk_fns)
-        chk_cv.grid(row=0, column=_CHK_COL, padx=(8, 4), pady=5)
+        chk_cv.grid(row=0, column=_CHK_COL, padx=(8, 4), pady=8)
         chk_cv.bind("<Enter>", _enter)
         chk_cv.bind("<Leave>", _leave)
         _row_widgets.append(chk_cv)
 
-        if not hasattr(self, "_chk_draws"): self._chk_draws = []
-        # store a draw-fn that accepts a bg colour for _toggle_all redraws
-        self._chk_draws.append(_row_chk_fns)
+        # Update chk_draws for this index
+        if idx < len(self._chk_draws):
+            self._chk_draws[idx] = _row_chk_fns
 
         # ── Data cells via grid ───────────────────────────────────────────────
         def _cell(text, field, anchor, gcol):
@@ -133619,7 +133754,7 @@ class CHSongManagerTab(tk.Frame):
                 font=_FT if field == "name" else _FTS,
                 fg=_bc("text") if field == "name" else _bc("text_mid"),
                 bg=bg, anchor=anchor, padx=6)
-            lbl.grid(row=0, column=gcol, sticky="ew", pady=4)
+            lbl.grid(row=0, column=gcol, sticky="ew", pady=8)
             lbl.bind("<Enter>", _enter)
             lbl.bind("<Leave>", _leave)
             lbl.bind("<Button-1>", lambda _, i=idx: self._row_clicked(i))
@@ -133640,6 +133775,10 @@ class CHSongManagerTab(tk.Frame):
         self._dl_labels[idx] = done_lbl
         _row_widgets.append(done_lbl)
 
+        # Restore progress bar / done label if download is in progress or done
+        if idx in self._dl_bars and self._dl_bars[idx] is not None:
+            pass  # pb already placed above
+
         # Download button
         dl = self._mk_btn(
             row, "↓", lambda i=idx: self._start_download(i),
@@ -133648,23 +133787,32 @@ class CHSongManagerTab(tk.Frame):
         dl.grid(row=0, column=_DL_COL, padx=(2, 6), pady=3)
         _row_widgets.append(dl)
 
+        # If this row is the active selection, paint it selected
+        if self._active_idx == idx:
+            _repaint(_bc("selected"))
+
+        return row
+
     def _row_clicked(self, idx: int):
         old = self._active_idx
         self._active_idx = idx
 
-        # Deselect old row visually
-        if old is not None and old < len(self._row_frames):
-            oldbg = self._row_bg[old]
-            self._row_frames[old].config(bg=oldbg)
-            for c in self._row_frames[old].winfo_children():
-                try: c.config(bg=oldbg)
-                except Exception: pass
+        # Deselect old row visually — only if it's currently rendered
+        if old is not None and old != idx:
+            old_frame = self._virt_rendered.get(old)
+            if old_frame is not None:
+                oldbg = self._row_bg[old] if old < len(self._row_bg) else _bc("card")
+                old_frame.config(bg=oldbg)
+                for c in old_frame.winfo_children():
+                    try: c.config(bg=oldbg)
+                    except Exception: pass
 
-        # Highlight new row
-        if idx < len(self._row_frames):
+        # Highlight new row — only if it's currently rendered
+        new_frame = self._virt_rendered.get(idx)
+        if new_frame is not None:
             selbg = _bc("selected")
-            self._row_frames[idx].config(bg=selbg)
-            for c in self._row_frames[idx].winfo_children():
+            new_frame.config(bg=selbg)
+            for c in new_frame.winfo_children():
                 try: c.config(bg=selbg)
                 except Exception: pass
 
@@ -133769,6 +133917,11 @@ class CHSongManagerTab(tk.Frame):
         state = self._chk_all_var.get()
         draws = getattr(self, "_chk_draws", [])
         for i, v in enumerate(self._row_chk_vars):
+            if v is None:
+                # Row not yet rendered — update _selected directly
+                if state: self._selected.add(i)
+                else:      self._selected.discard(i)
+                continue
             v.set(state)
             if state: self._selected.add(i)
             else:      self._selected.discard(i)
@@ -134049,21 +134202,35 @@ class CHSongManagerTab(tk.Frame):
 
     def _row_pb_show(self, idx):
         pb = self._dl_bars.get(idx)
-        if pb and not pb.winfo_ismapped():
-            pb.pack(side="right", padx=(0, 4))
+        try:
+            if pb and pb.winfo_exists() and not pb.winfo_ismapped():
+                pb.pack(side="right", padx=(0, 4))
+        except Exception:
+            pass
 
     def _row_pb_set(self, idx, pct):
         pb = self._dl_bars.get(idx)
-        if pb: pb["value"] = pct
+        try:
+            if pb and pb.winfo_exists():
+                pb["value"] = pct
+        except Exception:
+            pass
 
     def _row_done(self, idx, success, label):
         pb = self._dl_bars.get(idx)
-        if pb and pb.winfo_ismapped(): pb.pack_forget()
+        try:
+            if pb and pb.winfo_exists() and pb.winfo_ismapped():
+                pb.pack_forget()
+        except Exception:
+            pass
         lbl = self._dl_labels.get(idx)
-        if lbl:
-            lbl.config(text=label,
-                       fg=_bc("success") if success else _bc("error"))
-            lbl.pack(side="right", padx=(0, 4))
+        try:
+            if lbl and lbl.winfo_exists():
+                lbl.config(text=label,
+                           fg=_bc("success") if success else _bc("error"))
+                lbl.pack(side="right", padx=(0, 4))
+        except Exception:
+            pass
 
     # =========================================================================
     #  HELPERS
@@ -134169,6 +134336,7 @@ class CHSuite(tk.Tk):
         self._load_initial_profile()
         self.deiconify()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<F12>", lambda e: self._simulate_crash())
 
         # ── ThemeGen IPC server ───────────────────────────────────────────
         self._start_themegen_ipc()
@@ -134180,8 +134348,8 @@ class CHSuite(tk.Tk):
         self._update_discord_dot()
 
         # ── What's New — show once per version ───────────────────────────────
-        if self._cfg.get("last_seen_version") != "6.0":
-            self._cfg["last_seen_version"] = "6.0"
+        if self._cfg.get("last_seen_version") != "6.1":
+            self._cfg["last_seen_version"] = "6.1"
             _save_json(CONFIG_FILE, self._cfg)
             self.after(300, self._show_whats_new)
 
@@ -134351,7 +134519,7 @@ class CHSuite(tk.Tk):
                  bg=C["panel"], fg=C["accent"]).pack(side="left", padx=(0, 10))
         tk.Label(inner_tb, text="CHSuite",
                  font=FTT, bg=C["panel"], fg=C["text"]).pack(side="left")
-        tk.Label(inner_tb, text="  by JURMR  v6.0",
+        tk.Label(inner_tb, text="  by JURMR  v6.1",
                  font=("Lato", 13), bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(6,0))
 
         # Discord status dot
@@ -134524,12 +134692,10 @@ class CHSuite(tk.Tk):
         social_row = tk.Frame(self._nav, bg=C["sidebar"])
         social_row.pack(pady=(0, 6), padx=12, anchor="w")
 
-        _script_dir = Path(__file__).parent
-
         def _load_png_icon(filename, size=18):
             try:
                 from PIL import Image, ImageTk
-                img_path = _script_dir / "Images" / filename
+                img_path = _app_dir() / "_internal" / "Images" / filename
                 img = Image.open(img_path).resize((size, size), Image.LANCZOS)
                 return ImageTk.PhotoImage(img)
             except Exception:
@@ -134581,7 +134747,7 @@ class CHSuite(tk.Tk):
         ver_row = tk.Frame(self._nav, bg=C["sidebar"])
         ver_row.pack(pady=(0, 12), padx=12, fill="x")
 
-        tk.Label(ver_row, text="CHSuite v6.0", font=("Lato", 8),
+        tk.Label(ver_row, text="CHSuite v6.1", font=("Lato", 8),
                  fg=C["text_dim"], bg=C["sidebar"]).pack(side="left")
 
         info_lbl = tk.Label(ver_row, text=" ⓘ", font=("Lato", 9),
@@ -134601,11 +134767,11 @@ class CHSuite(tk.Tk):
             f = tk.Frame(tip, bg=C["card"], padx=14, pady=12)
             f.pack(padx=1, pady=1)
 
-            tk.Label(f, text="What's New in v6.0", font=("Lato", 9, "bold"),
+            tk.Label(f, text="What's New in v6.1", font=("Lato", 9, "bold"),
                      fg=C["text"], bg=C["card"]).pack(anchor="w")
 
             items = [
-                (C["success"],  "CHSongManager Added!"),
+                (C["success"],  "Fixed a few bugs"),
             ]
             for clr, txt in items:
                 row = tk.Frame(f, bg=C["card"])
@@ -134842,13 +135008,13 @@ class CHSuite(tk.Tk):
 
         # Footer
         _sep(inner, bg=C["border"]).pack(fill="x", pady=(8, 6))
-        tk.Label(inner, text="CHSuite v6.0  ·  by JURMR",
+        tk.Label(inner, text="CHSuite v6.1  ·  by JURMR",
                  font=("Lato", 8), fg=C["text_dim"], bg=C["bg"]).pack(anchor="w")
 
     # ── What's New popup ──────────────────────────────────────────────────────
     def _show_whats_new(self):
-        """Show a one-time What's New dialog for v6.0"""
-        win = self._make_toplevel("What's New in CHSuite v6.0")
+        """Show a one-time What's New dialog for v6.1"""
+        win = self._make_toplevel("What's New in CHSuite v6.1")
         win.configure(bg=C["bg"])
         win.resizable(False, False)
         win.grab_set()
@@ -134867,7 +135033,7 @@ class CHSuite(tk.Tk):
         title_row.pack(anchor="center")
         tk.Label(title_row, text="🎉", font=("Lato", 18),
                  fg=C["text"], bg=C["bg"]).pack(side="left", padx=(0, 10))
-        tk.Label(title_row, text="What's New in v6.0",
+        tk.Label(title_row, text="What's New in v6.1",
                  font=("Lato", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(side="left")
         tk.Label(header, text="Here's everything that changed in this release:",
                  font=FT, fg=C["text_dim"], bg=C["bg"], justify="center").pack(anchor="center", pady=(6, 0))
@@ -134902,9 +135068,9 @@ class CHSuite(tk.Tk):
         self._bind_mousewheel_to_canvas(canvas)
 
         changes = [
-            (C["success"],  "CHSongManager Added!",
-             "Easily download any clone hero song directly inside of CHSuite thanks to the "
-             "public Chorus Encore API!"),
+            (C["success"],  "Fixed a few bugs",
+             "CHSongManager loads songs a lot more efficiently. There is now a crash log, to "
+             "access it go to your CHSuite launcher and find your Logs folder."),
         ]
 
         for accent, heading, body in changes:
@@ -137198,7 +137364,7 @@ class CHSuite(tk.Tk):
     # ── Check for Updates ─────────────────────────────────────────────────────
     def _check_for_updates(self):
         """Fetch the latest GitHub release, compare versions, and auto-install."""
-        CURRENT = "6.0"
+        CURRENT = "6.1"
         API_URL  = "https://api.github.com/repos/iamjrmh/CHSuite/releases/latest"
         INSTALL_DIR = Path("C:/CHSuite")  # Windows full-install path
 
@@ -137627,7 +137793,7 @@ class CHSuite(tk.Tk):
                 try:
                     req = urllib.request.Request(
                         asset_url,
-                        headers={"User-Agent": "CHSuite-Updater/6.0"})
+                        headers={"User-Agent": "CHSuite-Updater/6.1"})
                     with urllib.request.urlopen(req, timeout=60) as resp:
                         total      = int(resp.headers.get("Content-Length", 0))
                         downloaded = 0
@@ -137670,7 +137836,7 @@ class CHSuite(tk.Tk):
             try:
                 req = urllib.request.Request(
                     API_URL,
-                    headers={"User-Agent": "CHSuite-UpdateChecker/6.0",
+                    headers={"User-Agent": "CHSuite-UpdateChecker/6.1",
                              "Accept": "application/vnd.github+json"})
                 with urllib.request.urlopen(req, timeout=8) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
@@ -138996,6 +139162,23 @@ class CHSuite(tk.Tk):
             self._drpc.close()
         self.destroy()
 
+    # ── Simulate crash (F12 — developer only) ────────────────────────────────
+    def _simulate_crash(self):
+        try:
+            raise RuntimeError("Simulated crash triggered by developer (F12)")
+        except Exception:
+            fpath = _write_crash_log(sys.exc_info(), simulated=True)
+            if fpath:
+                messagebox.showinfo(
+                    "Crash Simulated",
+                    f"Crash log written to:\n{fpath}",
+                    parent=self)
+            else:
+                messagebox.showerror(
+                    "Crash Simulated",
+                    "Could not write crash log — check console output.",
+                    parent=self)
+
     # ── Close ─────────────────────────────────────────────────────────────────
     def _on_close(self):
         if hasattr(self, "_drpc"):
@@ -139010,6 +139193,25 @@ class CHSuite(tk.Tk):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main():
+    try:
+        _run_main()
+    except Exception:
+        fpath = _write_crash_log(sys.exc_info(), simulated=False)
+        msg = f"CHSuite encountered an unhandled error and must close."
+        if fpath:
+            msg += f"\n\nCrash log saved to:\n{fpath}"
+        try:
+            import tkinter as _tk
+            _r = _tk.Tk(); _r.withdraw()
+            from tkinter import messagebox as _mb
+            _mb.showerror("CHSuite Crashed", msg)
+            _r.destroy()
+        except Exception:
+            print(msg)
+        sys.exit(1)
+
+
+def _run_main():
     if sys.platform == "win32":
         import ctypes, ctypes.wintypes
         try:
