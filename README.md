@@ -20,7 +20,13 @@ An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate cus
 | **CHNoteGen** | Create gradient or per-note colors and export to `(ProfileName).ini` |
 | **CHCleaner** | Parse `badsongs.txt` and bulk-delete ERROR folders from your song library |
 | **CHPatcher** | Patch or unpatch any registered Clone Hero install on the fly - prevents the launcher from resetting game files |
+| **CHSongManager** | Easily download songs using CHSuite via the ChorusEncore API
 | **CHManager** | Install or uninstall any version of Clone Hero directly from the CHSuite |
+
+---
+## ⓘ CHSuiteLite Now Available 
+Don't want to download/only need 1 tool? Check out the live version of the CHSuite, CHSuiteLite!
+- [CHSuite Lite](https://iamjrmh.github.io/CHSuite/) - A web-based version of CHSuite with stripped down features to be accessible to everyone, everywhere!
 
 ---
 
@@ -524,7 +530,6 @@ Use at your own risk.
 - [Chorus](https://chorus.fightthe.pw/) - Song database and downloader
 - [Clone Hero Launcher](https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/chlauncher-setup.exe) - Direct Download of the latest build of the Clone Hero Launcher.
 - [Murrin' It Central](https://discord.gg/PtVqaCWFHa) - Questions? Join the discord server and ask!
-- [CHSuite Lite](https://iamjrmh.github.io/CHSuite/) - A web-based version of CHSuite with stripped down features to be accessible to everyone, everywhere!
 
 ---
 
