@@ -2,8 +2,13 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  /* Inter or Helvetica are also great fits for this 'tech' look */
   font-family: 'Inter', Arial, sans-serif; 
+}
+
+:root {
+  /* Define our two themes as variables for easy swapping */
+  --bg-green: radial-gradient(circle at center, #1b4d0e 0%, #0a2205 40%, #040d02 80%, #000000 100%);
+  --bg-purple: radial-gradient(circle at center, #2c1b4d 0%, #130f26 45%, #0a0a12 85%, #050508 100%);
 }
 
 body {
@@ -12,28 +17,52 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-
-  /* Centering the gradient origin to match your preview image */
-  background: radial-gradient(
-    circle at center, 
-    #1b4d0e 0%,    
-    #0a2205 40%,   
-    #040d02 80%,   
-    #000000 100%
-  );
-
   color: #ffffff;
   overflow: hidden;
+  
+  /* Setting the default green background */
+  background: #000000; /* Fallback */
+  position: relative;
+  z-index: 1;
+}
+
+/* We use a pseudo-element for the background to allow for a smooth fade transition */
+body::before, body::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  transition: opacity 0.8s ease-in-out;
+  z-index: -1;
+}
+
+/* Green Layer (Default) */
+body::before {
+  background: var(--bg-green);
+  opacity: 1;
+}
+
+/* Purple Layer (Hidden by default) */
+body::after {
+  background: var(--bg-purple);
+  opacity: 0;
+}
+
+/* Trigger the swap when the link is hovered */
+body:has(.inline-link:hover)::before {
+  opacity: 0;
+}
+body:has(.inline-link:hover)::after {
+  opacity: 1;
 }
 
 .container {
-  /* Flex ensures the content inside the container is also centered */
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
   padding: 20px;
+  pointer-events: none; /* Allows hover to trigger even through the container */
 }
 
 h1 {
@@ -41,25 +70,24 @@ h1 {
   font-weight: 900;
   margin-bottom: 0.5rem;
   letter-spacing: -3px;
-  /* Subtle glow to the text itself */
-  text-shadow: 0 0 20px rgba(38, 224, 22, 0.2);
+  text-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
 }
 
 p {
   font-size: 1rem;
-  font-weight: 400;
   opacity: 0.8;
-  letter-spacing: 0.5px;
+  pointer-events: auto; /* Re-enables interaction for the text/links */
 }
 
 .inline-link {
-  color: #26e016;
+  color: #26e016; /* Starts Green */
   text-decoration: none;
   font-weight: 700;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.5s ease;
+  pointer-events: auto;
 }
 
 .inline-link:hover {
-  text-shadow: 0 0 10px rgba(38, 224, 22, 0.8);
-  filter: brightness(1.3);
+  color: #8c52ff; /* Turns Purple */
+  text-shadow: 0 0 15px rgba(140, 82, 255, 0.6);
 }
