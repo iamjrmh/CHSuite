@@ -372,10 +372,81 @@ function runNameGen() {
 
 function renderNamePreview(taggedStr, gradient) {
   const bar = document.getElementById("ng-preview-bar");
-  const name = taggedStr.replace(/<[^>]+>/g, "").replace(/[\x00-\x1f]/g, "");
-  const chars = name.split("");
-  const colors = gradient.length >= chars.length ? gradient : chars.map((_, i) => `hsl(${i * 40 % 360},100%,65%)`);
-  bar.innerHTML = chars.map((ch, i) => `<span style="color:${colors[i] || '#fff'}">${ch === " " ? "&nbsp;" : ch}</span>`).join("");
+
+  function snapshot(s) {
+    return {
+      color: s.color.length ? s.color[s.color.length - 1] : null,
+      bold: s.bold > 0,
+      italic: s.italic > 0,
+      underline: s.underline > 0,
+      strike: s.strike > 0,
+      size: s.size.length ? s.size[s.size.length - 1] : null,
+      cspace: s.cspace.length ? s.cspace[s.cspace.length - 1] : null,
+    };
+  }
+
+  // Parse the Unity rich-text tag string into a list of character tokens,
+  // each carrying its own style state.
+  const tokens = [];
+  const styleStack = { color: [], bold: 0, italic: 0, underline: 0, strike: 0, size: [], cspace: [] };
+
+  let i = 0;
+  const str = taggedStr.replace(/[\x00-\x1f]/g, "");
+
+  while (i < str.length) {
+    if (str[i] === "<") {
+      const closeIdx = str.indexOf(">", i);
+      if (closeIdx === -1) { tokens.push({ ch: str[i], style: snapshot(styleStack) }); i++; continue; }
+      const tag = str.slice(i + 1, closeIdx);
+      i = closeIdx + 1;
+
+      if (tag.startsWith("/")) {
+        const tagName = tag.slice(1).toLowerCase();
+        if (tagName === "b") styleStack.bold = Math.max(0, styleStack.bold - 1);
+        else if (tagName === "i") styleStack.italic = Math.max(0, styleStack.italic - 1);
+        else if (tagName === "u") styleStack.underline = Math.max(0, styleStack.underline - 1);
+        else if (tagName === "s") styleStack.strike = Math.max(0, styleStack.strike - 1);
+        else if (tagName === "color") styleStack.color.pop();
+        else if (tagName === "size") styleStack.size.pop();
+        else if (tagName === "cspace") styleStack.cspace.pop();
+      } else if (tag === "b") { styleStack.bold++; }
+        else if (tag === "i") { styleStack.italic++; }
+        else if (tag === "u") { styleStack.underline++; }
+        else if (tag === "s") { styleStack.strike++; }
+        else if (tag.startsWith("color=")) { styleStack.color.push(tag.slice(6)); }
+        else if (tag.startsWith("size=")) { styleStack.size.push(parseFloat(tag.slice(5))); }
+        else if (tag.startsWith("cspace=")) { styleStack.cspace.push(parseFloat(tag.slice(7))); }
+    } else {
+      tokens.push({ ch: str[i], style: snapshot(styleStack) });
+      i++;
+    }
+  }
+
+  // If no per-character colors from tags, fall back to gradient array
+  const plainChars = tokens.map(t => t.ch);
+  const fallbackColors = gradient.length >= plainChars.length
+    ? gradient
+    : plainChars.map((_, idx) => `hsl(${idx * 40 % 360},100%,65%)`);
+
+  bar.innerHTML = tokens.map((token, idx) => {
+    const { ch, style } = token;
+    const color = style.color || fallbackColors[idx] || "#fff";
+
+    const cssProps = [`color:${color}`];
+    if (style.bold) cssProps.push("font-weight:bold");
+    if (style.italic) cssProps.push("font-style:italic");
+
+    const textDecors = [];
+    if (style.underline) textDecors.push("underline");
+    if (style.strike) textDecors.push("line-through");
+    if (textDecors.length) cssProps.push(`text-decoration:${textDecors.join(" ")}`);
+
+    if (style.size) cssProps.push(`font-size:${style.size}px`);
+    if (style.cspace != null) cssProps.push(`letter-spacing:${style.cspace}px`);
+
+    const display = ch === " " ? "&nbsp;" : ch;
+    return `<span style="${cssProps.join(";")}">${display}</span>`;
+  }).join("");
 }
 
 // Copy button
