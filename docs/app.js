@@ -1,5 +1,5 @@
 /* ============================================================
-   CHSuite Lite  —  app.js
+   CHSuiteLiteLite Lite  —  app.js
    Browser-native implementation (no Python)
    ============================================================ */
 
@@ -32,7 +32,7 @@ const SUPPORTED_BACKGROUNDS = [
   { name: "Logo_Transparent", minWidth: 2030, minHeight: 1328, exactWidth: 2030, exactHeight: 1328, sourceFile: "globalgamemanagers.assets", editable: true },
 ];
 
-// ── Default Note Colors (from CHSuiteLite.py) ───────────────────────────────
+// ── Default Note Colors (from CHSuiteLiteLiteLite.py) ───────────────────────────────
 const DEFAULT_COLORS = {
   guitar: {
     "striker_base_orange":"#FFFFFF","striker_base_blue":"#FFFFFF",
@@ -1367,7 +1367,7 @@ function initApp() {
   // Initialize notegen colors
   state.notegen.colors = JSON.parse(JSON.stringify(DEFAULT_COLORS));
   syncNotePreviewPickersFromState();
-  toast("CHSuite Lite loaded");
+  toast("CHSuiteLiteLite Lite loaded");
 }
 
 initApp();
