@@ -207,17 +207,6 @@ if exist "themes\" (
 )
 echo.
 
-:: ── Copy Images folder ───────────────────────────────────────────────────────
-echo  Copying Images folder to dist\CHSuite...
-if exist "Images\" (
-    xcopy /E /I /Y "Images" "dist\CHSuite\Images" >nul
-    echo  Images folder copied.
-) else (
-    echo  [WARNING] Images folder not found in %~dp0 -- skipping copy.
-    echo  Place your greyscale note template in an Images\ folder next to CHSuite.py.
-)
-echo.
-
 :: ── Hide _internal folder ────────────────────────────────────────────────────
 echo  Hiding _internal folder...
 if exist "dist\CHSuite\_internal" (
@@ -235,16 +224,6 @@ if exist "dist\CHSuite\ThemeGen.exe" (
 ) else (
     echo  [WARNING] dist\CHSuite\ThemeGen.exe not found -- build may have failed.
 )
-
-:: ── Hide Images folder ───────────────────────────────────────────────────────
-echo  Hiding Images folder...
-if exist "dist\CHSuite\Images" (
-    attrib +h "dist\CHSuite\Images"
-    echo  dist\CHSuite\Images is now hidden.
-) else (
-    echo  [WARNING] dist\CHSuite\Images not found -- skipping attrib.
-)
-echo.
 
 :: ── Create dist\CHSuiteWindows.zip ──────────────────────────────────────────
 :: Must run AFTER all attrib calls so hidden flags are already set on disk.
