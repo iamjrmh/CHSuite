@@ -26,7 +26,7 @@ An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate cus
 ---
 ## ⓘ CHSuiteLite Now Available 
 Don't want to download/only need 1 tool? Check out the web version of the CHSuite, CHSuiteLite!
-- [CHSuite Lite](https://iamjrmh.github.io/CHSuite/) - A web-based version of CHSuite with stripped down features to be accessible to everyone, everywhere!
+- [CHSuiteLite](https://iamjrmh.github.io/CHSuite/) - A web-based version of CHSuite with stripped down features to be accessible to everyone, everywhere!
 
 ---
 
