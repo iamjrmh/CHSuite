@@ -652,12 +652,12 @@
               <label class="form-label">Gradient Colors <span class="form-hint">(add up to 8)</span></label>
               <div class="color-stop-list" id="ng-color-stops">
                 <div class="color-stop" data-idx="0">
-                  <input type="color" value="#FF0066" class="color-swatch" />
+                  <button class="ng-color-swatch" data-color="#FF0066" style="background:#FF0066"></button>
                   <span class="color-hex">#FF0066</span>
                   <button class="color-remove" title="Remove">×</button>
                 </div>
                 <div class="color-stop" data-idx="1">
-                  <input type="color" value="#6c3bff" class="color-swatch" />
+                  <button class="ng-color-swatch" data-color="#6C3BFF" style="background:#6C3BFF"></button>
                   <span class="color-hex">#6C3BFF</span>
                   <button class="color-remove" title="Remove">×</button>
                 </div>
@@ -731,31 +731,15 @@
         </div>
 
         <div class="tool-body">
-          <!-- Note preview images -->
+          <!-- Note preview images — JS builds the unified columns here -->
           <div class="note-preview-images" id="note-preview">
-            <canvas id="note-preview-canvas" width="320" height="80"></canvas>
-            <div class="note-preview-controls">
-              <div class="color-picker-row">
-                <label>Green</label>
-                <input type="color" class="note-color-picker" value="#00FF00" data-key="note_green" />
-              </div>
-              <div class="color-picker-row">
-                <label>Red</label>
-                <input type="color" class="note-color-picker" value="#FF0000" data-key="note_red" />
-              </div>
-              <div class="color-picker-row">
-                <label>Yellow</label>
-                <input type="color" class="note-color-picker" value="#FFFF00" data-key="note_yellow" />
-              </div>
-              <div class="color-picker-row">
-                <label>Blue</label>
-                <input type="color" class="note-color-picker" value="#0089FF" data-key="note_blue" />
-              </div>
-              <div class="color-picker-row">
-                <label>Orange</label>
-                <input type="color" class="note-color-picker" value="#FFB300" data-key="note_orange" />
-              </div>
-            </div>
+            <canvas id="note-preview-canvas" width="320" height="80" style="display:none"></canvas>
+            <!-- hidden inputs keep the existing JS state API working -->
+            <input type="color" class="note-color-picker" value="#00FF00" data-key="note_green"  style="display:none" />
+            <input type="color" class="note-color-picker" value="#FF0000" data-key="note_red"    style="display:none" />
+            <input type="color" class="note-color-picker" value="#FFFF00" data-key="note_yellow" style="display:none" />
+            <input type="color" class="note-color-picker" value="#0089FF" data-key="note_blue"   style="display:none" />
+            <input type="color" class="note-color-picker" value="#FFB300" data-key="note_orange" style="display:none" />
           </div>
 
           <!-- Import existing INI -->
@@ -781,6 +765,39 @@
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>
+
+  <!-- Custom Color Picker -->
+  <div id="ccp-popup" class="ccp-popup" style="display:none" role="dialog" aria-label="Color picker">
+    <div class="ccp-sv-wrap">
+      <canvas id="ccp-sv-canvas" width="220" height="160" class="ccp-sv-canvas"></canvas>
+      <div class="ccp-sv-cursor" id="ccp-sv-cursor"></div>
+    </div>
+    <div class="ccp-hue-wrap">
+      <canvas id="ccp-hue-canvas" width="220" height="14" class="ccp-hue-canvas"></canvas>
+      <div class="ccp-hue-cursor" id="ccp-hue-cursor"></div>
+    </div>
+    <div class="ccp-inputs">
+      <div class="ccp-preview-swatch" id="ccp-preview-swatch"></div>
+      <div class="ccp-hex-wrap">
+        <span class="ccp-input-label">HEX</span>
+        <input type="text" id="ccp-hex-input" class="ccp-hex-input" maxlength="7" spellcheck="false" />
+      </div>
+      <div class="ccp-rgb-wrap">
+        <div class="ccp-rgb-field">
+          <input type="number" id="ccp-r-input" class="ccp-rgb-input" min="0" max="255" />
+          <span class="ccp-input-label">R</span>
+        </div>
+        <div class="ccp-rgb-field">
+          <input type="number" id="ccp-g-input" class="ccp-rgb-input" min="0" max="255" />
+          <span class="ccp-input-label">G</span>
+        </div>
+        <div class="ccp-rgb-field">
+          <input type="number" id="ccp-b-input" class="ccp-rgb-input" min="0" max="255" />
+          <span class="ccp-input-label">B</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

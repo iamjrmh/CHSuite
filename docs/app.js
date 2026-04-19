@@ -260,21 +260,28 @@ document.getElementById("ng-mode-toggle").querySelectorAll(".toggle-btn").forEac
 
 // Gradient color stops
 function colorStopHTML(idx, hex) {
+  const h = hex.toUpperCase();
   return `<div class="color-stop" data-idx="${idx}">
-    <input type="color" value="${hex}" class="color-swatch" />
-    <span class="color-hex">${hex.toUpperCase()}</span>
+    <button class="ng-color-swatch" data-color="${h}" style="background:${h}"></button>
+    <span class="color-hex">${h}</span>
     <button class="color-remove" title="Remove">×</button>
   </div>`;
 }
 
 function attachColorStopListeners(stopEl) {
-  const swatch = stopEl.querySelector(".color-swatch");
+  const swatch  = stopEl.querySelector(".ng-color-swatch");
   const hexSpan = stopEl.querySelector(".color-hex");
   const removeBtn = stopEl.querySelector(".color-remove");
 
-  swatch.addEventListener("input", () => {
-    hexSpan.textContent = swatch.value.toUpperCase();
+  swatch.addEventListener("click", e => {
+    e.stopPropagation();
+    ccpOpen(swatch, swatch.dataset.color || "#FF0066", hex => {
+      swatch.dataset.color = hex;
+      swatch.style.background = hex;
+      hexSpan.textContent = hex;
+    });
   });
+
   removeBtn.addEventListener("click", () => {
     const list = document.getElementById("ng-color-stops");
     if (list.children.length > 2) {
@@ -313,12 +320,19 @@ function buildLetterGrid(name) {
     cell.dataset.char = char;
     cell.innerHTML = `
       <span class="letter-cell-char">${char === " " ? "·" : char}</span>
-      <input type="color" value="${hex}" />
+      <button class="ng-color-swatch" data-color="${hex}" style="background:${hex}"></button>
       <span class="letter-cell-hex">${hex}</span>
     `;
-    const swatch = cell.querySelector("input[type=color]");
+    const swatch  = cell.querySelector(".ng-color-swatch");
     const hexSpan = cell.querySelector(".letter-cell-hex");
-    swatch.addEventListener("input", () => { hexSpan.textContent = swatch.value.toUpperCase(); });
+    swatch.addEventListener("click", e => {
+      e.stopPropagation();
+      ccpOpen(swatch, swatch.dataset.color || "#FF0066", newHex => {
+        swatch.dataset.color = newHex;
+        swatch.style.background = newHex;
+        hexSpan.textContent = newHex;
+      });
+    });
     grid.appendChild(cell);
   });
 }
@@ -333,7 +347,7 @@ function runNameGen() {
       const name = document.getElementById("ng-name").value.trim();
       if (!name) { toast("Enter a name first."); return; }
       const stops = Array.from(document.querySelectorAll("#ng-color-stops .color-stop"));
-      const colors = stops.map(s => s.querySelector(".color-swatch").value);
+      const colors = stops.map(s => s.querySelector(".ng-color-swatch").dataset.color || "#FFFFFF");
       if (colors.length < 2) { toast("At least 2 colors required."); return; }
 
       result = generateGradientName(
@@ -350,7 +364,7 @@ function runNameGen() {
       if (!indivName) { toast("Enter a name first."); return; }
       const letters = Array.from(document.querySelectorAll("#ng-letter-grid .letter-cell")).map(cell => ({
         char: cell.dataset.char,
-        color: cell.querySelector("input[type=color]").value,
+        color: cell.querySelector(".ng-color-swatch").dataset.color || "#FFFFFF",
         bold: false, italic: false, underline: false, strike: false,
       }));
       result = generateIndividualName(
@@ -490,19 +504,29 @@ function ensureNotePreviewCss() {
   style.textContent = `
     .ch-notes-preview {
       display: flex;
-      gap: 10px;
-      align-items: center;
+      gap: 8px;
+      align-items: flex-start;
       justify-content: center;
-      padding: 6px 0;
+      padding: 8px 0 0 0;
       background: transparent;
-      max-width: 100%;
-      overflow-x: auto;
+      width: 100%;
+      overflow: visible;
+    }
+    .ch-note-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: 110px;
+      padding-bottom: 10px;
     }
     .ch-note-group {
       position: relative;
       width: ${NOTE_W}px;
       height: ${NOTE_H}px;
-      flex: 0 0 auto;
+      flex-shrink: 0;
       pointer-events: none;
     }
     .ch-note-canvas {
@@ -512,9 +536,32 @@ function ensureNotePreviewCss() {
       width: ${NOTE_W}px;
       height: ${NOTE_H}px;
     }
-    .ch-note-canvas.body { z-index: 1; }
-    .ch-note-canvas.base { z-index: 2; }
+    .ch-note-canvas.body  { z-index: 1; }
+    .ch-note-canvas.base  { z-index: 2; }
     .ch-note-canvas.light { z-index: 3; }
+    .ch-note-label {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      text-align: center;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .ch-note-swatch {
+      width: 75%;
+      max-width: 58px;
+      height: 26px;
+      border-radius: 5px;
+      border: 2px solid rgba(255,255,255,0.2);
+      cursor: pointer;
+      outline: none;
+      flex-shrink: 0;
+      pointer-events: auto;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .ch-note-swatch:hover  { border-color: rgba(255,255,255,0.5); transform: scaleY(1.08); }
+    .ch-note-swatch:focus  { border-color: #6c3bff; }
   `;
   document.head.appendChild(style);
 }
@@ -616,16 +663,40 @@ function initNoteDomPreview() {
   }
 
   const order = ["note_green", "note_red", "note_yellow", "note_blue", "note_orange"];
+  const labels = { note_green:"Green", note_red:"Red", note_yellow:"Yellow", note_blue:"Blue", note_orange:"Orange" };
+  const defaults = { note_green:"#00FF00", note_red:"#FF0000", note_yellow:"#FFFF00", note_blue:"#0089FF", note_orange:"#FFB300" };
+
+  // Each .ch-note-col is the flex column. .ch-note-group lives INSIDE it
+  // and keeps its original position:relative / absolute-canvas layout untouched.
   preview.innerHTML = order.map(k => `
-    <div class="ch-note-group" data-note-key="${k}">
-      <canvas class="ch-note-canvas light" data-layer="light" width="${NOTE_W}" height="${NOTE_H}"></canvas>
-      <canvas class="ch-note-canvas base" data-layer="base" width="${NOTE_W}" height="${NOTE_H}"></canvas>
-      <canvas class="ch-note-canvas body" data-layer="body" width="${NOTE_W}" height="${NOTE_H}"></canvas>
+    <div class="ch-note-col" data-note-key="${k}">
+      <div class="ch-note-group">
+        <canvas class="ch-note-canvas light" data-layer="light" width="${NOTE_W}" height="${NOTE_H}"></canvas>
+        <canvas class="ch-note-canvas base"  data-layer="base"  width="${NOTE_W}" height="${NOTE_H}"></canvas>
+        <canvas class="ch-note-canvas body"  data-layer="body"  width="${NOTE_W}" height="${NOTE_H}"></canvas>
+      </div>
+      <span class="ch-note-label">${labels[k]}</span>
+      <button class="ch-note-swatch" style="background:${defaults[k]}" title="Pick colour for ${labels[k]}"></button>
     </div>
   `).join("");
 
+  // Wire swatch buttons to custom colour picker
+  preview.querySelectorAll(".ch-note-swatch").forEach(btn => {
+    const col = btn.closest(".ch-note-col");
+    const key = col.dataset.noteKey;
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const hiddenPicker = document.querySelector(`.note-color-picker[data-key="${key}"]`);
+      const currentHex = hiddenPicker ? hiddenPicker.value : btn.style.background;
+      ccpOpen(btn, currentHex, hex => {
+        btn.style.background = hex;
+        if (hiddenPicker) hiddenPicker.value = hex;
+        updateNoteDomPreviewFromPickers();
+      });
+    });
+  });
+
   loadNotePreviewImages().then(() => {
-    // Draw base once for each note
     preview.querySelectorAll('.ch-note-group canvas[data-layer="base"]').forEach(c => drawNoteBase(c, _noteImgBase));
     updateNoteDomPreviewFromPickers();
   });
@@ -638,16 +709,19 @@ function updateNoteDomPreviewFromPickers() {
   const pickers = Array.from(document.querySelectorAll(".note-color-picker"));
   for (const picker of pickers) {
     const key = picker.dataset.key;
-    const group = root.querySelector(`.ch-note-group[data-note-key="${key}"]`);
-    if (!group) continue;
+    const col = root.querySelector(`.ch-note-col[data-note-key="${key}"]`);
+    if (!col) continue;
 
-    const bodyCanvas = group.querySelector('canvas[data-layer="body"]');
-    const lightCanvas = group.querySelector('canvas[data-layer="light"]');
-    const bodyColor = picker.value;
-    const lightColor = picker.value;
+    const bodyCanvas  = col.querySelector('canvas[data-layer="body"]');
+    const lightCanvas = col.querySelector('canvas[data-layer="light"]');
+    const bodyColor   = picker.value;
 
-    if (bodyCanvas) tintNoteBody(bodyCanvas, _noteImgBody, bodyColor);
-    if (lightCanvas) tintNoteLight(lightCanvas, _noteImgLight, lightColor);
+    if (bodyCanvas)  tintNoteBody(bodyCanvas,  _noteImgBody,  bodyColor);
+    if (lightCanvas) tintNoteLight(lightCanvas, _noteImgLight, bodyColor);
+
+    // Keep swatch button in sync
+    const swatch = col.querySelector(".ch-note-swatch");
+    if (swatch) swatch.style.background = bodyColor;
 
     if (state.notegen.colors?.guitar) {
       state.notegen.colors.guitar[key] = bodyColor.toUpperCase();
@@ -1657,6 +1731,212 @@ document.querySelectorAll(".accordion-header").forEach(btn => {
     item.classList.toggle("open");
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CUSTOM COLOR PICKER (ccpOpen / ccpClose)
+// ══════════════════════════════════════════════════════════════════════════════
+
+(function () {
+  /* ── HSV ↔ RGB helpers ──────────────────────────────────────────── */
+  function hsvToRgb(h, s, v) {
+    const i = Math.floor(h / 60) % 6;
+    const f = h / 60 - Math.floor(h / 60);
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+    const table = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]];
+    const [r,g,b] = table[i];
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+  }
+
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+    let h = 0;
+    if (d > 0) {
+      if (max === r) h = ((g - b) / d + 6) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    return [h, max === 0 ? 0 : d / max, max];
+  }
+
+  function hexToRgbArr(hex) {
+    const h = hex.replace("#","");
+    if (h.length === 3) return [parseInt(h[0]+h[0],16), parseInt(h[1]+h[1],16), parseInt(h[2]+h[2],16)];
+    return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)];
+  }
+
+  function rgbToHex(r, g, b) {
+    return "#" + [r,g,b].map(v => Math.round(v).toString(16).padStart(2,"0")).join("").toUpperCase();
+  }
+
+  /* ── State ──────────────────────────────────────────────────────── */
+  let _h = 0, _s = 1, _v = 1;
+  let _onChange = null;
+  let _anchorEl = null;
+
+  const popup    = document.getElementById("ccp-popup");
+  const svCanvas = document.getElementById("ccp-sv-canvas");
+  const hueCanvas= document.getElementById("ccp-hue-canvas");
+  const svCursor = document.getElementById("ccp-sv-cursor");
+  const hueCursor= document.getElementById("ccp-hue-cursor");
+  const prevSwatch= document.getElementById("ccp-preview-swatch");
+  const hexInput = document.getElementById("ccp-hex-input");
+  const rInput   = document.getElementById("ccp-r-input");
+  const gInput   = document.getElementById("ccp-g-input");
+  const bInput   = document.getElementById("ccp-b-input");
+
+  if (!popup) return; // safety guard
+
+  /* ── Draw SV gradient ───────────────────────────────────────────── */
+  function drawSV() {
+    const W = svCanvas.width, H = svCanvas.height;
+    const ctx = svCanvas.getContext("2d");
+    // Base hue
+    const [hr, hg, hb] = hsvToRgb(_h, 1, 1);
+    ctx.fillStyle = `rgb(${hr},${hg},${hb})`;
+    ctx.fillRect(0, 0, W, H);
+    // White → transparent (left to right)
+    const gW = ctx.createLinearGradient(0,0,W,0);
+    gW.addColorStop(0, "rgba(255,255,255,1)");
+    gW.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = gW;
+    ctx.fillRect(0, 0, W, H);
+    // Transparent → black (top to bottom)
+    const gB = ctx.createLinearGradient(0,0,0,H);
+    gB.addColorStop(0, "rgba(0,0,0,0)");
+    gB.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = gB;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  /* ── Draw hue rainbow ───────────────────────────────────────────── */
+  function drawHue() {
+    const W = hueCanvas.width, H = hueCanvas.height;
+    const ctx = hueCanvas.getContext("2d");
+    const g = ctx.createLinearGradient(0, 0, W, 0);
+    for (let i = 0; i <= 360; i += 30) {
+      const [r,gg,b] = hsvToRgb(i, 1, 1);
+      g.addColorStop(i/360, `rgb(${r},${gg},${b})`);
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  /* ── Update cursors & UI ────────────────────────────────────────── */
+  function updateUI() {
+    const W = svCanvas.width, H = svCanvas.height;
+    const x = _s * W, y = (1 - _v) * H;
+    svCursor.style.left = x + "px";
+    svCursor.style.top  = y + "px";
+    hueCursor.style.left = (_h / 360) * hueCanvas.width + "px";
+
+    const [r,g,b] = hsvToRgb(_h, _s, _v);
+    const hex = rgbToHex(r,g,b);
+
+    prevSwatch.style.background = hex;
+    hexInput.value = hex;
+    rInput.value = r;
+    gInput.value = g;
+    bInput.value = b;
+
+    if (_onChange) _onChange(hex);
+  }
+
+  /* ── SV drag ────────────────────────────────────────────────────── */
+  function handleSVDrag(e) {
+    const rect = svCanvas.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top)  / rect.height));
+    _s = x; _v = 1 - y;
+    updateUI();
+  }
+  let _svDragging = false;
+  svCanvas.addEventListener("mousedown", e => { _svDragging = true; handleSVDrag(e); });
+  document.addEventListener("mousemove", e => { if (_svDragging) handleSVDrag(e); });
+  document.addEventListener("mouseup",   () => { _svDragging = false; });
+
+  /* ── Hue drag ───────────────────────────────────────────────────── */
+  function handleHueDrag(e) {
+    const rect = hueCanvas.getBoundingClientRect();
+    _h = Math.max(0, Math.min(360, (e.clientX - rect.left) / rect.width * 360));
+    drawSV();
+    updateUI();
+  }
+  let _hueDragging = false;
+  hueCanvas.addEventListener("mousedown", e => { _hueDragging = true; handleHueDrag(e); });
+  document.addEventListener("mousemove",  e => { if (_hueDragging) handleHueDrag(e); });
+  document.addEventListener("mouseup",    () => { _hueDragging = false; });
+
+  /* ── Hex input ──────────────────────────────────────────────────── */
+  hexInput.addEventListener("input", () => {
+    const raw = hexInput.value.replace(/[^0-9a-fA-F#]/g,"");
+    const clean = raw.startsWith("#") ? raw : "#" + raw;
+    if (/^#[0-9a-fA-F]{6}$/.test(clean)) {
+      const [r,g,b] = hexToRgbArr(clean);
+      [_h, _s, _v] = rgbToHsv(r,g,b);
+      drawSV();
+      updateUI();
+      hexInput.value = clean.toUpperCase();
+    }
+  });
+  hexInput.addEventListener("keydown", e => { if (e.key === "Escape") ccpClose(); });
+
+  /* ── RGB inputs ─────────────────────────────────────────────────── */
+  [rInput, gInput, bInput].forEach(inp => {
+    inp.addEventListener("input", () => {
+      const r = Math.min(255,Math.max(0,+rInput.value||0));
+      const g = Math.min(255,Math.max(0,+gInput.value||0));
+      const b = Math.min(255,Math.max(0,+bInput.value||0));
+      [_h, _s, _v] = rgbToHsv(r,g,b);
+      drawSV();
+      updateUI();
+    });
+  });
+
+  /* ── Position popup near anchor ─────────────────────────────────── */
+  function positionPopup(anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const pW = 244, pH = 230; // approximate popup size
+    let top  = rect.bottom + 8;
+    let left = rect.left;
+    if (left + pW > window.innerWidth  - 8) left  = window.innerWidth  - pW - 8;
+    if (top  + pH > window.innerHeight - 8) top   = rect.top - pH - 8;
+    if (left < 8) left = 8;
+    if (top  < 8) top  = 8;
+    popup.style.top  = top  + "px";
+    popup.style.left = left + "px";
+  }
+
+  /* ── Public API ─────────────────────────────────────────────────── */
+  window.ccpOpen = function(anchor, initialHex, onChange) {
+    _anchorEl = anchor;
+    _onChange  = onChange;
+    const [r,g,b] = hexToRgbArr(initialHex || "#FF0000");
+    [_h, _s, _v] = rgbToHsv(r,g,b);
+    drawHue();
+    drawSV();
+    popup.style.display = "block";
+    positionPopup(anchor);
+    updateUI();
+  };
+
+  window.ccpClose = function() {
+    popup.style.display = "none";
+    _anchorEl = null;
+    _onChange  = null;
+  };
+
+  /* ── Close on outside click ─────────────────────────────────────── */
+  document.addEventListener("mousedown", e => {
+    if (popup.style.display === "none") return;
+    if (!popup.contains(e.target) && e.target !== _anchorEl) {
+      ccpClose();
+    }
+  });
+})();
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 function initApp() {
