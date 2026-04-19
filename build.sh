@@ -181,14 +181,6 @@ else
     warn "themes/ not found — skipping."
 fi
 
-# Copy Images folder if present
-if [[ -d "Images" ]]; then
-    cp -r Images dist/CHSuite/Images
-    ok "Images/ copied to dist/CHSuite/Images/"
-else
-    warn "Images/ not found — NoteGen templates will be missing."
-fi
-
 echo
 
 # ── [7c] Package dist/CHSuite/ into CHSuiteLinux.zip ─────────────────────────

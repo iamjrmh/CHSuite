@@ -1,17 +1,14 @@
 """
 write_spec.py  --  writes CHSuite.spec to the current directory.
-Called by build.bat (Windows) or build.sh (Linux) during the build process.
+Called by build.bat (Windows), build.sh (Linux), or build_mac.sh (macOS).
 
-Windows project root : E:\\\\Downloads\\\\JURMR CHSuite
+Windows project root : E:\\Downloads\\JURMR CHSuite
 Linux project root   : ~/Documents/Clone Hero  (or any directory)
+macOS project root   : any directory (resolved relative to CWD)
 
 Produces two executables inside dist/CHSuite/ sharing one _internal folder:
   CHSuite.exe / CHSuite   -- the main app
   ThemeGen.exe / ThemeGen -- the live theme designer (hidden, launched by CHSuite)
-
-On Linux:
-  - No .ico icon (Linux bundles use .desktop + .png)
-  - Images/themes dirs resolved relative to CWD instead of hardcoded path
 """
 import sys
 import os
@@ -19,21 +16,22 @@ from pathlib import Path
 
 _IS_LINUX = sys.platform.startswith("linux")
 _IS_WIN   = sys.platform == "win32"
+_IS_MAC   = sys.platform == "darwin"
 
 # ---------------------------------------------------------------------------
-# Resolve texture2ddecoder .pyd on the build machine.
+# Resolve texture2ddecoder .pyd/.so on the build machine.
 # ---------------------------------------------------------------------------
 try:
     import texture2ddecoder as _t2d
     _t2d_file = Path(_t2d.__file__)
     _t2d_binaries = [(str(_t2d_file), ".")]
-    for ext in ("*.pyd", "*.dll"):
+    for ext in ("*.pyd", "*.dll", "*.so", "*.dylib"):
         for f in _t2d_file.parent.glob(ext):
             entry = (str(f), ".")
             if entry not in _t2d_binaries:
                 _t2d_binaries.append(entry)
     _t2d_binaries_repr = repr(_t2d_binaries)
-    print(f"  texture2ddecoder .pyd: {_t2d_file.name}")
+    print(f"  texture2ddecoder: {_t2d_file.name}")
 except Exception as e:
     print(f"  WARNING: texture2ddecoder inspection failed: {e}")
     _t2d_binaries_repr = "[]"
@@ -45,21 +43,24 @@ try:
     import etcpak as _etcpak
     _etcpak_file = Path(_etcpak.__file__)
     _etcpak_binaries = [(str(_etcpak_file), ".")]
-    for ext in ("*.pyd", "*.dll"):
+    for ext in ("*.pyd", "*.dll", "*.so", "*.dylib"):
         for f in _etcpak_file.parent.glob(ext):
             entry = (str(f), ".")
             if entry not in _etcpak_binaries:
                 _etcpak_binaries.append(entry)
     _etcpak_binaries_repr = repr(_etcpak_binaries)
-    print(f"  etcpak .pyd:           {_etcpak_file.name}")
+    print(f"  etcpak:           {_etcpak_file.name}")
 except Exception:
     _etcpak_binaries_repr = "[]"
 
 # ---------------------------------------------------------------------------
-# Images folder — images live inside _internal/Images/ in the project tree
-# (matching the PyInstaller _internal output layout used on both platforms).
+# Images folder — bundle alongside the exe so NoteGen finds its templates
 # ---------------------------------------------------------------------------
-IMAGES_DIR = str(Path.cwd() / "_internal" / "Images")
+if _IS_WIN:
+    IMAGES_DIR = r"E:\Downloads\JURMR CHSuite\Images"
+else:
+    # Images live inside _internal/Images relative to the project root
+    IMAGES_DIR = str(Path.cwd() / "_internal" / "Images")
 
 if os.path.isdir(IMAGES_DIR):
     images_datas = [(IMAGES_DIR, "Images")]
@@ -74,24 +75,49 @@ else:
 THEMES_DIR = str(Path.cwd() / "themes")
 if os.path.isdir(THEMES_DIR):
     themes_datas = [(THEMES_DIR, "themes")]
-    print(f"  Themes folder: {THEMES_DIR}")
+    print(f"  themes folder: {THEMES_DIR}")
 else:
     themes_datas = []
     print(f"  WARNING: themes/ not found at {THEMES_DIR!r} -- theme picker will be empty.")
 
 # ---------------------------------------------------------------------------
-# Icon path  (Windows only — Linux uses a .desktop file + .png, not .ico)
+# Icon path
+#   Windows : .ico
+#   macOS   : .icns (preferred) → .png fallback → None
+#             build_mac.sh converts JURMRWEED.png → JURMRWEED.icns before
+#             calling this script, so .icns should always be present.
+#   Linux   : no icon in spec (handled by .desktop + .png in AppImage)
 # ---------------------------------------------------------------------------
 if _IS_WIN:
     ICON_PATH = r"E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
     if not os.path.isfile(ICON_PATH):
         print(f"  WARNING: icon not found at {ICON_PATH!r} -- building without icon.")
-        icon_line = "    # icon not found at build time"
+        icon_line_exe    = "    # icon not found at build time"
+        icon_line_bundle = "    icon=None,"
     else:
-        icon_line = f'    icon={ICON_PATH!r},'
+        icon_line_exe    = f"    icon={ICON_PATH!r},"
+        icon_line_bundle = f"    icon={ICON_PATH!r},"
         print(f"  Icon: {ICON_PATH}")
-else:
-    icon_line = "    # icon: set via .desktop file on Linux (no .ico needed)"
+
+elif _IS_MAC:
+    # Prefer .icns (created by build_mac.sh), fall back to .png, then nothing
+    _icns = Path.cwd() / "JURMRWEED.icns"
+    _png  = Path.cwd() / "JURMRWEED.png"
+    if _icns.exists():
+        MAC_ICON = str(_icns)
+        print(f"  Icon: {MAC_ICON}  (.icns)")
+    elif _png.exists():
+        MAC_ICON = str(_png)
+        print(f"  Icon: {MAC_ICON}  (.png fallback — .icns preferred)")
+    else:
+        MAC_ICON = None
+        print("  Icon: not found (JURMRWEED.icns / JURMRWEED.png missing)")
+    icon_line_exe    = f"    icon={MAC_ICON!r},"
+    icon_line_bundle = f"    icon={MAC_ICON!r},"
+
+else:  # Linux
+    icon_line_exe    = "    # icon: set via .desktop file on Linux"
+    icon_line_bundle = "    icon=None,"
     print("  Icon: skipped on Linux (handled by .desktop + .png in AppImage)")
 
 # ---------------------------------------------------------------------------
@@ -99,11 +125,11 @@ else:
 # ---------------------------------------------------------------------------
 spec = f"""# =============================================================================
 #  CHSuite.spec  --  Production PyInstaller spec
-#  Auto-generated  |  Targets: Windows x64, Python 3.11, UnityPy 1.25.0
+#  Auto-generated  |  Targets: Windows x64 / Linux / macOS, Python 3.11
 #
-#  Produces two executables in dist\\CHSuite\\ sharing one _internal folder:
-#    CHSuite.exe   -- main application
-#    ThemeGen.exe  -- live theme designer (hidden, launched by CHSuite)
+#  Produces two executables in dist/CHSuite/ sharing one _internal folder:
+#    CHSuite[.exe]   -- main application
+#    ThemeGen[.exe]  -- live theme designer (hidden, launched by CHSuite)
 # =============================================================================
 
 from pathlib import Path
@@ -148,11 +174,11 @@ req_d,        req_b,          req_h        = _safe_collect("requests")
 # -- Discord Rich Presence ----------------------------------------------------
 discord_d,    discord_b,      discord_h    = _safe_collect("pypresence")
 
-# -- Explicit top-level .pyd copies -------------------------------------------
+# -- Explicit top-level native copies -----------------------------------------
 _t2d_forced    = {_t2d_binaries_repr}
 _etcpak_forced = {_etcpak_binaries_repr}
 
-# -- Images folder (NoteGen templates) — value baked in at spec-generation time
+# -- Images folder (NoteGen templates) ----------------------------------------
 _images_datas_repr = {repr(images_datas)}
 
 # -- Themes folder (built-in theme picker themes) -----------------------------
@@ -234,7 +260,7 @@ all_hidden = list(set(
 
     # stdlib items PyInstaller sometimes misses
     [
-        "ctypes", "ctypes.util", "ctypes.wintypes",
+        "ctypes", "ctypes.util",
         "xml.etree.ElementTree",
         "logging",
         "logging.handlers",
@@ -275,7 +301,7 @@ a = Analysis(
     hiddenimports=all_hidden,
     hookspath=[],
     hooksconfig={{}},
-    runtime_hooks=["rthook_texture2d.py"],
+    runtime_hooks=["rthook_texture2d_mac.py"],
     excludes=[
         "setuptools",
         "setuptools.logging",
@@ -283,7 +309,6 @@ a = Analysis(
         "IPython", "jupyter", "notebook",
         # matplotlib excluded: its typing.py shadows stdlib typing in frozen
         # exes and causes a circular-import crash at startup.
-        # Color math is handled by pure-Python helpers in CHSuite.py instead.
         "matplotlib", "matplotlib.backends", "matplotlib.testing",
         "numpy", "scipy", "pandas",
         "PyQt5", "PyQt6", "wx",
@@ -295,8 +320,7 @@ a = Analysis(
 )
 
 # =============================================================================
-#  Analysis 2 — ThemeGen (live theme designer, launched as hidden .exe)
-#  ThemeGen only needs stdlib + tkinter so its Analysis is lightweight.
+#  Analysis 2 — ThemeGen (live theme designer, launched as hidden executable)
 # =============================================================================
 a_tg = Analysis(
     ["ThemeGen.py"],
@@ -328,13 +352,29 @@ a_tg = Analysis(
 MERGE((a, "CHSuite", "CHSuite"), (a_tg, "ThemeGen", "ThemeGen"))
 
 # =============================================================================
+#  macOS crash fix: strip astc_encoder/enum.py from the frozen archive
+# =============================================================================
+# astc_encoder (pulled in by UnityPy) ships a file called enum.py that
+# re-exports IntEnum / IntFlag from the stdlib.  Inside a frozen macOS .app
+# the PyInstaller frozen importer resolves the bare name 'enum' to THIS file
+# instead of the real stdlib enum, causing a circular import that crashes
+# the app during PyInstaller's own bootstrap hooks before any user code runs.
+#
+# Removing it from a.pure is safe: it is only a thin re-export shim.
+# After removal 'import enum' resolves to the real stdlib correctly, and
+# 'from astc_encoder import ...' still works via the native extension.
+import sys as _pyi_sys
+if _pyi_sys.platform == "darwin":
+    a.pure = [e for e in a.pure if e[0] != 'astc_encoder.enum']
+
+# =============================================================================
 #  PYZ archives
 # =============================================================================
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 pyz_tg = PYZ(a_tg.pure, a_tg.zipped_data, cipher=block_cipher)
 
 # =============================================================================
-#  EXE 1 — CHSuite.exe
+#  EXE 1 — CHSuite[.exe]
 # =============================================================================
 exe = EXE(
     pyz,
@@ -352,11 +392,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-{icon_line}
+{icon_line_exe}
 )
 
 # =============================================================================
-#  EXE 2 — ThemeGen.exe  (placed alongside CHSuite.exe in dist\CHSuite\)
+#  EXE 2 — ThemeGen[.exe]  (placed alongside CHSuite in dist/CHSuite/)
 # =============================================================================
 exe_tg = EXE(
     pyz_tg,
@@ -374,7 +414,7 @@ exe_tg = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-{icon_line}
+{icon_line_exe}
 )
 
 # =============================================================================
@@ -399,4 +439,4 @@ coll = COLLECT(
 with open("CHSuite.spec", "w", encoding="utf-8") as f:
     f.write(spec.lstrip())
 
-print("  Spec file written: CHSuite.spec  (CHSuite.exe + ThemeGen.exe)")
+print("  Spec file written: CHSuite.spec  (CHSuite + ThemeGen)")

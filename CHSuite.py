@@ -1,5 +1,5 @@
 """
-CHSuite  by JURMR  v6.1
+CHSuite  by JURMR  v7.0
 =======================
 All-in-one Clone Hero utility suite.
 
@@ -35,15 +35,24 @@ _IS_WINDOWS = sys.platform == "win32"
 _IS_LINUX   = sys.platform.startswith("linux")
 _IS_MAC     = sys.platform == "darwin"
 
-# Clone Hero's data folder is named differently on Linux
-_CH_DATA_DIR = "clonehero_Data" if _IS_LINUX else "Clone Hero_Data"
+# Clone Hero's data folder is named differently per platform:
+#   Windows → "Clone Hero_Data",  Linux → "clonehero_Data",  macOS → "Data"
+_CH_DATA_DIR = ("clonehero_Data" if _IS_LINUX
+                else ("Data"           if _IS_MAC
+                else  "Clone Hero_Data"))
 
 # Executable candidates (in priority order)
 _CH_EXE_CANDIDATES_WIN = ("Clone Hero.exe", "clonehero.exe", "CloneHero.exe")
 _CH_EXE_CANDIDATES_LIN = ("clonehero", "Clone Hero", "clonehero.x86_64")
+_CH_EXE_CANDIDATES_MAC = ("Clone Hero",)          # executable inside Contents/MacOS/
 import datetime
 import urllib.request
 from pathlib import Path
+
+# ── macOS: Clone Hero ships as an app bundle at this well-known location.
+# The game data folder lives at Contents/Resources/Data inside that bundle.
+_MAC_CH_APP       = Path("/Applications/Clone Hero.app")
+_MAC_CH_DATA_PATH = _MAC_CH_APP / "Contents" / "Resources" / "Data"
 
 # ── tkinter ────────────────────────────────────────────────────────────────────
 import tkinter as tk
@@ -128853,14 +128862,49 @@ except ImportError:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _app_dir():
+    """
+    Mutable data directory (config, logs, profiles, generated files).
+    On macOS .app bundles the bundle Contents/MacOS is read-only after signing,
+    so we redirect to ~/Library/Application Support/CHSuite instead.
+    """
+    if getattr(sys, "frozen", False) and _IS_MAC:
+        d = Path.home() / "Library" / "Application Support" / "CHSuite"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).parent
 
+
+def _resources_dir():
+    """
+    Read-only bundled assets directory (Images, themes).
+
+    macOS .app  → Contents/Resources/  (PyInstaller BUNDLE layout)
+    Win/Linux frozen → sys._MEIPASS  (PyInstaller 6+ places all bundled
+                        datas inside _internal/ next to the exe, accessible
+                        via sys._MEIPASS in both onedir and onefile modes)
+    Dev (unfrozen)   → same directory as the script
+    """
+    if getattr(sys, "frozen", False) and _IS_MAC:
+        # sys.executable → .../CHSuite.app/Contents/MacOS/CHSuite
+        return Path(sys.executable).parent.parent / "Resources"
+    if getattr(sys, "frozen", False):
+        # PyInstaller 6+ onedir: all datas live in _internal/ (sys._MEIPASS),
+        # NOT in the same folder as the .exe itself.
+        _meipass = getattr(sys, "_MEIPASS", None)
+        if _meipass:
+            return Path(_meipass)
+        # Fallback for older PyInstaller (<6): _internal/ if present, else exe dir
+        _internal = Path(sys.executable).parent / "_internal"
+        if _internal.is_dir():
+            return _internal
+    return _app_dir()
+
 CONFIG_FILE   = _app_dir() / "chsuite_config.json"
 PROFILES_FILE = _app_dir() / "ch_bg_profiles.json"
 SCAN_LOG_FILE = _app_dir() / "ch_bg_scan.log"
-THEMES_DIR    = _app_dir() / "themes"
+THEMES_DIR    = _resources_dir() / "themes"
 IPC_PORT      = 59832   # ThemeGen live-preview socket
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -129096,6 +129140,11 @@ def _detect_discord_icon_key() -> str:
 _DISCORD_LARGE_IMAGE = _detect_discord_icon_key()
 _DISCORD_LARGE_TEXT  = "CHSuite by JURMR"
 
+# Platform display in Discord Rich Presence
+_PLATFORM_STR        = "macOS" if _IS_MAC else ("Linux" if _IS_LINUX else "Windows")
+_DISCORD_SMALL_IMAGE = "apple512x512" if _IS_MAC else ("linux512x512" if _IS_LINUX else "windows512x512")
+_DISCORD_SMALL_TEXT  = f"Running on {_PLATFORM_STR}"
+
 
 class _DiscordRPC:
     """
@@ -129128,6 +129177,8 @@ class _DiscordRPC:
                 details=state,          # top line  — tool name e.g. "CHMenuChanger"
                 large_image=_DISCORD_LARGE_IMAGE,
                 large_text=_DISCORD_LARGE_TEXT,
+                small_image=_DISCORD_SMALL_IMAGE,
+                small_text=_DISCORD_SMALL_TEXT,
                 buttons=[
                     {"label": "Download",          "url": "https://github.com/iamjrmh/CHSuite"},
                     {"label": "Murrin' it Central", "url": "https://discord.gg/KJYPjnzd7C"},
@@ -129370,8 +129421,13 @@ class StyledDropdown(tk.Canvas):
         outer = tk.Frame(win, bg=C["border"], padx=1, pady=1)
         outer.pack(fill="both", expand=True)
 
-        # Clamp visible rows: max 10, min 1
-        row_h     = 26
+        # Measure actual row height from font metrics to avoid OS padding issues
+        import tkinter.font as tkfont
+        try:
+            fnt  = tkfont.Font(family=self._font[0], size=self._font[1])
+            row_h = fnt.metrics("linespace") + 2
+        except Exception:
+            row_h = 22
         max_rows  = 10
         n_rows    = min(len(self._values), max_rows)
         lb_height = n_rows * row_h
@@ -129416,12 +129472,23 @@ class StyledDropdown(tk.Canvas):
             idx = lb.nearest(e.y)
             lb.selection_set(idx)
 
-        lb.bind("<Motion>",          _on_motion)
-        lb.bind("<Button-1>",        lambda e: self._pick(lb))
-        lb.bind("<Return>",          lambda e: self._pick(lb))
-        lb.bind("<Escape>",          lambda e: self._close_popup())
-        win.bind("<FocusOut>",       lambda e: self._close_popup())
-        win.bind("<Escape>",         lambda e: self._close_popup())
+        lb.bind("<Motion>",   _on_motion)
+        lb.bind("<Button-1>", lambda e: self.after(10, lambda: self._pick(lb)))
+        lb.bind("<Return>",   lambda e: self._pick(lb))
+        lb.bind("<Escape>",   lambda e: self._close_popup())
+        win.bind("<Escape>",  lambda e: self._close_popup())
+
+        # Close when clicking anywhere outside the popup
+        def _on_root_click(e):
+            try:
+                wx, wy = win.winfo_rootx(), win.winfo_rooty()
+                ww, wh = win.winfo_width(), win.winfo_height()
+                if not (wx <= e.x_root <= wx + ww and wy <= e.y_root <= wy + wh):
+                    self._close_popup()
+            except Exception:
+                self._close_popup()
+        _root_click_id = self.winfo_toplevel().bind("<Button-1>", _on_root_click, "+")
+        self._root_click_id = _root_click_id
 
         # Position: try below, flip above if off-screen
         sh = self.winfo_screenheight()
@@ -129456,10 +129523,16 @@ class StyledDropdown(tk.Canvas):
                 pass
             self._popup_win = None
             self._popup_lb  = None
+        # Unbind root click handler
+        if hasattr(self, "_root_click_id") and self._root_click_id:
+            try:
+                self.winfo_toplevel().unbind("<Button-1>", self._root_click_id)
+            except Exception:
+                pass
+            self._root_click_id = None
         if StyledDropdown._POPUP_REF is self:
             StyledDropdown._POPUP_REF = None
-        # Set debounce flag so _on_click won't immediately reopen the popup
-        # when the click that caused FocusOut also triggers Button-1 on us
+        # Debounce: prevent immediately reopening when same click closes us
         self._closing = True
         self.after(200, self._reset_closing)
         self._draw()
@@ -129504,7 +129577,10 @@ class RoundedButton(tk.Canvas):
     def __init__(self, parent, text, command, bg_color, hover_color,
                  height=42, radius=18, text_font=None,
                  text_color=None, canvas_bg=None, **kwargs):
-        super().__init__(parent, highlightthickness=0, **kwargs)
+        # Pass height directly into Canvas.__init__ so the geometry manager
+        # honours it from creation on all platforms (including macOS, where
+        # setting height via .config() *after* packing can be ignored).
+        super().__init__(parent, highlightthickness=0, height=height, **kwargs)
         self.command     = command
         self.bg_color    = bg_color
         self.hover_color = hover_color
@@ -129515,7 +129591,7 @@ class RoundedButton(tk.Canvas):
         self.text_font   = text_font or ("Lato", 10, "bold")
         # canvas_bg should match the parent frame background so rounded
         # corners look seamless instead of leaving a rectangular artifact.
-        tk.Canvas.config(self, bg=canvas_bg or C["bg"], height=height, cursor="hand2")
+        tk.Canvas.config(self, bg=canvas_bg or C["bg"], cursor="hand2")
         self.bind("<Button-1>",  self._on_click)
         self.bind("<Enter>",     self._on_enter)
         self.bind("<Leave>",     self._on_leave)
@@ -129798,11 +129874,38 @@ class HoverTooltip:
 #  SECTION 1 — BG CHANGER (CHMenuChanger)
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _scroll_units(event) -> int:
+    """Translate a MouseWheel / Button-4 / Button-5 event into scroll units.
+
+    Handles three input cases correctly:
+      • Linux         — Button-4 (up) / Button-5 (down), no delta
+      • Windows/macOS mouse wheel — delta = ±120 per notch
+      • macOS trackpad            — small continuous deltas (< ±120)
+    """
+    if event.num == 4:
+        return -1
+    if event.num == 5:
+        return 1
+    delta = getattr(event, "delta", 0)
+    if not delta:
+        return 0
+    if _IS_MAC and abs(delta) < 120:
+        # Trackpad: fires many small events — scale so ~40 delta ≈ 1 unit,
+        # always scroll at least 1 unit so slow swipes still register.
+        units = int(-delta / 8)
+        return units if units != 0 else (-1 if delta > 0 else 1)
+    # Standard mouse wheel: ±120 per notch on Windows and macOS
+    return int(-delta / 120)
+
+
 DEFAULT_PROFILE_NAME = "Default (Original)"
 # On Linux the default install lives alongside the AppImage as clonehero-linux/
+# On macOS it lives inside the /Applications/Clone Hero app bundle.
 # On Windows it lives in ~/Documents/Clone Hero/
 if _IS_LINUX:
     DEFAULT_DATA = str(_app_dir() / "clonehero-linux" / _CH_DATA_DIR)
+elif _IS_MAC:
+    DEFAULT_DATA = str(_MAC_CH_DATA_PATH)
 else:
     DEFAULT_DATA = str(Path.home() / "Documents" / "Clone Hero" / _CH_DATA_DIR)
 
@@ -129828,7 +129931,7 @@ def _get_default_data():
     return DEFAULT_DATA
 
 BACKGROUNDS = [
-    "Black", "Spray", "Pastel Burst", "Groovy", "Grains",
+    "Spray", "Pastel Burst", "Groovy", "Grains",
     "Blue Rays", "Alien", "Autumn", "Light", "Dark",
     "Classic", "Surfer", "SurferAlt", "Rainbow", "Animated",
     "Logo_Transparent",
@@ -130012,6 +130115,23 @@ class AssetManager:
             return True
         except Exception as e:
             _log(f"[WRITE FAIL] image= setter '{asset_name}': {e}")
+        # Fallback: force-convert to RGBA32 (always encodable; avoids compressed-
+        # format write failures that occur on macOS for textures like Light/Autumn)
+        try:
+            from UnityPy.enums import TextureFormat as TF
+            d.m_TextureFormat = TF.RGBA32
+            try:
+                if hasattr(d, "set_image"):
+                    d.set_image(rgba); d.save()
+                    self._dirty.add(asset_name)
+                    return True
+            except Exception:
+                pass
+            d.image = rgba; d.save()
+            self._dirty.add(asset_name)
+            return True
+        except Exception as e:
+            _log(f"[WRITE FAIL] force-RGBA32 '{asset_name}': {e}")
             return False
 
     def backup_dir(self):
@@ -130372,7 +130492,7 @@ def _generate_individual_name(letters_data, global_size=None, global_spacing=Non
 _NG_PROFILES_FILE = _app_dir() / "ch_notegen_profiles.json"
 _NG_CONFIG_FILE   = _app_dir() / "ch_notegen_config.json"
 _NG_DEFAULT_INI   = _app_dir() / "DefaultColors.ini"
-_NG_IMAGES_DIR    = _app_dir() / "_internal" / "Images"
+_NG_IMAGES_DIR    = _resources_dir() / "Images"
 _NG_DEFAULT_PROFILE_NAME = "Default (Read-Only)"
 
 _NOTE_FILE_MAP = [
@@ -131572,7 +131692,7 @@ class _NgScrollFrame(tk.Frame):
 
     def _on_inner(self,_=None): self._cv.configure(scrollregion=self._cv.bbox("all"))
     def _on_canvas(self,ev): self._cv.itemconfig(self._win,width=ev.width)
-    def _scroll(self,ev): self._cv.yview_scroll(int(-1*(ev.delta/120)),"units")
+    def _scroll(self,ev): self._cv.yview_scroll(_scroll_units(ev),"units")
     def scroll_top(self): self._cv.yview_moveto(0)
 
 
@@ -132461,12 +132581,12 @@ class CHSongManagerTab(tk.Frame):
         self._tab_btns   = {}
 
         for name, label in [("browse", "Browse"), ("settings", "Settings")]:
-            btn = tk.Button(
+            btn = tk.Label(
                 inner, text=label,
                 font=_FT, relief="flat", bd=0,
-                padx=20, pady=10, cursor="hand2",
-                command=lambda n=name: self._switch_tab(n))
+                padx=20, pady=10, cursor="hand2")
             btn.pack(side="left")
+            btn.bind("<Button-1>", lambda e, n=name: self._switch_tab(n))
             self._tab_btns[name] = btn
 
         self._refresh_tab_btns()
@@ -132485,15 +132605,13 @@ class CHSongManagerTab(tk.Frame):
         active = self._active_tab.get()
         for name, btn in self._tab_btns.items():
             if name == active:
-                btn.config(
-                    bg=_bc("bg"), fg=_bc("text"),
-                    activebackground=_bc("bg"),
-                    activeforeground=_bc("text"))
+                btn.config(bg=_bc("bg"), fg=_bc("text"))
             else:
-                btn.config(
-                    bg=_bc("panel"), fg=_bc("text_dim"),
-                    activebackground=_bc("hover"),
-                    activeforeground=_bc("text"))
+                btn.config(bg=_bc("panel"), fg=_bc("text_dim"))
+                def _make_hover(b, on_bg, off_bg):
+                    b.bind("<Enter>", lambda e: b.config(bg=on_bg))
+                    b.bind("<Leave>", lambda e: b.config(bg=off_bg))
+                _make_hover(btn, _bc("hover"), _bc("panel"))
 
     # =========================================================================
     #  BROWSE TAB CONTENT
@@ -132525,7 +132643,7 @@ class CHSongManagerTab(tk.Frame):
             q_inner, textvariable=self._q_var,
             font=_FT, bg=_bc("card"), fg=_bc("text"),
             insertbackground=_bc("text"),
-            relief="flat", bd=6, width=32)
+            relief="flat", bd=6, width=24 if _IS_MAC else 32)
         q_ent.pack(side="left")
         q_ent.bind("<Return>", lambda _: self._do_search())
         self._q_var.trace_add("write", self._on_query_changed)
@@ -132579,22 +132697,24 @@ class CHSongManagerTab(tk.Frame):
                                lambda _: self._on_filter_changed())
 
         # ── Refresh button ────────────────────────────────────────────────────
-        self._refresh_btn = tk.Button(
+        self._refresh_btn = tk.Label(
             inner, text="⟳  Refresh",
             font=_FTS, bg=_bc("panel"), fg=_bc("text_mid"),
-            activebackground=_bc("hover"), activeforeground=_bc("text"),
-            relief="flat", bd=0, padx=10, pady=6, cursor="hand2",
-            command=self._force_refresh)
+            relief="flat", padx=10, pady=6, cursor="hand2")
+        self._refresh_btn.bind("<Button-1>", lambda e: self._force_refresh())
+        self._refresh_btn.bind("<Enter>", lambda e: self._refresh_btn.config(bg=_bc("hover"), fg=_bc("text")))
+        self._refresh_btn.bind("<Leave>", lambda e: self._refresh_btn.config(bg=_bc("panel"), fg=_bc("text_mid")))
         self._refresh_btn.pack(side="left", padx=(0, 6))
 
         # ── Advanced Search toggle ────────────────────────────────────────────
         self._adv_open = False
-        self._adv_btn = tk.Button(
+        self._adv_btn = tk.Label(
             inner, text="Advanced Search ▾",
             font=_FTS, bg=_bc("panel"), fg=_bc("text_mid"),
-            activebackground=_bc("hover"), activeforeground=_bc("text"),
-            relief="flat", bd=0, padx=10, pady=6, cursor="hand2",
-            command=self._toggle_advanced)
+            relief="flat", padx=10, pady=6, cursor="hand2")
+        self._adv_btn.bind("<Button-1>", lambda e: self._toggle_advanced())
+        self._adv_btn.bind("<Enter>", lambda e: self._adv_btn.config(bg=_bc("hover"), fg=_bc("text")))
+        self._adv_btn.bind("<Leave>", lambda e: self._adv_btn.config(bg=_bc("panel"), fg=_bc("text_mid")))
         self._adv_btn.pack(side="right")
 
         # ── Advanced search panel — lives inside bar, hidden by default ─────
@@ -132664,9 +132784,13 @@ class CHSongManagerTab(tk.Frame):
         # Search button
         btn_col = tk.Frame(inner, bg=_bc("card2"))
         btn_col.pack(side="left", padx=(12, 0), anchor="s")
-        self._mk_btn(btn_col, "Search", self._do_advanced_search,
-                     _bc("accent"), _bc("accent_dim"),
-                     font=_FTB, padx=18, pady=6).pack(pady=(16, 0))
+        _s = tk.Label(btn_col, text="Search", font=_FTB,
+                      bg=_bc("accent"), fg=_bc("text"),
+                      relief="flat", padx=18, pady=6, cursor="hand2")
+        _s.pack(pady=(16, 0))
+        _s.bind("<Button-1>", lambda e: self._do_advanced_search())
+        _s.bind("<Enter>", lambda e, w=_s: w.config(bg=_bc("accent_dim")))
+        _s.bind("<Leave>", lambda e, w=_s: w.config(bg=_bc("accent")))
 
     def _do_advanced_search(self):
         # Build query from adv_vars — simple concatenation for now
@@ -132722,14 +132846,15 @@ class CHSongManagerTab(tk.Frame):
         # Column header buttons
         self._col_header_btns = {}
         for (label, field, px, anchor, gcol) in _COLS:
-            btn = tk.Button(
+            btn = tk.Label(
                 hdr, text=label,
                 font=_FTS, fg=_bc("text_dim"), bg=_bc("panel"),
-                activeforeground=_bc("text"), activebackground=_bc("hover"),
-                relief="flat", bd=0, cursor="hand2",
-                anchor=anchor, padx=6, pady=7,
-                command=lambda f=field: self._col_header_clicked(f))
+                relief="flat", cursor="hand2",
+                anchor=anchor, padx=6, pady=7)
             btn.grid(row=0, column=gcol, sticky="ew")
+            btn.bind("<Button-1>", lambda e, f=field: self._col_header_clicked(f))
+            btn.bind("<Enter>", lambda e, b=btn: b.config(bg=_bc("hover"), fg=_bc("text")))
+            btn.bind("<Leave>", lambda e, b=btn: b.config(bg=_bc("panel"), fg=_bc("text_dim")))
             self._col_header_btns[field] = btn
 
     # ── Virtual scroll constants ──────────────────────────────────────────────
@@ -132851,11 +132976,18 @@ class CHSongManagerTab(tk.Frame):
                  font=_FTS, fg=_bc("text_dim"),
                  bg=_bc("panel")).pack(side="left", padx=12)
 
-        self._load_more_btn = self._mk_btn(
-            foot, "Load More  ↓", self._load_more,
-            _bc("border2"), _bc("hover"), font=_FTS, padx=14, pady=4)
+        self._load_more_btn = tk.Label(
+            foot, text="Load More  ↓", font=_FTS,
+            bg=_bc("border2"), fg=_bc("text"),
+            relief="flat", padx=14, pady=4, cursor="hand2")
         self._load_more_btn.pack(side="right", padx=12)
-        self._load_more_btn.config(state="disabled")
+        self._load_more_btn._enabled = False
+        def _lmb_click(e):
+            if getattr(self._load_more_btn, "_enabled", False):
+                self._load_more()
+        self._load_more_btn.bind("<Button-1>", _lmb_click)
+        self._load_more_btn.bind("<Enter>", lambda e: self._load_more_btn.config(bg=_bc("hover")) if getattr(self._load_more_btn, "_enabled", False) else None)
+        self._load_more_btn.bind("<Leave>", lambda e: self._load_more_btn.config(bg=_bc("border2")))
 
     # ─── sidebar ─────────────────────────────────────────────────────────────
 
@@ -132867,7 +132999,8 @@ class CHSongManagerTab(tk.Frame):
         self._sb = sb
 
         # ── Album art area ────────────────────────────────────────────────────
-        self._art_frame = tk.Frame(sb, bg=_bc("card"), height=300)
+        _art_h = 220 if _IS_MAC else 300
+        self._art_frame = tk.Frame(sb, bg=_bc("card"), height=_art_h)
         self._art_frame.pack(fill="x")
         self._art_frame.pack_propagate(False)
 
@@ -132897,8 +133030,9 @@ class CHSongManagerTab(tk.Frame):
             "<Configure>",
             lambda e: info_cv.itemconfig(info_win, width=e.width))
         for w in (info_cv, self._info_inner):
-            w.bind("<MouseWheel>", lambda e: info_cv.yview_scroll(
-                -1 * (e.delta // 120 if e.delta else (1 if e.num == 5 else -1)), "units"))
+            w.bind("<MouseWheel>", lambda e: info_cv.yview_scroll(_scroll_units(e), "units"))
+            w.bind("<Button-4>",   lambda e: info_cv.yview_scroll(-1, "units"))
+            w.bind("<Button-5>",   lambda e: info_cv.yview_scroll(1,  "units"))
 
         # ── Charter line ──────────────────────────────────────────────────────
         chtr_row = tk.Frame(self._info_inner, bg=_bc("panel"))
@@ -132976,16 +133110,18 @@ class CHSongManagerTab(tk.Frame):
         # ── Download buttons (pinned to bottom) ──────────────────────────────
         dl_row = tk.Frame(sb, bg=_bc("panel"))
         dl_row.pack(fill="x", padx=12, pady=(8, 4))
-        dl_btn = self._mk_btn(
+        RoundedButton(
             dl_row, "Download", self._info_download,
-            _bc("accent"), _bc("accent_dim"),
-            font=_FTB, padx=0, pady=10)
-        dl_btn.pack(fill="x", ipady=2)
-        sel_btn = self._mk_btn(
+            bg_color=_bc("accent"), hover_color=_bc("accent_dim"),
+            text_color=_bc("text"), height=38, radius=10,
+            text_font=_FTB, canvas_bg=_bc("panel"),
+        ).pack(fill="x", pady=(0, 4))
+        RoundedButton(
             dl_row, "Download Selected Songs", self._batch_download,
-            _bc("neutral"), _bc("hover"),
-            font=_FTS, padx=0, pady=8)
-        sel_btn.pack(fill="x", pady=(4, 8))
+            bg_color=_bc("border2"), hover_color=_bc("hover"),
+            text_color=_bc("text"), height=34, radius=10,
+            text_font=_FTS, canvas_bg=_bc("panel"),
+        ).pack(fill="x", pady=(0, 8))
 
     # ─── status bar ──────────────────────────────────────────────────────────
 
@@ -133267,18 +133403,27 @@ class CHSongManagerTab(tk.Frame):
         dir_border.pack(side="left", fill="x", expand=True, padx=(0, 8))
         dir_inner = tk.Frame(dir_border, bg=_bc("card2"))
         dir_inner.pack(fill="x")
-        self._dir_var = tk.StringVar(value=self._cfg.get("sm_songs_dir", ""))
+        self._dir_var = tk.StringVar(value=self._cfg.get(
+            "sm_songs_dir",
+            str(Path.home() / "Clone Hero" / "Songs") if _IS_MAC else ""))
         tk.Entry(dir_inner, textvariable=self._dir_var,
                  font=_FTS, bg=_bc("card2"), fg=_bc("text"),
                  insertbackground=_bc("text"),
                  relief="flat", bd=6).pack(fill="x")
 
-        self._mk_btn(dir_row, "Open Folder", self._open_dir,
-                     _bc("neutral"), _bc("hover"),
-                     font=_FTS, padx=14, pady=6).pack(side="left", padx=(0, 6))
-        self._mk_btn(dir_row, "Choose", self._browse_dir,
-                     _bc("accent"), _bc("accent_dim"),
-                     font=_FTB, padx=14, pady=6).pack(side="left")
+        def _lbl_btn(parent, text, cmd, bg, hover_bg, fg=None, font=None, padx=14, pady=6):
+            fg = fg or _bc("text")
+            font = font or _FTS
+            lbl = tk.Label(parent, text=text, font=font, bg=bg, fg=fg,
+                           relief="flat", padx=padx, pady=pady, cursor="hand2")
+            lbl.bind("<Button-1>", lambda e: cmd())
+            lbl.bind("<Enter>", lambda e, w=lbl, hb=hover_bg: w.config(bg=hb))
+            lbl.bind("<Leave>", lambda e, w=lbl, ob=bg: w.config(bg=ob))
+            return lbl
+        _lbl_btn(dir_row, "Open Folder", self._open_dir,
+                 _bc("border2"), _bc("hover"), font=_FTS).pack(side="left", padx=(0, 6))
+        _lbl_btn(dir_row, "Choose", self._browse_dir,
+                 _bc("accent"), _bc("accent_dim"), font=_FTB).pack(side="left")
 
         # ── Download Settings ─────────────────────────────────────────────────
         sec2 = self._settings_section(inner, "Download Settings")
@@ -133325,12 +133470,7 @@ class CHSongManagerTab(tk.Frame):
     def _on_mwheel(self, event):
         if self._mmb_active:
             self._mmb_stop()
-        if event.delta:
-            self._canvas.yview_scroll(-1 * (event.delta // 120), "units")
-        elif event.num == 4:
-            self._canvas.yview_scroll(-1, "units")
-        elif event.num == 5:
-            self._canvas.yview_scroll(1, "units")
+        self._canvas.yview_scroll(_scroll_units(event), "units")
         self._refresh_virtual_rows()
         self._check_scroll_bottom()
 
@@ -133383,11 +133523,12 @@ class CHSongManagerTab(tk.Frame):
             pass
 
     def _check_scroll_bottom(self):
-        if self._load_more_btn["state"] == "disabled": return
+        if not getattr(self._load_more_btn, "_enabled", False): return
         try:
             _, hi = self._canvas.yview()
             if hi >= 0.92:
-                self._load_more_btn.config(state="disabled")
+                self._load_more_btn._enabled = False
+                self._load_more_btn.config(bg=_bc("border2"), fg=_bc("text_dim"), cursor="arrow")
                 self._status("Loading more...", _bc("text_dim"))
                 threading.Thread(target=self._fetch, daemon=True).start()
         except Exception:
@@ -133514,7 +133655,8 @@ class CHSongManagerTab(tk.Frame):
         self._found = 0
         self._selected.clear()
         self._clear_rows()
-        self._load_more_btn.config(state="disabled")
+        self._load_more_btn._enabled = False
+        self._load_more_btn.config(bg=_bc("border2"), fg=_bc("text_dim"), cursor="arrow")
 
     def _initial_load(self):
         if not _SM_HAS_REQUESTS: return
@@ -133631,7 +133773,11 @@ class CHSongManagerTab(tk.Frame):
         self._status(
             f'Showing {n} of {found:,} results for "{self._query}"',
             _bc("success"))
-        self._load_more_btn.config(state="normal" if has_more else "disabled")
+        self._load_more_btn._enabled = has_more
+        self._load_more_btn.config(
+            bg=_bc("border2"),
+            fg=_bc("text") if has_more else _bc("text_dim"),
+            cursor="hand2" if has_more else "arrow")
         # Update scroll region + render newly visible rows
         self._update_virt_scrollregion()
         self._refresh_virtual_rows()
@@ -133780,10 +133926,13 @@ class CHSongManagerTab(tk.Frame):
             pass  # pb already placed above
 
         # Download button
-        dl = self._mk_btn(
-            row, "↓", lambda i=idx: self._start_download(i),
-            _bc("accent_dim"), _bc("accent"),
-            font=_FTS, padx=6, pady=2)
+        dl = tk.Label(
+            row, text="↓", font=_FTS,
+            bg=_bc("accent_dim"), fg=_bc("text"),
+            relief="flat", padx=6, pady=2, cursor="hand2")
+        dl.bind("<Button-1>", lambda e, i=idx: self._start_download(i))
+        dl.bind("<Enter>", lambda e, w=dl: w.config(bg=_bc("accent")))
+        dl.bind("<Leave>", lambda e, w=dl: w.config(bg=_bc("accent_dim")))
         dl.grid(row=0, column=_DL_COL, padx=(2, 6), pady=3)
         _row_widgets.append(dl)
 
@@ -134348,8 +134497,8 @@ class CHSuite(tk.Tk):
         self._update_discord_dot()
 
         # ── What's New — show once per version ───────────────────────────────
-        if self._cfg.get("last_seen_version") != "6.1":
-            self._cfg["last_seen_version"] = "6.1"
+        if self._cfg.get("last_seen_version") != "7.0":
+            self._cfg["last_seen_version"] = "7.0"
             _save_json(CONFIG_FILE, self._cfg)
             self.after(300, self._show_whats_new)
 
@@ -134519,7 +134668,7 @@ class CHSuite(tk.Tk):
                  bg=C["panel"], fg=C["accent"]).pack(side="left", padx=(0, 10))
         tk.Label(inner_tb, text="CHSuite",
                  font=FTT, bg=C["panel"], fg=C["text"]).pack(side="left")
-        tk.Label(inner_tb, text="  by JURMR  v6.1",
+        tk.Label(inner_tb, text="  by JURMR  v7.0",
                  font=("Lato", 13), bg=C["panel"], fg=C["accent"]).pack(side="left", pady=(6,0))
 
         # Discord status dot
@@ -134528,6 +134677,40 @@ class CHSuite(tk.Tk):
                                       fg=C["text_dim"], cursor="hand2", padx=12)
         self._discord_dot.pack(side="right")
         self._discord_dot.bind("<Button-1>", lambda e: self._discord_setup_prompt())
+
+        # Social icon buttons (Discord + GitHub) — right of Discord dot
+        _TB_GITHUB_URL  = "https://github.com/iamjrmh/CHSuite"
+        _TB_DISCORD_URL = "https://discord.gg/PtVqaCWFHa"
+
+        def _tb_load_png(filename, size=18):
+            try:
+                from PIL import Image, ImageTk
+                img = Image.open(_resources_dir() / "Images" / filename).resize(
+                    (size, size), Image.LANCZOS)
+                return ImageTk.PhotoImage(img)
+            except Exception:
+                return None
+
+        _tb_discord_img = _tb_load_png("Discord256x256.png")
+        _tb_github_img  = _tb_load_png("GitHub256x256.png")
+
+        def _tb_make_icon(img, url, fallback_text):
+            if img:
+                lbl = tk.Label(inner_tb, image=img, bg=C["panel"],
+                               cursor="hand2", padx=4)
+                lbl.image = img
+            else:
+                lbl = tk.Label(inner_tb, text=fallback_text,
+                               font=("Lato", 8), bg=C["panel"],
+                               fg=C["accent"], cursor="hand2", padx=4)
+            lbl.pack(side="right", padx=(0, 2))
+            lbl.bind("<Button-1>", lambda e, u=url: __import__("webbrowser").open(u))
+            lbl.bind("<Enter>", lambda e, w=lbl: w.config(bg=C["hover"]))
+            lbl.bind("<Leave>", lambda e, w=lbl: w.config(bg=C["panel"]))
+            return lbl
+
+        _tb_make_icon(_tb_discord_img, _TB_DISCORD_URL, "Discord")
+        _tb_make_icon(_tb_github_img,  _TB_GITHUB_URL,  "GitHub")
 
         # Launch Clone Hero button — always visible in titlebar
         self._launch_btn = RoundedButton(
@@ -134579,14 +134762,10 @@ class CHSuite(tk.Tk):
         self._current_page = None
 
         self._build_nav()
+        # Build the landing page and BGChanger eagerly (BGChanger auto-scans on start).
+        # All other pages are built lazily on first visit to keep startup fast.
         self._build_page_about()
         self._build_page_bgchanger()
-        self._build_page_namegen()
-        self._build_page_notegen()
-        self._build_page_cleaner()
-        self._build_page_patcher()
-        self._build_page_songmanager()
-        self._build_page_gamemanager()
 
         self._show_page("about")
 
@@ -134675,79 +134854,21 @@ class CHSuite(tk.Tk):
         reset_frame = tk.Frame(self._nav, bg=C["sidebar"], padx=12)
         reset_frame.pack(fill="x", pady=(0, 4))
 
-        RoundedButton(
+        reset_btn = RoundedButton(
             reset_frame, "⟳  Reset to Default", self._reset_to_default,
             bg_color="#3d1a1a", hover_color=C["error"],
             text_color=C["error"], height=34, radius=12,
             text_font=("Lato", 8, "bold"), canvas_bg=C["sidebar"],
-        ).pack(fill="x")
+        )
+        reset_btn.pack(fill="x")
 
-        # Version + What's New hover icon at the very bottom
+        # Flexible spacer — pushes version label to the bottom
         tk.Frame(self._nav, bg=C["sidebar"]).pack(fill="y", expand=True)
-
-        # ── Social icons (Discord + GitHub) ──────────────────────────────────
-        _GITHUB_URL  = "https://github.com/iamjrmh/CHSuite"
-        _DISCORD_URL = "https://discord.gg/PtVqaCWFHa"
-
-        social_row = tk.Frame(self._nav, bg=C["sidebar"])
-        social_row.pack(pady=(0, 6), padx=12, anchor="w")
-
-        def _load_png_icon(filename, size=18):
-            try:
-                from PIL import Image, ImageTk
-                img_path = _app_dir() / "_internal" / "Images" / filename
-                img = Image.open(img_path).resize((size, size), Image.LANCZOS)
-                return ImageTk.PhotoImage(img)
-            except Exception:
-                return None
-
-        _discord_img = _load_png_icon("Discord256x256.png")
-        _github_img  = _load_png_icon("GitHub256x256.png")
-
-        def _open_discord(e=None):
-            import webbrowser
-            webbrowser.open(_DISCORD_URL)
-
-        def _open_github(e=None):
-            import webbrowser
-            webbrowser.open(_GITHUB_URL)
-
-        if _discord_img:
-            discord_lbl = tk.Label(social_row, image=_discord_img,
-                                   bg=C["sidebar"], cursor="hand2")
-            discord_lbl.image = _discord_img   # prevent GC
-            discord_lbl.pack(side="left", padx=(0, 6))
-            discord_lbl.bind("<Button-1>", _open_discord)
-            discord_lbl.bind("<Enter>",
-                lambda e, w=discord_lbl: w.config(bg=C["nav_hover"]))
-            discord_lbl.bind("<Leave>",
-                lambda e, w=discord_lbl: w.config(bg=C["sidebar"]))
-        else:
-            disc_txt = tk.Label(social_row, text="Discord", font=("Lato", 8),
-                                fg=C["accent"], bg=C["sidebar"], cursor="hand2")
-            disc_txt.pack(side="left", padx=(0, 6))
-            disc_txt.bind("<Button-1>", _open_discord)
-
-        if _github_img:
-            github_lbl = tk.Label(social_row, image=_github_img,
-                                  bg=C["sidebar"], cursor="hand2")
-            github_lbl.image = _github_img   # prevent GC
-            github_lbl.pack(side="left", padx=(0, 4))
-            github_lbl.bind("<Button-1>", _open_github)
-            github_lbl.bind("<Enter>",
-                lambda e, w=github_lbl: w.config(bg=C["nav_hover"]))
-            github_lbl.bind("<Leave>",
-                lambda e, w=github_lbl: w.config(bg=C["sidebar"]))
-        else:
-            gh_txt = tk.Label(social_row, text="GitHub", font=("Lato", 8),
-                              fg=C["accent"], bg=C["sidebar"], cursor="hand2")
-            gh_txt.pack(side="left", padx=(0, 4))
-            gh_txt.bind("<Button-1>", _open_github)
 
         ver_row = tk.Frame(self._nav, bg=C["sidebar"])
         ver_row.pack(pady=(0, 12), padx=12, fill="x")
 
-        tk.Label(ver_row, text="CHSuite v6.1", font=("Lato", 8),
+        tk.Label(ver_row, text="CHSuite v7.0", font=("Lato", 8),
                  fg=C["text_dim"], bg=C["sidebar"]).pack(side="left")
 
         info_lbl = tk.Label(ver_row, text=" ⓘ", font=("Lato", 9),
@@ -134767,11 +134888,13 @@ class CHSuite(tk.Tk):
             f = tk.Frame(tip, bg=C["card"], padx=14, pady=12)
             f.pack(padx=1, pady=1)
 
-            tk.Label(f, text="What's New in v6.1", font=("Lato", 9, "bold"),
+            tk.Label(f, text="What's New in v7.0", font=("Lato", 9, "bold"),
                      fg=C["text"], bg=C["card"]).pack(anchor="w")
 
             items = [
-                (C["success"],  "Fixed a few bugs"),
+                (C["accent2"],  "Discord Server"),
+                (C["success"],  "macOS Support Added!"),
+                (C["success"],  "Bug Fixes"),
             ]
             for clr, txt in items:
                 row = tk.Frame(f, bg=C["card"])
@@ -134826,6 +134949,11 @@ class CHSuite(tk.Tk):
         pass
 
     def _show_page(self, page_id):
+        # Build the page on first visit (lazy construction keeps startup fast)
+        if page_id not in self._pages:
+            builder = getattr(self, f"_build_page_{page_id}", None)
+            if builder:
+                builder()
         for pg in self._pages.values():
             pg.pack_forget()
         if page_id in self._pages:
@@ -135008,13 +135136,13 @@ class CHSuite(tk.Tk):
 
         # Footer
         _sep(inner, bg=C["border"]).pack(fill="x", pady=(8, 6))
-        tk.Label(inner, text="CHSuite v6.1  ·  by JURMR",
+        tk.Label(inner, text="CHSuite v7.0  ·  by JURMR",
                  font=("Lato", 8), fg=C["text_dim"], bg=C["bg"]).pack(anchor="w")
 
     # ── What's New popup ──────────────────────────────────────────────────────
     def _show_whats_new(self):
-        """Show a one-time What's New dialog for v6.1"""
-        win = self._make_toplevel("What's New in CHSuite v6.1")
+        """Show a one-time What's New dialog for v7.0"""
+        win = self._make_toplevel("What's New in CHSuite v7.0")
         win.configure(bg=C["bg"])
         win.resizable(False, False)
         win.grab_set()
@@ -135033,7 +135161,7 @@ class CHSuite(tk.Tk):
         title_row.pack(anchor="center")
         tk.Label(title_row, text="🎉", font=("Lato", 18),
                  fg=C["text"], bg=C["bg"]).pack(side="left", padx=(0, 10))
-        tk.Label(title_row, text="What's New in v6.1",
+        tk.Label(title_row, text="What's New in v7.0",
                  font=("Lato", 16, "bold"), fg=C["text"], bg=C["bg"]).pack(side="left")
         tk.Label(header, text="Here's everything that changed in this release:",
                  font=FT, fg=C["text_dim"], bg=C["bg"], justify="center").pack(anchor="center", pady=(6, 0))
@@ -135068,9 +135196,14 @@ class CHSuite(tk.Tk):
         self._bind_mousewheel_to_canvas(canvas)
 
         changes = [
-            (C["success"],  "Fixed a few bugs",
-             "CHSongManager loads songs a lot more efficiently. There is now a crash log, to "
-             "access it go to your CHSuite launcher and find your Logs folder."),
+            (C["accent2"],  "Discord Server",
+             "Join the discord server! you can join by pressing the Discord icon at the top "
+             "right of the CHSuite."),
+            (C["success"],  "macOS Support Added!",
+             "macOS Support has been officially added!"),
+            (C["success"],  "Bug Fixes",
+             "There were a LOT of bugs porting from windows to mac - just assume whatever "
+             "you're pressing had a bug at one point and it got fixed lol"),
         ]
 
         for accent, heading, body in changes:
@@ -135130,8 +135263,9 @@ class CHSuite(tk.Tk):
                            highlightbackground=C["border"], highlightthickness=1)
         ggm_bar.pack(fill="x")
         gi = tk.Frame(ggm_bar, bg=C["card"], padx=14, pady=9); gi.pack(fill="x")
-        tk.Label(gi, text=f"{_CH_DATA_DIR} folder:", font=FTB,
-                 bg=C["card"], fg=C["text_mid"]).pack(side="left")
+        tk.Label(gi,
+                 text="Clone Hero.app:" if _IS_MAC else f"{_CH_DATA_DIR} folder:",
+                 font=FTB, bg=C["card"], fg=C["text_mid"]).pack(side="left")
         self._data_v = tk.StringVar(value=_get_default_data())
         tk.Entry(gi, textvariable=self._data_v,
                  width=56, font=FTM).pack(side="left", padx=8)
@@ -135291,16 +135425,28 @@ class CHSuite(tk.Tk):
         elif self._profiles:
             self._switch_profile(next(iter(self._profiles)))
 
-        # Show setup dialog on first launch to capture the CH install directory
+        # Show setup dialog on first launch to capture the CH install directory.
+        # On macOS the path is fixed and well-known, so we skip the dialog and
+        # auto-detect it silently instead.
         if not self._cfg.get("setup_done", False):
-            dlg = SetupDialog(self)
-            self.wait_window(dlg.win)
-            if dlg.result:
-                self._data_v.set(dlg.result)
-                if not self._is_default_profile():
-                    self._active_prof["data_path"] = dlg.result
-                    _save_profiles(self._profiles)
-                self._cfg["default_data_path"] = dlg.result
+            if _IS_MAC:
+                # Auto-detect /Applications/Clone Hero/Contents/Resources/Data
+                mac_data = str(_MAC_CH_DATA_PATH)
+                if os.path.isdir(mac_data):
+                    self._data_v.set(mac_data)
+                    if not self._is_default_profile():
+                        self._active_prof["data_path"] = mac_data
+                        _save_profiles(self._profiles)
+                    self._cfg["default_data_path"] = mac_data
+            else:
+                dlg = SetupDialog(self)
+                self.wait_window(dlg.win)
+                if dlg.result:
+                    self._data_v.set(dlg.result)
+                    if not self._is_default_profile():
+                        self._active_prof["data_path"] = dlg.result
+                        _save_profiles(self._profiles)
+                    self._cfg["default_data_path"] = dlg.result
             self._cfg["setup_done"] = True
             _save_json(CONFIG_FILE, self._cfg)
             # Auto-import any existing color profiles from the detected Colors folder
@@ -135311,6 +135457,35 @@ class CHSuite(tk.Tk):
         else:
             # Auto-scan on every normal launch too
             self.after(300, self._auto_scan_on_start)
+
+        # On macOS, prompt once about Full Disk Access so file writes succeed
+        if _IS_MAC:
+            self.after(800, self._check_mac_permissions)
+
+    def _check_mac_permissions(self):
+        """Show a one-time prompt on macOS guiding the user to grant Full Disk Access."""
+        if self._cfg.get("mac_permissions_prompted"):
+            return
+        self._cfg["mac_permissions_prompted"] = True
+        _save_json(CONFIG_FILE, self._cfg)
+        msg = (
+            "CHSuite needs permission to modify Clone Hero game files.\n\n"
+            "Please open:\n"
+            "System Settings → Privacy & Security → Full Disk Access\n"
+            "and add CHSuite to the list.\n\n"
+            "Without this, background replacements and patches may not save correctly."
+        )
+        open_settings = messagebox.askokcancel(
+            "Allow CHSuite to Make Changes",
+            msg,
+            parent=self
+        )
+        if open_settings:
+            import subprocess
+            subprocess.run([
+                "open",
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+            ])
 
     def _auto_scan_on_start(self):
         """Silently trigger Load & Scan if deps are available and path is valid.
@@ -135376,6 +135551,9 @@ class CHSuite(tk.Tk):
         self._profiles[name] = _blank_profile(name)
         _save_profiles(self._profiles)
         self._refresh_profile_combo(); self._switch_profile(name)
+        # Auto-scan after creating a new profile so backgrounds are immediately available
+        self.after(200, self._auto_scan_on_start)
+        return name
 
     def _profile_rename(self):
         old = self._active_name
@@ -135424,10 +135602,23 @@ class CHSuite(tk.Tk):
 
     # ── BG loading ────────────────────────────────────────────────────────────
     def _browse_data(self):
-        p = filedialog.askdirectory(title=f"Select {_CH_DATA_DIR} folder",
-                                    initialdir=str(_app_dir() / "clonehero-linux") if _IS_LINUX
-                                              else str(Path.home()/"Documents"/"Clone Hero"))
-        if p: self._data_v.set(p)
+        if _IS_MAC:
+            # On macOS the user picks the Clone Hero.app bundle;
+            # CHSuite automatically derives Contents/Resources/Data from it.
+            p = filedialog.askdirectory(
+                title="Select Clone Hero.app bundle",
+                initialdir="/Applications")
+            if p:
+                data_candidate = Path(p) / "Contents" / "Resources" / "Data"
+                self._data_v.set(str(data_candidate))
+        elif _IS_LINUX:
+            p = filedialog.askdirectory(title=f"Select {_CH_DATA_DIR} folder",
+                                        initialdir=str(_app_dir() / "clonehero-linux"))
+            if p: self._data_v.set(p)
+        else:
+            p = filedialog.askdirectory(title=f"Select {_CH_DATA_DIR} folder",
+                                        initialdir=str(Path.home()/"Documents"/"Clone Hero"))
+            if p: self._data_v.set(p)
 
     def _load_ggm(self):
         if not _PIL_OK or not _UNITYPY_OK:
@@ -135675,8 +135866,12 @@ class CHSuite(tk.Tk):
         if self._is_default_profile():
             if messagebox.askyesno("Create a profile first",
                     "The Default profile is read-only.\nCreate a new profile to set replacements?"):
-                self._profile_new(); return
-            return
+                created = self._profile_new()
+                if not created:
+                    return  # user cancelled the profile name dialog
+                # Fall through — now on the new profile, open the file chooser
+            else:
+                return
         bg   = self._selected_bg()
         path = filedialog.askopenfilename(
             title=f"Choose replacement for '{bg}'",
@@ -135914,14 +136109,7 @@ class CHSuite(tk.Tk):
         other scrollable areas.
         """
         def _scroll(event):
-            # Windows / macOS: event.delta is ±120 (or multiples).
-            # Linux: Button-4 = scroll up, Button-5 = scroll down.
-            if event.num == 4:
-                canvas.yview_scroll(-1, "units")
-            elif event.num == 5:
-                canvas.yview_scroll(1, "units")
-            else:
-                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            canvas.yview_scroll(_scroll_units(event), "units")
 
         def _on_enter(_event):
             canvas.bind_all("<MouseWheel>", _scroll)   # Windows / macOS
@@ -136229,27 +136417,252 @@ class CHSuite(tk.Tk):
             messagebox.showinfo("Copied", "Output copied to clipboard!")
 
     def _export_to_profiles_ini(self, name_tagged: str):
-        folder = filedialog.askdirectory(title="Choose folder to save profiles.ini")
-        if not folder: return
-        filepath = os.path.join(folder, "profiles.ini")
-        config = configparser.ConfigParser()
-        if os.path.exists(filepath): config.read(filepath)
-        profile_num = 1
-        while f"profile{profile_num}" in config: profile_num += 1
-        section = f"profile{profile_num}"
-        config[section] = {
-            "controller_type":"0","lefty_flip":"0","gamepad_mode":"0","is_bot":"0",
-            "show_displayname":"0","drum_dynamics_hidden":"0","square_tom_notes":"0",
-            "alt_taps":"0","show_accuracy_display":"0","player_name":name_tagged,
-            "note_speed":"7","tilt_activation":"1","highway_length":"100",
-            "highway_name":"default","color_profile_name":"DefaultColors",
-            "midi_device_id":"-1","dynamics_threshold":"100"}
+        # ── 1. Auto-locate profiles.ini ───────────────────────────────────────
+        if _IS_MAC:
+            auto_path = Path.home() / "Clone Hero" / "profiles.ini"
+        elif _IS_LINUX:
+            auto_path = Path.home() / "Clone Hero" / "profiles.ini"
+        else:  # Windows
+            # Portable install: PlayerData lives next to Clone Hero_Data in the
+            # game folder.  Check that first; fall back to the typical Documents
+            # location if PlayerData isn't present.
+            _install_dir = (self._cfg.get("ch_default_install", "")
+                            or self._cfg.get("ch_install_dir", ""))
+            if _install_dir and (Path(_install_dir) / "PlayerData").is_dir():
+                auto_path = Path(_install_dir) / "PlayerData" / "profiles.ini"
+            else:
+                auto_path = Path.home() / "Documents" / "Clone Hero" / "profiles.ini"
+
+        if auto_path.exists():
+            filepath = auto_path
+        else:
+            folder = filedialog.askdirectory(
+                title="Locate your Clone Hero folder (contains profiles.ini)")
+            if not folder:
+                return
+            filepath = Path(folder) / "profiles.ini"
+
+        # ── 2. Parse Clone Hero's INI-style profiles.ini ─────────
+        def _parse_profiles_ini(path):
+            """Parse profiles.ini into a list of (section_name, [raw_lines]) tuples.
+            Clone Hero uses standard INI format:
+                [profile0]
+                key = value
+            Every raw line is preserved so the file can be written back with
+            the minimum possible diff (only player_name changes)."""
+            sections = []
+            current  = None
+            try:
+                text = Path(path).read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                return sections
+            for line in text.splitlines(keepends=True):
+                stripped = line.strip()
+                if (stripped.startswith("[") and stripped.endswith("]")):
+                    inner = stripped[1:-1]
+                    if inner.startswith("profile") and inner[7:].isdigit():
+                        current = [line]
+                        sections.append((inner, current))
+                        continue
+                if current is not None:
+                    current.append(line)
+            return sections
+
+        def _get_player_name(raw_lines):
+            for line in raw_lines:
+                stripped = line.strip()
+                if stripped.startswith("player_name"):
+                    idx = stripped.find("=")
+                    if idx != -1:
+                        return stripped[idx + 1:].strip().strip('"')
+            return ""
+
+        sections = _parse_profiles_ini(filepath)
+        if not sections:
+            # File doesn't exist yet or has no recognised [profileN] sections.
+            # Create a minimal one rather than silently overwriting anything.
+            try:
+                filepath.parent.mkdir(parents=True, exist_ok=True)
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(f"[profile0]\nplayer_name = {name_tagged}\n")
+                messagebox.showinfo("Exported",
+                    f"Created profiles.ini at:\n{filepath}\nwith your name in profile0.",
+                    parent=self)
+            except Exception as e:
+                messagebox.showerror("Export Error", str(e), parent=self)
+            return
+
+        # ── 3. Ask the user which profile to replace ──────────────────────────
+        import re as _re
+        def _plain(name):
+            """Strip <color=#...>...</color> tags, returning plain readable text."""
+            return _re.sub(r'<color=[^>]*>|</color>', '', name)
+
+        profile_labels = []
+        for sec_name, raw_lines in sections:
+            pname = _get_player_name(raw_lines)
+            label = _plain(pname) if pname else sec_name
+            profile_labels.append(label)
+        # The index one past the last existing section is the "create new" slot.
+        _NEW_PROFILE_IDX = len(sections)
+        _new_profile_key = f"profile{_NEW_PROFILE_IDX}"
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Replace Profile Name")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.configure(bg=C["bg"])
+
+        tk.Label(dlg, text="Choose which profile to update:",
+                 font=("Lato", 12, "bold"), fg=C["text"], bg=C["bg"]
+                 ).pack(padx=20, pady=(16, 8))
+
+        selected_idx = tk.IntVar(value=0)
+        for i, lbl in enumerate(profile_labels):
+            tk.Radiobutton(dlg, text=lbl, variable=selected_idx, value=i,
+                           font=("Lato", 11), fg=C["text"], bg=C["bg"],
+                           selectcolor=C.get("card", C["bg"]),
+                           activebackground=C["bg"], activeforeground=C["text"]
+                           ).pack(anchor="w", padx=32)
+
+        # Always offer a "create new profile" option at the bottom
+        tk.Radiobutton(dlg,
+                       text=f"➕  Create new profile ({_new_profile_key})",
+                       variable=selected_idx, value=_NEW_PROFILE_IDX,
+                       font=("Lato", 11), fg=C.get("accent", C["text"]),
+                       bg=C["bg"], selectcolor=C.get("card", C["bg"]),
+                       activebackground=C["bg"], activeforeground=C["text"]
+                       ).pack(anchor="w", padx=32, pady=(6, 0))
+
+        btn_row = tk.Frame(dlg, bg=C["bg"])
+        btn_row.pack(pady=(12, 16), padx=20, fill="x")
+
+        # action[0]: 'replace' | 'delete' | None
+        action = [None]
+
+        def _confirm():
+            action[0] = "replace"
+            dlg.destroy()
+
+        def _delete():
+            action[0] = "delete"
+            dlg.destroy()
+
+        # Disable Delete when 'Create new' radio is active
+        _del_btn_ref = [None]
+        def _on_radio_change(*_):
+            if _del_btn_ref[0] is None:
+                return
+            is_new = selected_idx.get() == _NEW_PROFILE_IDX
+            try:
+                _del_btn_ref[0].set_state("disabled" if is_new else "normal")
+            except Exception:
+                pass
+        selected_idx.trace_add("write", _on_radio_change)
+
+        RoundedButton(btn_row, "Replace", _confirm,
+                      bg_color=C["accent"], hover_color=C["accent_dim"],
+                      text_color=C["text"], height=36, radius=14,
+                      text_font=("Lato", 10, "bold"),
+                      canvas_bg=C["bg"], width=110
+                      ).pack(side="right", padx=(8, 0))
+        RoundedButton(btn_row, "Cancel", dlg.destroy,
+                      bg_color=C["card"], hover_color=C["hover"],
+                      text_color=C["text_mid"], height=36, radius=14,
+                      text_font=("Lato", 10, "bold"),
+                      canvas_bg=C["bg"], width=110
+                      ).pack(side="right")
+        _del_btn = RoundedButton(btn_row, "🗑  Delete", _delete,
+                      bg_color=C.get("error", "#ef4444"), hover_color="#dc2626",
+                      text_color="white", height=36, radius=14,
+                      text_font=("Lato", 10, "bold"),
+                      canvas_bg=C["bg"], width=110
+                      )
+        _del_btn.pack(side="left")
+        _del_btn_ref[0] = _del_btn
+
+        self.wait_window(dlg)
+        if action[0] is None:
+            return
+
+        chosen = selected_idx.get()
+
+        # Handle delete action
+        if action[0] == "delete":
+            if len(sections) <= 1:
+                messagebox.showwarning("Cannot Delete",
+                    "profiles.ini must keep at least one profile.",
+                    parent=self)
+                return
+            del_name = profile_labels[chosen]
+            if not messagebox.askyesno("Delete Profile",
+                    f'Delete profile "{del_name}" from profiles.ini?\n\nThis cannot be undone.',
+                    parent=self):
+                return
+            del sections[chosen]
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    for _, lines in sections:
+                        f.writelines(lines)
+                messagebox.showinfo("Deleted",
+                    f'Removed profile "{del_name}" from:\n{filepath}',
+                    parent=self)
+            except Exception as e:
+                messagebox.showerror("Delete Error", f"Failed to save profiles.ini:\n{e}",
+                                     parent=self)
+            return
+
+        # ── 4. Replace player_name in the chosen section, write back ──────────
+        def _replace_player_name(raw_lines, new_name):
+            out = []
+            replaced = False
+            for line in raw_lines:
+                stripped = line.strip()
+                if not replaced and stripped.startswith("player_name"):
+                    sep = "\r\n" if line.endswith("\r\n") else "\n"
+                    out.append(f"player_name = {new_name}{sep}")
+                    replaced = True
+                else:
+                    out.append(line)
+            if not replaced:  # key didn't exist — append it
+                out.append(f"player_name = {new_name}\n")
+            return out
+
+        # If the user chose "Create new profile", append a fresh section
+        if chosen == _NEW_PROFILE_IDX:
+            _default_fields = (
+                "default_sample_velocity = 80\n"
+                "dynamics_threshold = 100\n"
+                "midi_device_id = -1\n"
+                "color_profile_name = DefaultColors\n"
+                "highway_name = default\n"
+                "highway_length = 100\n"
+                "tilt_activation = 1\n"
+                "note_speed = 7\n"
+            )
+            sections.append((_new_profile_key, [
+                f"[{_new_profile_key}]\n",
+                *_default_fields.splitlines(keepends=True),
+                f"player_name = {name_tagged}\n",
+            ]))
+            profile_labels.append(_new_profile_key)
+        else:
+            sec_name, raw_lines = sections[chosen]
+            sections[chosen] = (sec_name, _replace_player_name(raw_lines, name_tagged))
+
+        # Reconstruct and write
         try:
-            with open(filepath, "w", encoding="utf-8") as f: config.write(f)
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            with open(filepath, "w", encoding="utf-8") as f:
+                for _, lines in sections:
+                    f.writelines(lines)
+            display_name = profile_labels[chosen]
             messagebox.showinfo("Exported",
-                f"Saved profile to:\n{filepath}\nunder section [{section}]")
+                f"Updated player_name in profile \"{display_name}\":\n{filepath}",
+                parent=self)
         except Exception as e:
-            messagebox.showerror("Export Error", f"Failed to save profiles.ini: {e}")
+            messagebox.showerror("Export Error", f"Failed to save profiles.ini:\n{e}",
+                                 parent=self)
 
     # ══════════════════════════════════════════════════════════════════════════
     #  PAGE 3 — NOTEGEN (CHNoteGen)
@@ -136464,6 +136877,10 @@ class CHSuite(tk.Tk):
     def _ng_is_default(self): return self._ng_active_name == _NG_DEFAULT_PROFILE_NAME
 
     def _ng_refresh_profile_list(self):
+        # Guard: _ng_prof_cb is created in _build_page_notegen(), which runs
+        # after _load_initial_profile().  Skip if the widget doesn't exist yet.
+        if not hasattr(self, "_ng_prof_cb"):
+            return
         names=[_NG_DEFAULT_PROFILE_NAME]+sorted(self._ng_profiles.keys())
         self._ng_prof_cb["values"]=names
         if self._ng_prof_var.get() not in names: self._ng_prof_var.set(_NG_DEFAULT_PROFILE_NAME)
@@ -136681,6 +137098,13 @@ class CHSuite(tk.Tk):
                 d = inst.get("directoryPath", "")
                 if d and Path(d).is_dir():
                     base = Path(d); break
+        # macOS fallback: Clone Hero stores Custom/ inside ~/Clone Hero/
+        if base is None and _IS_MAC:
+            mac_home = Path.home() / "Clone Hero"
+            if mac_home.is_dir():
+                base = mac_home
+            else:
+                base = mac_home          # return path even if not yet created
         if base is None:
             return []
         return [
@@ -137346,17 +137770,22 @@ class CHSuite(tk.Tk):
                 return
             page = getattr(self, "_current_page", "bgchanger") or "bgchanger"
             tool = _PAGE_DISPLAY_NAMES.get(page, "CHSuite")
+            platform_suffix = f" · {_PLATFORM_STR}"
             if page == "bgchanger":
                 profile = getattr(self, "_active_name", "") or ""
                 bg      = self._selected_bg()
                 details = f"Profile: {profile}  ·  {bg}" if profile else f"Editing: {bg}"
-                self._drpc.update(tool, details)
+                self._drpc.update(tool + platform_suffix, details)
             elif page == "notegen":
                 profile = getattr(self, "_ng_active_name", "") or ""
                 details = f"Profile: {profile}" if profile else ""
-                self._drpc.update(tool, details)
+                self._drpc.update(tool + platform_suffix, details)
+            elif page == "songmanager":
+                sdir = getattr(self, "_dir_var", None)
+                details = f"Library: {Path(sdir.get()).name}" if sdir and sdir.get() else ""
+                self._drpc.update(tool + platform_suffix, details)
             else:
-                self._drpc.update(tool)
+                self._drpc.update(tool + platform_suffix)
             self._drpc_last_update = time.monotonic()
 
         self._drpc_pending = self.after(600, _do_update)
@@ -137364,7 +137793,7 @@ class CHSuite(tk.Tk):
     # ── Check for Updates ─────────────────────────────────────────────────────
     def _check_for_updates(self):
         """Fetch the latest GitHub release, compare versions, and auto-install."""
-        CURRENT = "6.1"
+        CURRENT = "7.0"
         API_URL  = "https://api.github.com/repos/iamjrmh/CHSuite/releases/latest"
         INSTALL_DIR = Path("C:/CHSuite")  # Windows full-install path
 
@@ -137379,6 +137808,9 @@ class CHSuite(tk.Tk):
             # The "install location" for a Linux AppImage is where the AppImage lives
             _linux_appimage = os.environ.get("APPIMAGE", "")
             _linux_install_dir = Path(_linux_appimage).parent if _linux_appimage else _run_dir
+        elif _IS_MAC:
+            # On macOS: "portable" = not running from /Applications
+            is_portable = not str(_run_dir).lower().startswith("/applications")
         else:
             # Windows: portable = not running from C:\CHSuite
             is_portable = not str(_run_dir).lower().startswith(
@@ -137390,8 +137822,8 @@ class CHSuite(tk.Tk):
         win.grab_set()
         self.update_idletasks()
         x = self.winfo_x() + self.winfo_width()  // 2 - 195
-        y = self.winfo_y() + self.winfo_height() // 2 - 115
-        win.geometry(f"390x230+{x}+{y}")
+        y = self.winfo_y() + self.winfo_height() // 2 - 130
+        win.geometry(f"390x262+{x}+{y}")
 
         outer = tk.Frame(win, bg=C["bg"], padx=24, pady=20)
         outer.pack(fill="both", expand=True)
@@ -137414,6 +137846,110 @@ class CHSuite(tk.Tk):
         lat_lbl = tk.Label(ver_frame, text="Latest:      checking…",
                            font=("Lato", 9), fg=C["text_dim"], bg=C["bg"])
         lat_lbl.pack(anchor="w")
+
+        # ── Enable CHSuite Beta toggle ─────────────────────────────────────────
+        _beta_initial = bool(self._cfg.get("beta_updates_enabled", False))
+        beta_var = tk.BooleanVar(value=_beta_initial)
+        beta_frame = tk.Frame(outer, bg=C["bg"])
+        beta_frame.pack(anchor="w", pady=(10, 0))
+
+        def _on_beta_toggle():
+            if beta_var.get():
+                # User is trying to ENABLE beta — show I CONFIRM prompt
+                dlg = self._make_toplevel("Enable Beta Builds")
+                dlg.configure(bg=C["bg"])
+                dlg.resizable(False, False)
+                dlg.grab_set()
+                dlg.update_idletasks()
+                dx = win.winfo_x() + win.winfo_width()  // 2 - 185
+                dy = win.winfo_y() + win.winfo_height() // 2 - 120
+                dlg.geometry(f"370x242+{dx}+{dy}")
+
+                di = tk.Frame(dlg, bg=C["bg"], padx=20, pady=16)
+                di.pack(fill="both", expand=True)
+
+                tk.Label(di, text="⚠  Enable Beta Builds",
+                         font=("Lato", 12, "bold"),
+                         fg=C.get("warn", "#f59e0b"), bg=C["bg"]).pack(anchor="w")
+                _sep(di, bg=C["border"]).pack(fill="x", pady=(8, 10))
+                tk.Label(di, wraplength=326, justify="left", bg=C["bg"],
+                         fg=C["text_mid"], font=("Lato", 9),
+                         text=(
+                             "Beta (pre-release) builds may be unstable, contain bugs, "
+                             "or break existing functionality.  They are NOT recommended "
+                             "unless you have a specific reason or are testing a known issue."
+                             "\n\nType  I CONFIRM  below to proceed."
+                         )).pack(anchor="w")
+
+                confirm_var = tk.StringVar()
+                conf_entry = tk.Entry(di, textvariable=confirm_var,
+                                      font=("Lato", 10), bg=C["card"],
+                                      fg=C["text"], insertbackground=C["text"],
+                                      relief="flat", bd=0, highlightthickness=1,
+                                      highlightbackground=C["border"],
+                                      highlightcolor=C["accent"])
+                conf_entry.pack(fill="x", pady=(10, 0), ipady=6)
+                conf_entry.focus_set()
+
+                err_lbl = tk.Label(di, text="", font=("Lato", 8),
+                                   fg=C.get("error", "#ef4444"), bg=C["bg"])
+                err_lbl.pack(anchor="w", pady=(3, 0))
+
+                def _submit(_event=None):
+                    if confirm_var.get().strip() == "I CONFIRM":
+                        self._cfg["beta_updates_enabled"] = True
+                        _save_json(CONFIG_FILE, self._cfg)
+                        dlg.destroy()
+                        # Re-run the fetch now that beta is enabled
+                        status_var.set("Checking GitHub…")
+                        lat_lbl.config(text="Latest:      checking…",
+                                       fg=C["text_dim"])
+                        threading.Thread(target=_fetch, daemon=True).start()
+                    else:
+                        err_lbl.config(
+                            text="You must type exactly:  I CONFIRM")
+                        conf_entry.delete(0, "end")
+
+                def _cancel_beta():
+                    beta_var.set(False)   # revert the checkbox
+                    dlg.destroy()
+
+                conf_entry.bind("<Return>", _submit)
+                dlg.protocol("WM_DELETE_WINDOW", _cancel_beta)
+
+                df = tk.Frame(di, bg=C["bg"]); df.pack(anchor="e", pady=(8, 0))
+                RoundedButton(df, "Cancel", _cancel_beta,
+                              bg_color=C["card"], hover_color=C["hover"],
+                              text_color=C["text_mid"], height=36, radius=14,
+                              text_font=("Lato", 9, "bold"),
+                              canvas_bg=C["bg"], width=90).pack(side="left")
+                RoundedButton(df, "Enable", _submit,
+                              bg_color=C.get("warn", "#f59e0b"),
+                              hover_color="#d97706",
+                              text_color="white", height=36, radius=14,
+                              text_font=("Lato", 9, "bold"),
+                              canvas_bg=C["bg"], width=90).pack(
+                                  side="left", padx=(8, 0))
+            else:
+                # User is DISABLING beta — no confirmation needed
+                self._cfg["beta_updates_enabled"] = False
+                _save_json(CONFIG_FILE, self._cfg)
+                status_var.set("Checking GitHub…")
+                lat_lbl.config(text="Latest:      checking…", fg=C["text_dim"])
+                threading.Thread(target=_fetch, daemon=True).start()
+
+        beta_chk = tk.Checkbutton(
+            beta_frame, text="Enable CHSuite Beta  (pre-release builds)",
+            variable=beta_var, command=_on_beta_toggle,
+            font=("Lato", 9), fg=C["text_mid"], bg=C["bg"],
+            activeforeground=C["text"], activebackground=C["bg"],
+            selectcolor=C["card"], relief="flat", bd=0,
+            highlightthickness=0)
+        beta_chk.pack(side="left")
+        if _beta_initial:
+            tk.Label(beta_frame, text="  ⚠ beta",
+                     font=("Lato", 8), fg=C.get("warn", "#f59e0b"),
+                     bg=C["bg"]).pack(side="left")
 
         # Progress bar — hidden until a download starts
         prog_frame = tk.Frame(outer, bg=C["bg"])
@@ -137555,6 +138091,104 @@ class CHSuite(tk.Tk):
                                              command=win.destroy)))
 
                 threading.Thread(target=_linux_apply, daemon=True).start()
+                return  # skip macOS / Windows paths below
+
+            # ── macOS branch ──────────────────────────────────────────────────
+            if _IS_MAC:
+                def _mac_apply():
+                    try:
+                        fname_lower = str(tmp_file).lower()
+                        if fname_lower.endswith(".pkg"):
+                            def _start_pkg():
+                                prog_bar.config(mode="indeterminate")
+                                prog_bar.start(15)
+                                prog_lbl.config(text="Running installer…")
+                                prog_frame.pack(anchor="w", fill="x", pady=(8, 0))
+                                win.geometry(f"390x290+{x}+{y}")
+                                status_var.set("Running .pkg installer…")
+                                status_lbl.config(fg=C["text_mid"])
+                                close_btn.config(state="disabled")
+                            self.after(0, _start_pkg)
+                            result = subprocess.run(
+                                ["sudo", "installer", "-pkg", str(tmp_file),
+                                 "-target", "/"],
+                                timeout=300)
+                            if result.returncode != 0:
+                                raise RuntimeError(
+                                    f"pkg installer exited with code "
+                                    f"{result.returncode}.")
+
+                        elif fname_lower.endswith(".dmg"):
+                            def _start_dmg():
+                                prog_bar.config(mode="indeterminate")
+                                prog_bar.start(15)
+                                prog_lbl.config(text="Mounting disk image…")
+                                prog_frame.pack(anchor="w", fill="x", pady=(8, 0))
+                                win.geometry(f"390x290+{x}+{y}")
+                                status_var.set("Mounting disk image…")
+                                status_lbl.config(fg=C["text_mid"])
+                                close_btn.config(state="disabled")
+                            self.after(0, _start_dmg)
+                            import plistlib
+                            mount_result = subprocess.run(
+                                ["hdiutil", "attach", str(tmp_file),
+                                 "-nobrowse", "-readonly", "-plist"],
+                                capture_output=True, text=True, timeout=60)
+                            if mount_result.returncode != 0:
+                                raise RuntimeError(
+                                    f"hdiutil attach failed:\n"
+                                    f"{mount_result.stderr}")
+                            plist_data = plistlib.loads(
+                                mount_result.stdout.encode())
+                            mount_point = None
+                            for entity in plist_data.get("system-entities", []):
+                                if "mount-point" in entity:
+                                    mount_point = entity["mount-point"]
+                                    break
+                            if not mount_point:
+                                raise RuntimeError(
+                                    "Could not determine DMG mount point.")
+                            try:
+                                self.after(0, lambda: prog_lbl.config(
+                                    text="Copying app bundle…"))
+                                apps = list(Path(mount_point).glob("*.app"))
+                                if not apps:
+                                    raise RuntimeError(
+                                        "No .app bundle found inside the DMG.")
+                                src_app = apps[0]
+                                dst_app = Path("/Applications") / src_app.name
+                                if dst_app.exists():
+                                    shutil.rmtree(str(dst_app))
+                                shutil.copytree(str(src_app), str(dst_app))
+                            finally:
+                                subprocess.run(
+                                    ["hdiutil", "detach", mount_point,
+                                     "-quiet"],
+                                    capture_output=True, timeout=30)
+                        else:
+                            raise RuntimeError(
+                                f"Unsupported update format: "
+                                f"{Path(str(tmp_file)).suffix}")
+
+                        def _quit_mac():
+                            status_var.set("Update ready — restarting…")
+                            status_lbl.config(fg=C["success"])
+                            prog_lbl.config(text="")
+                            self.after(1200, lambda: (self.destroy(),
+                                                      os._exit(0)))
+                        self.after(0, _quit_mac)
+
+                    except Exception as exc:
+                        self.after(0, lambda e=exc: (
+                            prog_bar.stop(),
+                            prog_frame.pack_forget(),
+                            win.geometry(f"390x230+{x}+{y}"),
+                            status_var.set(f"Update failed: {e}"),
+                            status_lbl.config(fg=C["error"]),
+                            close_btn.config(state="normal", text="Close",
+                                             command=win.destroy)))
+
+                threading.Thread(target=_mac_apply, daemon=True).start()
                 return  # skip Windows path below
 
             # ── Windows branch ────────────────────────────────────────────────
@@ -137793,7 +138427,7 @@ class CHSuite(tk.Tk):
                 try:
                     req = urllib.request.Request(
                         asset_url,
-                        headers={"User-Agent": "CHSuite-Updater/6.1"})
+                        headers={"User-Agent": "CHSuite-Updater/7.0"})
                     with urllib.request.urlopen(req, timeout=60) as resp:
                         total      = int(resp.headers.get("Content-Length", 0))
                         downloaded = 0
@@ -137833,13 +138467,38 @@ class CHSuite(tk.Tk):
             threading.Thread(target=_download, daemon=True).start()
 
         def _fetch():
+            _beta_on = bool(self._cfg.get("beta_updates_enabled", False))
+            # When beta is enabled, fetch all releases and pick the newest
+            # pre-release.  Otherwise use the /releases/latest shortcut.
+            _fetch_url = (
+                "https://api.github.com/repos/iamjrmh/CHSuite/releases"
+                if _beta_on else API_URL)
             try:
+                import ssl as _ssl, socket as _socket
                 req = urllib.request.Request(
-                    API_URL,
-                    headers={"User-Agent": "CHSuite-UpdateChecker/6.1",
+                    _fetch_url,
+                    headers={"User-Agent": "CHSuite-UpdateChecker/7.0",
                              "Accept": "application/vnd.github+json"})
-                with urllib.request.urlopen(req, timeout=8) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
+                # macOS: the SSL handshake can hang indefinitely if the system
+                # cert store isn't set up (e.g. PyInstaller bundle without
+                # certifi).  Set a hard socket deadline first, then try a
+                # verified context and fall back to unverified on cert errors.
+                _old_timeout = _socket.getdefaulttimeout()
+                _socket.setdefaulttimeout(10)
+                try:
+                    _ctx = _ssl.create_default_context()
+                    with urllib.request.urlopen(req, timeout=10,
+                                                context=_ctx) as resp:
+                        raw = json.loads(resp.read().decode("utf-8"))
+                except _ssl.SSLCertVerificationError:
+                    # Cert bundle not available (common in frozen macOS builds).
+                    # Retry without certificate verification.
+                    _ctx_noverify = _ssl._create_unverified_context()
+                    with urllib.request.urlopen(req, timeout=10,
+                                                context=_ctx_noverify) as resp:
+                        raw = json.loads(resp.read().decode("utf-8"))
+                finally:
+                    _socket.setdefaulttimeout(_old_timeout)
             except Exception as exc:
                 self.after(0, lambda: (
                     status_var.set(f"Could not reach GitHub: {exc}"),
@@ -137847,19 +138506,42 @@ class CHSuite(tk.Tk):
                     lat_lbl.config(text="Latest:      —")))
                 return
 
+            # When beta mode is active, raw is a list; pick the newest pre-release.
+            # Fall back to the newest release of any kind if no pre-release exists.
+            if _beta_on and isinstance(raw, list):
+                pre_releases = [r for r in raw if r.get("prerelease", False)]
+                data = (pre_releases[0] if pre_releases
+                        else (raw[0] if raw else {}))
+            else:
+                data = raw
+
             tag    = data.get("tag_name", "").lstrip("vV")
             assets = data.get("assets", [])
+            _is_prerelease = data.get("prerelease", False)
 
             # Pick the right asset for this install type
             if _IS_LINUX:
-                # Linux: use fixed direct-download URLs — ignore the assets list
+                # Linux: use fixed direct-download URLs — ignore the assets list.
+                # In beta mode, point at the specific tag rather than /latest.
+                if _beta_on and tag:
+                    _base = f"https://github.com/iamjrmh/CHSuite/releases/download/v{tag}"
+                else:
+                    _base = "https://github.com/iamjrmh/CHSuite/releases/latest/download"
                 if is_portable:
-                    _linux_url  = "https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip"
+                    _linux_url  = f"{_base}/CHSuiteLinux.zip"
                     _linux_name = "CHSuiteLinux.zip"
                 else:
-                    _linux_url  = "https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.AppImage"
+                    _linux_url  = f"{_base}/CHSuiteLinux.AppImage"
                     _linux_name = "CHSuiteLinux.AppImage"
                 asset = {"browser_download_url": _linux_url, "name": _linux_name}
+            elif _IS_MAC:
+                # macOS: prefer .dmg (auto-mounts via hdiutil and copies the
+                # .app bundle — no sudo needed).  Fall back to .pkg if no
+                # .dmg is present (pkg install requires sudo installer).
+                asset = (next((a for a in assets
+                               if a["name"].lower().endswith(".dmg")), None) or
+                         next((a for a in assets
+                               if a["name"].lower().endswith(".pkg")), None))
             elif is_portable:
                 asset = next(
                     (a for a in assets
@@ -137875,22 +138557,30 @@ class CHSuite(tk.Tk):
             def _ver_tuple(v: str):
                 """Convert a version string like '3.1.2' into a comparable tuple."""
                 try:
-                    return tuple(int(x) for x in v.strip().split("."))
+                    # Strip any non-numeric suffix (e.g. "-PTB1") for comparison
+                    import re as _re
+                    clean = _re.split(r"[^0-9.]", v.strip())[0]
+                    return tuple(int(x) for x in clean.split(".") if x)
                 except ValueError:
                     return (0,)
 
             def _show():
-                lat_lbl.config(text=f"Latest:       v{tag}", fg=C["text_mid"])
+                _tag_display = f"v{tag}" + ("  [Beta]" if _is_prerelease else "")
+                lat_lbl.config(text=f"Latest:       {_tag_display}",
+                               fg=C["text_mid"])
                 remote = _ver_tuple(tag)
                 local  = _ver_tuple(CURRENT)
                 if remote <= local:
-                    # Remote is same version or older — no update needed
-                    status_var.set("✓  You're up to date!")
+                    _msg = ("✓  You're up to date!"
+                            if not _is_prerelease else
+                            "✓  You're already on the latest beta!")
+                    status_var.set(_msg)
                     status_lbl.config(fg=C["success"])
                 elif asset:
                     mode = "portable" if is_portable else "full install"
+                    _channel = "beta " if _is_prerelease else ""
                     status_var.set(
-                        f"v{tag} is available  ·  {mode}")
+                        f"{_channel}v{tag} is available  ·  {mode}")
                     status_lbl.config(fg=C["warn"])
                     install_btn.command = lambda: _do_install(
                             asset["browser_download_url"], asset["name"])
@@ -137992,17 +138682,28 @@ class CHSuite(tk.Tk):
                 if p.is_file() and os.access(str(p), os.X_OK):
                     if "clone" in p.name.lower() or "hero" in p.name.lower():
                         return str(p)
-        else:  # macOS (unchanged)
-            # Prefer AppImage
-            for p in sorted(Path(directory).glob("*.AppImage")):
-                if "clone" in p.name.lower() or "hero" in p.name.lower():
-                    return str(p)
-            # Fall back to plain executables
-            for candidate in _CH_EXE_CANDIDATES_LIN:
+        elif _IS_MAC:
+            # Priority 1: standard app bundle executable at Contents/MacOS/Clone Hero
+            mac_exe = Path(directory) / "Contents" / "MacOS" / "Clone Hero"
+            if mac_exe.is_file() and os.access(str(mac_exe), os.X_OK):
+                return str(mac_exe)
+            # Priority 2: any executable inside Contents/MacOS/ matching the name
+            mac_macos = Path(directory) / "Contents" / "MacOS"
+            if mac_macos.is_dir():
+                for p in sorted(mac_macos.iterdir()):
+                    if p.is_file() and os.access(str(p), os.X_OK):
+                        if "clone" in p.name.lower() or "hero" in p.name.lower():
+                            return str(p)
+                # Fallback: first executable in MacOS/, whatever it's named
+                for p in sorted(mac_macos.iterdir()):
+                    if p.is_file() and os.access(str(p), os.X_OK):
+                        return str(p)
+            # Priority 3: known candidate names at the top level
+            for candidate in _CH_EXE_CANDIDATES_MAC:
                 p = Path(directory) / candidate
                 if p.is_file() and os.access(str(p), os.X_OK):
                     return str(p)
-            # Last resort: any executable in the folder matching name pattern
+            # Last resort: any executable in the folder matching the name pattern
             for p in Path(directory).iterdir():
                 if p.is_file() and os.access(str(p), os.X_OK):
                     if "clone" in p.name.lower() or "hero" in p.name.lower():
@@ -138132,10 +138833,14 @@ class CHSuite(tk.Tk):
         self._gm_inst_canvas.bind("<Configure>", lambda e: self._gm_inst_canvas.itemconfig(
             _inst_win, width=e.width))
         def _inst_wheel(event):
-            self._gm_inst_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            self._gm_inst_canvas.yview_scroll(_scroll_units(event), "units")
         self._inst_wheel = _inst_wheel
         self._gm_inst_canvas.bind("<MouseWheel>", _inst_wheel)
-        self._gm_inst_inner.bind("<MouseWheel>", _inst_wheel)
+        self._gm_inst_canvas.bind("<Button-4>",   _inst_wheel)
+        self._gm_inst_canvas.bind("<Button-5>",   _inst_wheel)
+        self._gm_inst_inner.bind("<MouseWheel>",  _inst_wheel)
+        self._gm_inst_inner.bind("<Button-4>",    _inst_wheel)
+        self._gm_inst_inner.bind("<Button-5>",    _inst_wheel)
 
         # Add install buttons
         add_row = tk.Frame(left_card, bg=C["card"], padx=12, pady=8); add_row.pack(fill="x")
@@ -138144,6 +138849,12 @@ class CHSuite(tk.Tk):
                       text_color=C["text"], height=42, radius=16,
                       text_font=FT, canvas_bg=C["card"],
                       width=210).pack(side="left")
+        if _IS_MAC:
+            RoundedButton(add_row, "🔍 Auto-Detect", self._gm_auto_detect_installs,
+                          bg_color=C["border"], hover_color=C["hover"],
+                          text_color=C["text"], height=42, radius=16,
+                          text_font=FT, canvas_bg=C["card"],
+                          width=160).pack(side="left", padx=(8, 0))
 
         # ── RIGHT: Download ───────────────────────────────────────────────────
         right_col = tk.Frame(split, bg=C["bg"])
@@ -138201,9 +138912,13 @@ class CHSuite(tk.Tk):
             inner_f.bind("<Configure>", lambda e: cv.configure(
                 scrollregion=cv.bbox("all")))
             def _on_wheel(event, _cv=cv):
-                _cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                _cv.yview_scroll(_scroll_units(event), "units")
             cv.bind("<MouseWheel>", _on_wheel)
+            cv.bind("<Button-4>",   _on_wheel)
+            cv.bind("<Button-5>",   _on_wheel)
             inner_f.bind("<MouseWheel>", _on_wheel)
+            inner_f.bind("<Button-4>",   _on_wheel)
+            inner_f.bind("<Button-5>",   _on_wheel)
             return inner_f
 
         self._gm_rel_frame = _make_scrollable_tab(tab_rel)
@@ -138232,14 +138947,14 @@ class CHSuite(tk.Tk):
 
     def _gm_refresh_installs(self):
         """Rebuild the local installs list.
-        Linux:   reads from cfg['linux_installs'] (ignores game_installs.json entirely).
-        Windows: reads from game_installs.json as before.
+        Linux/macOS: reads from cfg['linux_installs'] (ignores game_installs.json entirely).
+        Windows:     reads from game_installs.json as before.
         """
         for w in self._gm_inst_inner.winfo_children():
             w.destroy()
         self._gm_inst_canvas.yview_moveto(0)
 
-        if _IS_LINUX:
+        if _IS_LINUX or _IS_MAC:
             installs = list(self._cfg.get("linux_installs", []))
             _empty_msg = ("No installs found.\n"
                           "Add an install manually below,\n"
@@ -138555,17 +139270,40 @@ class CHSuite(tk.Tk):
 
     def _gm_add_install(self):
         """Browse to a Clone Hero install folder and register it.
+        macOS:   uses osascript to open a native .app-aware folder picker.
         Linux:   saves to cfg['linux_installs'] (ignores game_installs.json).
         Windows: saves to game_installs.json as before.
         """
-        folder = filedialog.askdirectory(
-            title="Select Clone Hero install folder",
-            initialdir=str(Path.home()))
+        if _IS_MAC:
+            # osascript gives a native Finder dialog that can select .app bundles
+            script = (
+                'POSIX path of (choose folder '
+                'with prompt "Select your Clone Hero.app bundle" '
+                'default location "/Applications")'
+            )
+            try:
+                result = subprocess.run(
+                    ["osascript", "-e", script],
+                    capture_output=True, text=True)
+                folder = result.stdout.strip().rstrip("/") if result.returncode == 0 else None
+            except Exception:
+                folder = None
+            # Fallback to tkinter dialog if osascript unavailable
+            if not folder:
+                folder = filedialog.askdirectory(
+                    title="Select Clone Hero.app bundle",
+                    initialdir="/Applications")
+        else:
+            folder = filedialog.askdirectory(
+                title="Select Clone Hero install folder",
+                initialdir=str(Path.home()))
         if not folder:
             return
 
         exe = self._find_ch_exe(folder)
-        _exe_label = "Clone Hero.exe" if _IS_WINDOWS else "Clone Hero executable"
+        _exe_label = ("Clone Hero.exe" if _IS_WINDOWS
+                      else "Clone Hero.app executable" if _IS_MAC
+                      else "Clone Hero executable")
         if not exe:
             if not messagebox.askyesno(
                     "Exe not found",
@@ -138573,8 +139311,8 @@ class CHSuite(tk.Tk):
                     "Add it anyway?", parent=self):
                 return
 
-        if _IS_LINUX:
-            # ── Linux: store in chsuite_config.json, never touch game_installs.json
+        if _IS_LINUX or _IS_MAC:
+            # ── Linux / macOS: store in chsuite_config.json, never touch game_installs.json
             norm = os.path.normcase(os.path.normpath(folder))
             existing = [os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
                         for i in self._cfg.get("linux_installs", [])]
@@ -138627,6 +139365,64 @@ class CHSuite(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Error", f"Could not update game_installs.json:\n{e}", parent=self)
         self._gm_refresh_installs()
+
+    def _gm_auto_detect_installs(self):
+        """Scan /Applications for .app bundles that have 'Clone Hero' in the name,
+        excluding any with 'Launcher' in the name, and register any that aren't
+        already in the installs list.  macOS only.
+        """
+        if not _IS_MAC:
+            return
+        apps_dir = Path("/Applications")
+        found = []
+        try:
+            for p in sorted(apps_dir.glob("*.app")):
+                name = p.stem
+                if "clone hero" in name.lower() and "launcher" not in name.lower():
+                    found.append(p)
+        except Exception as e:
+            messagebox.showerror("Auto-Detect Error",
+                                 f"Could not scan /Applications:\n{e}", parent=self)
+            return
+
+        if not found:
+            messagebox.showinfo("None Found",
+                "No Clone Hero .app bundles were found in /Applications.\n\n"
+                "Use '+ Add Existing Install' to locate a copy manually.",
+                parent=self)
+            return
+
+        existing = {os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
+                    for i in self._cfg.get("linux_installs", [])}
+        added = []
+        for p in found:
+            norm = os.path.normcase(os.path.normpath(str(p)))
+            if norm not in existing:
+                self._cfg.setdefault("linux_installs", []).append({
+                    "directoryPath": str(p),
+                    "isFromLauncher": False,
+                    "version": None,
+                    "disabled": False,
+                })
+                existing.add(norm)
+                added.append(p.name)
+
+        _save_json(CONFIG_FILE, self._cfg)
+        self._gm_refresh_installs()
+
+        if added:
+            self._gm_status(f"Auto-detected and added {len(added)} install(s).")
+            messagebox.showinfo("Auto-Detect Complete",
+                f"Added {len(added)} install(s):\n\n" +
+                "\n".join(f"  • {n}" for n in added),
+                parent=self)
+        else:
+            self._gm_status("Auto-detect: all found installs already registered.")
+            messagebox.showinfo("Already Registered",
+                "Found " + str(len(found)) + " Clone Hero app(s), "
+                "but all are already registered:\n\n" +
+                "\n".join(f"  • {p.name}" for p in found),
+                parent=self)
 
     def _gm_check_releases(self):
         """Fetch the latest Clone Hero releases from the GitHub API in a thread."""
@@ -138768,13 +139564,36 @@ class CHSuite(tk.Tk):
             pool.sort(key=_ext_rank_linux)
             return pool[0] if pool else None
 
+        def _mac_asset(release):
+            """Return the macOS Clone Hero asset: prefer .pkg, then .dmg."""
+            MAC_EXTS = (".pkg", ".dmg")
+            candidates = []
+            for a in release.get("assets", []):
+                n = a["name"].lower()
+                if not any(n.endswith(ext) for ext in MAC_EXTS):
+                    continue
+                if "launcher" in n:
+                    continue   # skip ch_launcher assets
+                candidates.append(a)
+            if not candidates:
+                return None
+            def _ext_rank_mac(a):
+                n = a["name"].lower()
+                if n.endswith(".pkg"): return 0
+                if n.endswith(".dmg"): return 1
+                return 99
+            candidates.sort(key=_ext_rank_mac)
+            return candidates[0]
+
         def _pick_asset(release):
             """Return the best release asset for the current OS."""
             if _IS_WINDOWS:
                 return _win_asset(release)
             elif _IS_LINUX:
                 return _linux_asset(release)
-            else:  # macOS — fall back to zip/tar, skip exe
+            elif _IS_MAC:
+                return _mac_asset(release)
+            else:
                 return _linux_asset(release) or _win_asset(release)
 
         def _populate_frame(frame, releases):
@@ -138787,7 +139606,7 @@ class CHSuite(tk.Tk):
             cv = frame.master
 
             def _on_wheel(event, _cv=cv):
-                _cv.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                _cv.yview_scroll(_scroll_units(event), "units")
 
             for rel in releases:
                 asset = _pick_asset(rel)
@@ -138802,16 +139621,22 @@ class CHSuite(tk.Tk):
                 row.pack(fill="x", pady=(0, 6), padx=4)
                 for w in (row,):
                     w.bind("<MouseWheel>", _on_wheel)
+                    w.bind("<Button-4>",   _on_wheel)
+                    w.bind("<Button-5>",   _on_wheel)
 
                 lbl_name = tk.Label(row, text=rname, font=FTB, fg=C["text"], bg=C["card"])
                 lbl_name.pack(anchor="w")
                 lbl_name.bind("<MouseWheel>", _on_wheel)
+                lbl_name.bind("<Button-4>",   _on_wheel)
+                lbl_name.bind("<Button-5>",   _on_wheel)
 
                 lbl_info = tk.Label(row,
                     text=f"{pub}  ·  {size_mb:.1f} MB  ·  {asset['name']}",
                     font=FTS, fg=C["text_dim"], bg=C["card"])
                 lbl_info.pack(anchor="w")
                 lbl_info.bind("<MouseWheel>", _on_wheel)
+                lbl_info.bind("<Button-4>",   _on_wheel)
+                lbl_info.bind("<Button-5>",   _on_wheel)
 
                 RoundedButton(row, "⬇ Download & Install",
                               lambda a=asset, r=rtag: self._gm_start_download(a, r),
@@ -138856,6 +139681,11 @@ class CHSuite(tk.Tk):
                     except Exception: pass
 
         def _worker():
+            # dest_dir is assigned in the .dmg branch below, which makes Python
+            # treat it as a local variable throughout _worker even on other
+            # platforms/file types, causing an UnboundLocalError.  nonlocal
+            # tells Python to use the binding from _gm_start_download instead.
+            nonlocal dest_dir
             try:
                 _log(f"[gm] Downloading {filename} from {url}")
                 with requests.get(url, stream=True, timeout=30) as r:
@@ -138993,6 +139823,54 @@ class CHSuite(tk.Tk):
                     current = zip_path.stat().st_mode
                     zip_path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
                     # Leave the AppImage in dest_dir — do NOT delete it
+                elif fname_lower.endswith(".pkg") and _IS_MAC:
+                    _log(f"[gm] Running .pkg installer: {zip_path}")
+                    self.after(0, lambda: self._gm_progress_lbl.config(
+                        text="Running installer… (you may be prompted for your password)"))
+                    result = subprocess.run(
+                        ["sudo", "installer", "-pkg", str(zip_path), "-target", "/"],
+                        timeout=300)
+                    zip_path.unlink(missing_ok=True)
+                    if result.returncode != 0:
+                        raise RuntimeError(
+                            f"pkg installer exited with code {result.returncode}.")
+                elif fname_lower.endswith(".dmg") and _IS_MAC:
+                    _log(f"[gm] Mounting .dmg and copying app: {zip_path}")
+                    self.after(0, lambda: self._gm_progress_lbl.config(
+                        text="Mounting disk image…"))
+                    import plistlib
+                    mount_result = subprocess.run(
+                        ["hdiutil", "attach", str(zip_path), "-nobrowse",
+                         "-readonly", "-plist"],
+                        capture_output=True, text=True, timeout=60)
+                    if mount_result.returncode != 0:
+                        raise RuntimeError(
+                            f"hdiutil attach failed:\n{mount_result.stderr}")
+                    plist_data = plistlib.loads(mount_result.stdout.encode())
+                    mount_point = None
+                    for entity in plist_data.get("system-entities", []):
+                        if "mount-point" in entity:
+                            mount_point = entity["mount-point"]
+                            break
+                    if not mount_point:
+                        raise RuntimeError("Could not determine DMG mount point.")
+                    try:
+                        self.after(0, lambda: self._gm_progress_lbl.config(
+                            text="Copying app bundle…"))
+                        apps = list(Path(mount_point).glob("*.app"))
+                        if not apps:
+                            raise RuntimeError("No .app bundle found inside the DMG.")
+                        src_app = apps[0]
+                        dst_app = dest_dir / src_app.name
+                        if dst_app.exists():
+                            shutil.rmtree(str(dst_app))
+                        shutil.copytree(str(src_app), str(dst_app))
+                        dest_dir = dst_app  # register the .app as the install dir
+                    finally:
+                        subprocess.run(
+                            ["hdiutil", "detach", mount_point, "-quiet"],
+                            capture_output=True, timeout=30)
+                    zip_path.unlink(missing_ok=True)
                 elif fname_lower.endswith((".tar.xz", ".tar.gz", ".tar.bz2", ".tar")):
                     _log(f"[gm] Extracting {fname_lower} {zip_path} → {dest_dir}")
                     import tarfile
@@ -139045,8 +139923,8 @@ class CHSuite(tk.Tk):
 
         # Register the new install
         norm_actual = os.path.normcase(os.path.normpath(actual))
-        if _IS_LINUX:
-            # Linux: save to cfg["linux_installs"] — never touch game_installs.json
+        if _IS_LINUX or _IS_MAC:
+            # Linux / macOS: save to cfg["linux_installs"] — never touch game_installs.json
             existing = {os.path.normcase(os.path.normpath(i.get("directoryPath", "")))
                         for i in self._cfg.get("linux_installs", [])}
             if norm_actual not in existing:
