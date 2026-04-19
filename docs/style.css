@@ -825,3 +825,49 @@ html, body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── CH Version Checker ───────────────────────────────────────── */
+.ch-version-checker {
+  margin-top: 0.85rem;
+}
+.ch-version-btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.8rem;
+}
+.ch-version-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
+
+.ch-version-result {
+  margin-top: 0.65rem;
+  display: flex; flex-wrap: wrap; gap: 0.6rem;
+}
+.vc-card {
+  background: var(--card2); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 0.65rem 0.9rem;
+  min-width: 220px; flex: 1;
+}
+.vc-card-header {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.55rem;
+}
+.vc-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+  color: var(--text); font-weight: 600;
+}
+.vc-badge {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 0.15em 0.55em; border-radius: 4px; text-transform: uppercase;
+}
+.vc-badge-release { background: rgba(108,59,255,0.25); color: #a080ff; }
+.vc-badge-ptb     { background: rgba(255,59,138,0.2);  color: #ff80b3; }
+.vc-card-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.vc-dl-btn {
+  font-size: 0.78rem; padding: 0.3rem 0.75rem;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.vc-error {
+  font-size: 0.82rem; color: var(--text-dim);
+  padding: 0.5rem 0.75rem; background: var(--card2);
+  border: 1px solid var(--border2); border-radius: 6px;
+}
+.vc-error a { color: var(--accent); text-decoration: none; }

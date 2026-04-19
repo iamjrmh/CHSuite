@@ -1488,47 +1488,167 @@ if (_mcEnabled) {
   }
 })();
 
-// ── Clone Hero latest release fetch ───────────────────────────────────────────
-(async function fetchLatestReleases() {
-  try {
-    const res = await fetch("https://api.github.com/repos/clonehero-game/releases/releases");
-    if (!res.ok) return;
-    const releases = await res.json();
+// ── Clone Hero Version Checker ─────────────────────────────────────────────────
 
-    let ipaFound = false, apkFound = false;
-    for (const release of releases) {
-      if (!ipaFound) {
-        const ipa = release.assets?.find(a => a.name.endsWith(".ipa"));
-        if (ipa) {
-          ["ch-ipa-link", "ch-ipa-link-about"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.href = ipa.browser_download_url;
-          });
-          ["ch-ipa-version", "ch-ipa-version-about"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = `(${release.tag_name})`;
-          });
-          ipaFound = true;
-        }
-      }
-      if (!apkFound) {
-        const apk = release.assets?.find(a => a.name.endsWith(".apk"));
-        if (apk) {
-          ["ch-apk-link", "ch-apk-link-about"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.href = apk.browser_download_url;
-          });
-          ["ch-apk-version", "ch-apk-version-about"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = `(${release.tag_name})`;
-          });
-          apkFound = true;
-        }
-      }
-      if (ipaFound && apkFound) break;
+// Known asset filenames per platform — matched exactly where possible to avoid
+// catching unrelated files (e.g. a generic .dmg from an old release format).
+const CH_ASSET_FILTERS = {
+  ios: r => r.assets?.find(a => a.name.endsWith(".ipa")),
+
+  android: r => r.assets?.find(a => a.name.endsWith(".apk")),
+
+    // Linux: old standalone tar OR newer xz archive (check both casings seen in releases)
+  linux: r => r.assets?.find(a =>
+    a.name === "Linux.x86_64-Standalone.tar" ||
+    a.name === "clonehero-linux.tar.xz" ||
+    a.name === "CloneHero-linux.tar.xz"
+  ),
+
+  // macOS: match zip, versioned dmg (PTB pattern), or the generic mac dmg.
+  // Priority: zip > versioned dmg > generic dmg, to prefer newer release formats.
+  macos: r => {
+    const assets = r.assets ?? [];
+    return (
+      assets.find(a => a.name === "CloneHero-mac.zip") ||
+      assets.find(a => a.name.startsWith("CloneHero") && a.name.endsWith(".dmg") && a.name !== "CloneHero-mac.dmg") ||
+      assets.find(a => a.name === "CloneHero-mac.dmg")
+    ) ?? null;
+  },
+
+  windows: r => {
+    const assets = r.assets ?? [];
+    const x64 = assets.find(a => a.name === "CloneHero-Win-x64.zip" || a.name === "CloneHero-win64.exe");
+    const x32 = assets.find(a => a.name === "clonehero-win32.7z" || a.name === "CloneHero-win32.exe");
+    return x64 || x32 ? { x64, x32 } : null;
+  },
+};
+
+let _chReleasesCache = null;
+
+async function getCHReleases() {
+  if (_chReleasesCache) return _chReleasesCache;
+  // Fetch up to 100 (GitHub max per page) and explicitly sort by published_at descending,
+  // since the API's default ordering is not guaranteed to be newest-first.
+  const res = await fetch("https://api.github.com/repos/clonehero-game/releases/releases?per_page=100&page=1");
+  if (!res.ok) throw new Error("GitHub API error: " + res.status);
+  const releases = await res.json();
+
+  // Sort newest-first. Primary: published_at date. Secondary: semver-style version
+  // parsed from tag_name so that e.g. V1.0.0.4080 sorts after V0.21.6.0 even if
+  // GitHub's published_at timestamps are unreliable (edited releases, etc.).
+  function parseVersion(tag) {
+    // Extract numeric parts from tags like "V1.0.0.4080", "v1.1.0.5977-PTB", "CloneHeroLauncher"
+    const nums = tag.replace(/[^0-9.]/g, ".").split(".").filter(Boolean).map(Number);
+    // Pad to 4 parts
+    while (nums.length < 4) nums.push(0);
+    return nums;
+  }
+  function cmpVersions(a, b) {
+    const va = parseVersion(a.tag_name), vb = parseVersion(b.tag_name);
+    for (let i = 0; i < 4; i++) {
+      if (vb[i] !== va[i]) return vb[i] - va[i];
     }
-  } catch (_) { /* leave fallback links intact */ }
-})();
+    return 0;
+  }
+  releases.sort((a, b) => {
+    const dateDiff = new Date(b.published_at) - new Date(a.published_at);
+    // If dates are more than 7 days apart, trust the date
+    if (Math.abs(dateDiff) > 7 * 24 * 3600 * 1000) return dateDiff;
+    // Otherwise use version number as tiebreaker
+    return cmpVersions(a, b);
+  });
+
+  _chReleasesCache = releases;
+  return _chReleasesCache;
+}
+
+function buildVersionCard(release, assetOrObj, platform) {
+  const isPrerelease = release.prerelease;
+  const label = isPrerelease ? "Pre-release" : "Release";
+  const badgeClass = isPrerelease ? "vc-badge-ptb" : "vc-badge-release";
+  const tag = release.tag_name;
+
+  let downloadLinks = "";
+
+  if (platform === "windows" && assetOrObj && (assetOrObj.x64 || assetOrObj.x32)) {
+    if (assetOrObj.x64) {
+      const ext = assetOrObj.x64.name.split(".").pop();
+      downloadLinks += `<a href="${assetOrObj.x64.browser_download_url}" class="btn btn-primary btn-sm vc-dl-btn" target="_blank" rel="noopener">
+        <svg viewBox="0 0 20 20" fill="none" width="13" height="13"><path d="M10 2v12M10 14l-4-4M10 14l4-4M3 17h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Download x64 (.${ext})
+      </a>`;
+    }
+    if (assetOrObj.x32) {
+      const ext = assetOrObj.x32.name.split(".").pop();
+      downloadLinks += `<a href="${assetOrObj.x32.browser_download_url}" class="btn btn-ghost btn-sm vc-dl-btn" target="_blank" rel="noopener">
+        <svg viewBox="0 0 20 20" fill="none" width="13" height="13"><path d="M10 2v12M10 14l-4-4M10 14l4-4M3 17h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Download x86 (.${ext})
+      </a>`;
+    }
+  } else if (assetOrObj && assetOrObj.browser_download_url) {
+    const ext = assetOrObj.name.split(".").pop();
+    downloadLinks = `<a href="${assetOrObj.browser_download_url}" class="btn btn-primary btn-sm vc-dl-btn" target="_blank" rel="noopener">
+      <svg viewBox="0 0 20 20" fill="none" width="13" height="13"><path d="M10 2v12M10 14l-4-4M10 14l4-4M3 17h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Download (.${ext})
+    </a>`;
+  }
+
+  return `<div class="vc-card">
+    <div class="vc-card-header">
+      <span class="vc-tag">${tag}</span>
+      <span class="vc-badge ${badgeClass}">${label}</span>
+    </div>
+    <div class="vc-card-actions">${downloadLinks}</div>
+  </div>`;
+}
+
+async function runVersionCheck(platform) {
+  const resultEl = document.getElementById(`vc-${platform}-result`);
+  const btn = document.querySelector(`.ch-version-btn[data-platform="${platform}"]`);
+  if (!resultEl || !btn) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<svg viewBox="0 0 20 20" fill="none" width="14" height="14" class="spin"><path d="M10 2a8 8 0 010 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Checking…`;
+  resultEl.style.display = "none";
+
+  try {
+    const releases = await getCHReleases();
+    const filter = CH_ASSET_FILTERS[platform];
+
+    // Find latest regular release and latest pre-release separately.
+    // Skip drafts — they are not publicly available.
+    let latestRelease = null, latestPrerelease = null;
+    for (const r of releases) {
+      if (r.draft) continue;
+      const asset = filter(r);
+      if (!asset) continue;
+      if (!r.prerelease && !latestRelease) latestRelease = { release: r, asset };
+      if (r.prerelease && !latestPrerelease) latestPrerelease = { release: r, asset };
+      if (latestRelease && latestPrerelease) break;
+    }
+
+    let html = "";
+    if (latestRelease) html += buildVersionCard(latestRelease.release, latestRelease.asset, platform);
+    if (latestPrerelease) html += buildVersionCard(latestPrerelease.release, latestPrerelease.asset, platform);
+
+    if (!html) {
+      html = `<div class="vc-error">No matching builds found for this platform.</div>`;
+    }
+
+    resultEl.innerHTML = html;
+    resultEl.style.display = "block";
+  } catch (e) {
+    resultEl.innerHTML = `<div class="vc-error">Failed to fetch releases. <a href="https://github.com/clonehero-game/releases/releases" target="_blank" rel="noopener">Check manually →</a></div>`;
+    resultEl.style.display = "block";
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 3v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Check Latest Clone Hero Version`;
+}
+
+document.querySelectorAll(".ch-version-btn").forEach(btn => {
+  btn.addEventListener("click", () => runVersionCheck(btn.dataset.platform));
+});
 
 // ── Accordion ──────────────────────────────────────────────────────────────────
 document.querySelectorAll(".accordion-header").forEach(btn => {

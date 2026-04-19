@@ -191,10 +191,22 @@
               <div class="guide-section">
                 <div class="guide-section-title">Installing Clone Hero</div>
                 <div class="guide-note">Apple restricts sideloading apps outside the App Store. The steps below use free, community-supported tools to work around these limitations, with no PC or jailbreak required.</div>
+                <div class="guide-note" style="margin-top:0.5rem;">
+                  <svg viewBox="0 0 20 20" fill="none" width="15" height="15" style="flex-shrink:0;color:#ff3b8a"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 5v4m0 2.5h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  <span><strong>Want the latest PTB build without sideloading?</strong> Starting from v1.1.0.5977-PTB, Clone Hero has an official TestFlight beta. <a href="https://testflight.apple.com/join/XAAG82hb" target="_blank" rel="noopener">Join the beta on TestFlight →</a></span>
+                </div>
                 <div class="guide-steps">
                   <div class="guide-step"><div class="guide-step-num">1</div><span>Install <a href="https://sidestore.io/" target="_blank" rel="noopener">SideStore</a>, a PC-free sideloading tool. Follow its built-in setup guide to get everything configured before continuing.</span></div>
                   <div class="guide-step"><div class="guide-step-num">2</div><span>Because Apple limits how many sideloaded apps can be active at once, install <a href="https://github.com/LiveContainer/LiveContainer" target="_blank" rel="noopener">LiveContainer</a>. It lets you run additional IPA files inside a single sideloaded slot, making it much easier to manage Clone Hero and future installs.</span></div>
-                  <div class="guide-step"><div class="guide-step-num">3</div><span>Download the latest <a id="ch-ipa-link" href="https://github.com/clonehero-game/releases/releases" target="_blank" rel="noopener">Clone Hero IPA</a> <span id="ch-ipa-version" style="color:var(--text-dim);font-size:0.82em;"></span>, then install it through LiveContainer rather than SideStore directly to preserve your sideloading slots for other apps.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Download the latest Clone Hero IPA, then install it through LiveContainer rather than SideStore directly to preserve your sideloading slots for other apps.
+                    <div class="ch-version-checker" id="vc-ios">
+                      <button class="btn btn-ghost btn-sm ch-version-btn" data-platform="ios">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 3v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Check Latest Clone Hero Version
+                      </button>
+                      <div class="ch-version-result" id="vc-ios-result" style="display:none"></div>
+                    </div>
+                  </span></div>
                   <div class="guide-step"><div class="guide-step-num">4</div><span>Launch Clone Hero and create a profile. This ensures all required game data folders are generated on first run.</span></div>
                   <div class="guide-step"><div class="guide-step-num">5</div><span>Close Clone Hero, reopen LiveContainer, then tap and hold <strong>Clone Hero</strong> and select <strong>Open Data Folder</strong>.</span></div>
                   <div class="guide-step"><div class="guide-step-num">6</div><span>Note the folder name shown. This is your Clone Hero data directory where all downloaded songs, custom backgrounds, highways, and profiles belong.</span></div>
@@ -275,7 +287,15 @@
               <div class="guide-section">
                 <div class="guide-section-title">Installing Clone Hero</div>
                 <div class="guide-steps">
-                  <div class="guide-step"><div class="guide-step-num">1</div><span>Download and install the latest <a id="ch-apk-link" href="https://github.com/clonehero-game/releases/releases" target="_blank" rel="noopener">Clone Hero APK</a> <span id="ch-apk-version" style="color:var(--text-dim);font-size:0.82em;"></span>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Download and install the latest Clone Hero APK.
+                    <div class="ch-version-checker" id="vc-android">
+                      <button class="btn btn-ghost btn-sm ch-version-btn" data-platform="android">
+                        <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 3v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Check Latest Clone Hero Version
+                      </button>
+                      <div class="ch-version-result" id="vc-android-result" style="display:none"></div>
+                    </div>
+                  </span></div>
                   <div class="guide-step"><div class="guide-step-num">2</div><span>Launch Clone Hero and create a profile. This ensures all required game data folders are generated on first run.</span></div>
                   <div class="guide-step"><div class="guide-step-num">3</div><span>Note the data folder location shown in-game. This is where all downloaded songs, custom backgrounds, highways, and profiles belong.</span></div>
                 </div>
@@ -346,6 +366,13 @@
               <div class="guide-section">
                 <div class="guide-section-title">Installing Clone Hero</div>
                 <div class="guide-note">There are three ways to install Clone Hero on Windows. Pick whichever suits you best.</div>
+                <div class="ch-version-checker" id="vc-windows">
+                  <button class="btn btn-ghost btn-sm ch-version-btn" data-platform="windows">
+                    <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 3v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Check Latest Clone Hero Version
+                  </button>
+                  <div class="ch-version-result" id="vc-windows-result" style="display:none"></div>
+                </div>
                 <div class="guide-sub-section">
                   <div class="guide-sub-title">Option 1 — via CHSuite</div>
                   <div class="guide-steps">
@@ -427,6 +454,13 @@
               <div class="guide-section">
                 <div class="guide-section-title">Installing Clone Hero</div>
                 <div class="guide-note">There are three ways to install Clone Hero on Linux. Pick whichever suits you best.</div>
+                <div class="ch-version-checker" id="vc-linux">
+                  <button class="btn btn-ghost btn-sm ch-version-btn" data-platform="linux">
+                    <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 3v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Check Latest Clone Hero Version
+                  </button>
+                  <div class="ch-version-result" id="vc-linux-result" style="display:none"></div>
+                </div>
                 <div class="guide-sub-section">
                   <div class="guide-sub-title">Option 1 — via CHSuite</div>
                   <div class="guide-steps">
@@ -502,6 +536,13 @@
               <div class="guide-section">
                 <div class="guide-section-title">Installing Clone Hero</div>
                 <div class="guide-note">There are three ways to install Clone Hero on macOS. Pick whichever suits you best.</div>
+                <div class="ch-version-checker" id="vc-macos">
+                  <button class="btn btn-ghost btn-sm ch-version-btn" data-platform="macos">
+                    <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 3v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Check Latest Clone Hero Version
+                  </button>
+                  <div class="ch-version-result" id="vc-macos-result" style="display:none"></div>
+                </div>
                 <div class="guide-sub-section">
                   <div class="guide-sub-title">Option 1 — via CHSuite</div>
                   <div class="guide-steps">
