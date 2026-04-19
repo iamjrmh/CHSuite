@@ -134,7 +134,7 @@ html, body {
   .mobile-fab { display: flex; }
   .mobile-fab.hidden { display: none; }
 
-  .content { padding: 4.5rem 1.25rem 2rem; overflow-y: visible; }
+  .content { padding: 6rem 1.25rem 2rem; overflow-y: visible; }
 }
 
 .sidebar-brand {
