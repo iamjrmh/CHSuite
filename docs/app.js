@@ -1433,6 +1433,61 @@ if (_mcEnabled) {
   function updateMcButton() {}
 }
 
+// ── Sidebar toggle ─────────────────────────────────────────────────────────────
+(function () {
+  const sidebar      = document.getElementById("sidebar");
+  const overlay      = document.getElementById("sidebar-overlay");
+  const toggleBtn    = document.getElementById("sidebar-toggle");
+  const mobileFab    = document.getElementById("mobile-fab");
+
+  const isMobile = () => window.innerWidth <= 768;
+
+  function openSidebar() {
+    sidebar.classList.remove("collapsed");
+    if (isMobile()) overlay.classList.add("active");
+    mobileFab.classList.add("hidden");
+  }
+
+  function closeSidebar() {
+    sidebar.classList.add("collapsed");
+    overlay.classList.remove("active");
+    if (isMobile()) mobileFab.classList.remove("hidden");
+  }
+
+  function toggleSidebar() {
+    if (sidebar.classList.contains("collapsed")) openSidebar();
+    else closeSidebar();
+  }
+
+  toggleBtn.addEventListener("click", toggleSidebar);
+  mobileFab.addEventListener("click", openSidebar);
+  overlay.addEventListener("click", closeSidebar);
+
+  // Close sidebar on mobile when a nav item is selected
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (isMobile()) closeSidebar();
+    });
+  });
+
+  // On resize: clean up states that don't apply to the new breakpoint
+  window.addEventListener("resize", () => {
+    if (!isMobile()) {
+      overlay.classList.remove("active");
+      mobileFab.classList.add("hidden");
+    } else {
+      if (sidebar.classList.contains("collapsed")) mobileFab.classList.remove("hidden");
+      else mobileFab.classList.add("hidden");
+    }
+  });
+
+  // Start collapsed on mobile
+  if (isMobile()) {
+    sidebar.classList.add("collapsed");
+    mobileFab.classList.remove("hidden");
+  }
+})();
+
 // ── Boot ───────────────────────────────────────────────────────────────────────
 function initApp() {
   // Initialize notegen colors

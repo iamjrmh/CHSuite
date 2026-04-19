@@ -30,7 +30,8 @@
 
 html, body {
   height: 100%;
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse 80% 80% at 50% 50%, #3d0a2e 0%, #1a0520 35%, #0a0010 65%, #000000 100%);
   color: var(--text);
   font-family: 'Outfit', sans-serif;
   font-size: 14px;
@@ -39,20 +40,8 @@ html, body {
 }
 
 /* ── Ambient background ──────────────────────────────────────── */
-.bg-grid {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background-image:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.25;
-}
-.bg-glow {
-  position: fixed; z-index: 0; pointer-events: none;
-  border-radius: 50%; filter: blur(120px); opacity: 0.12;
-}
-.bg-glow-1 { width: 600px; height: 600px; top: -200px; left: -100px; background: var(--accent); }
-.bg-glow-2 { width: 500px; height: 500px; bottom: -150px; right: -100px; background: var(--accent2); }
+.bg-grid { display: none; }
+.bg-glow { display: none; }
 
 /* ── Shell layout ─────────────────────────────────────────────── */
 .shell {
@@ -68,8 +57,84 @@ html, body {
   display: flex; flex-direction: column;
   padding: 1.25rem 0.75rem;
   gap: 0.5rem;
-  overflow-y: auto;
-  backdrop-filter: blur(8px);
+  overflow-y: auto; overflow-x: hidden;
+  transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+  flex-shrink: 0;
+}
+
+/* ── Sidebar toggle button ────────────────────────────────────── */
+.sidebar-toggle {
+  background: none; border: none;
+  color: var(--text-mid);
+  cursor: pointer;
+  padding: 5px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.sidebar-toggle:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+
+/* ── Collapsed desktop sidebar (icon strip) ───────────────────── */
+.sidebar.collapsed {
+  width: 54px; min-width: 54px;
+  padding: 1.25rem 0.4rem;
+}
+.sidebar.collapsed .brand-icon,
+.sidebar.collapsed .brand-text { display: none; }
+.sidebar.collapsed .sidebar-brand { padding-bottom: 1.25rem; justify-content: center; }
+.sidebar.collapsed .nav-btn { justify-content: center; padding: 0.6rem; }
+.sidebar.collapsed .nav-btn-label { display: none; }
+.sidebar.collapsed .sidebar-footer { display: none; }
+.sidebar.collapsed .nav-group { gap: 4px; }
+
+/* ── Overlay (mobile) ─────────────────────────────────────────── */
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+}
+.sidebar-overlay.active { display: block; }
+
+/* ── Mobile floating open button ──────────────────────────────── */
+.mobile-fab {
+  display: none; position: fixed;
+  top: 0.85rem; left: 0.85rem; z-index: 90;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text-mid); border-radius: var(--radius-sm);
+  padding: 0.5rem; cursor: pointer;
+  align-items: center; justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+.mobile-fab:hover { color: var(--text); border-color: var(--border2); }
+
+/* ── Mobile breakpoint ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  html, body { overflow: auto; }
+
+  .shell { flex-direction: column; height: auto; min-height: 100vh; }
+
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 110;
+    width: var(--nav-w) !important; min-width: var(--nav-w) !important;
+    transform: translateX(0);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 1.25rem 0.75rem !important;
+  }
+  .sidebar.collapsed {
+    transform: translateX(calc(-1 * var(--nav-w)));
+  }
+  .sidebar.collapsed .brand-icon,
+  .sidebar.collapsed .brand-text,
+  .sidebar.collapsed .nav-btn-label,
+  .sidebar.collapsed .sidebar-footer { display: revert; }
+  .sidebar.collapsed .nav-btn { justify-content: flex-start; padding: 0.6rem 0.75rem; }
+  .sidebar.collapsed .sidebar-brand { justify-content: flex-start; padding-bottom: 1.25rem; }
+
+  .mobile-fab { display: flex; }
+  .mobile-fab.hidden { display: none; }
+
+  .content { padding: 4.5rem 1.25rem 2rem; overflow-y: visible; }
 }
 
 .sidebar-brand {
