@@ -28,6 +28,8 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { color-scheme: dark; }
+
 html, body {
   height: 100%;
   background:
@@ -135,6 +137,7 @@ html, body {
   .mobile-fab.hidden { display: none; }
 
   .content { padding: 6rem 1.25rem 2rem; overflow-y: visible; }
+  .page-header { padding-top: 1.5rem; }
 }
 
 .sidebar-brand {
@@ -237,10 +240,11 @@ html, body {
 
 .note-preview-controls {
   display: grid;
-  grid-template-columns: repeat(5, 95px);
-  gap: 10px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
   align-items: start;
   justify-content: center;
+  width: 100%;
 }
 
 .note-preview-controls .color-picker-row {
@@ -258,7 +262,8 @@ html, body {
 }
 
 .note-preview-controls input[type="color"] {
-  width: 40px;
+  width: 100%;
+  max-width: 50px;
   height: 40px;
   border: none;
   border-radius: 4px;
@@ -267,7 +272,24 @@ html, body {
   background: transparent;
 }
 
-/* MenuChanger preview */
+/* ── NoteGen note preview responsive overrides ───────────────── */
+.ch-notes-preview {
+  display: flex !important;
+  gap: 4px !important;
+  overflow-x: visible !important;
+  width: 100%;
+  padding: 4px 8px !important;
+}
+.ch-note-group {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 80px !important;
+}
+.ch-note-canvas {
+  width: 100% !important;
+  height: auto !important;
+}
 .mc-preview-container {
   background: var(--card);
   border: 1px solid var(--border);
@@ -589,6 +611,157 @@ html, body {
 }
 .copy-btn:hover { background: var(--border); color: var(--text); }
 .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+/* ── Clone Hero Mobile guide ──────────────────────────────────── */
+.accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+.accordion-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+.accordion-header:hover { background: rgba(255,255,255,0.04); }
+.accordion-chevron {
+  flex-shrink: 0;
+  color: var(--text-mid);
+  transition: transform 0.25s ease;
+}
+.accordion-item.open .accordion-chevron { transform: rotate(180deg); }
+.accordion-body {
+  display: none;
+  padding: 0 1.25rem 1.25rem;
+}
+.accordion-item.open .accordion-body { display: block; }
+
+.guide-section {
+  margin-bottom: 1.5rem;
+}
+.guide-section:last-child { margin-bottom: 0; }
+.guide-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent2);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+.guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.guide-step {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  font-size: 0.88rem;
+  color: var(--text-mid);
+  line-height: 1.55;
+}
+.guide-step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.guide-step a {
+  color: var(--accent2);
+  text-decoration: none;
+}
+.guide-step a:hover { text-decoration: underline; }
+.guide-note {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  background: var(--card2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.guide-sub-section {
+  margin-top: 0.5rem;
+}
+.guide-sub-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-mid);
+  margin-bottom: 0.5rem;
+}
+.guide-sub-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.35rem;
+}
+
+.about-mobile-guide {
+  margin-top: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.about-mobile-guide-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-mid);
+  border-bottom: 1px solid var(--border);
+}
+.about-mobile-guide .accordion {
+  margin-bottom: 0;
+}
+.about-mobile-guide .accordion-item {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+.about-mobile-guide .accordion-item:last-child {
+  border-bottom: none;
+}
 
 /* ── NoteGen section tabs ─────────────────────────────────────── */
 .section-tabs {

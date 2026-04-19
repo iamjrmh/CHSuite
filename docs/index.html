@@ -17,6 +17,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1a0520" />
+  <meta name="color-scheme" content="dark" />
   <title>CHSuiteLite</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -75,6 +76,14 @@
         <button class="nav-btn active" data-tab="about" title="About">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 9v5M10 7h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           <span class="nav-btn-label">About</span>
+        </button>
+        <button class="nav-btn" data-tab="mobile" title="Clone Hero Mobile">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="6" y="1" width="8" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="16" r="0.75" fill="currentColor"/></svg>
+          <span class="nav-btn-label">Clone Hero Mobile</span>
+        </button>
+        <button class="nav-btn" data-tab="pc" title="Clone Hero PC">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="1" y="3" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 19h8M10 15v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span class="nav-btn-label">Clone Hero PC</span>
         </button>
         <button class="nav-btn" data-tab="menuchanger" title="CHMenuChanger">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 8h8M6 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -135,6 +144,22 @@
             <p>Edit note and colour profiles, then export a ready-to-use Colors.ini.</p>
             <span class="tool-card-arrow">→</span>
           </a>
+          <a class="tool-card" href="#" data-goto="mobile">
+            <div class="tool-card-icon" style="--c:#22c8a0">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="18" r="1" fill="currentColor"/></svg>
+            </div>
+            <h3>Clone Hero Mobile</h3>
+            <p>Step-by-step setup guides for installing and running Clone Hero on iOS and Android.</p>
+            <span class="tool-card-arrow">→</span>
+          </a>
+          <a class="tool-card" href="#" data-goto="pc">
+            <div class="tool-card-icon" style="--c:#f59e0b">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 22h10M12 17v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <h3>Clone Hero PC</h3>
+            <p>Setup guides for installing and running Clone Hero on Windows, Linux, and macOS.</p>
+            <span class="tool-card-arrow">→</span>
+          </a>
           <div class="about-full-version-link">
             <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener noreferrer">Get the full version here!</a>
           </div>
@@ -142,6 +167,405 @@
         <div class="about-note">
           <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 9v5M10 7h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           All processing happens client-side in your browser. No files are uploaded to any server.
+        </div>
+      </section>
+
+      <!-- Clone Hero Mobile Tab -->
+      <section class="tab-panel" id="tab-mobile">
+        <div class="page-header">
+          <h1 class="page-title">Clone Hero <span class="accent-text">Mobile</span></h1>
+          <p class="page-desc">Guides for installing and running Clone Hero on mobile devices.</p>
+        </div>
+
+        <div class="accordion">
+
+          <!-- iOS Section -->
+          <div class="accordion-item" id="accordion-ios">
+            <button class="accordion-header" data-accordion="ios">
+              <span><img src="Images/Apple256x256.png" alt="iOS" width="20" height="20" style="vertical-align:middle;margin-right:0.4rem;border-radius:3px;"> iPhone (iOS)</span>
+              <svg class="accordion-chevron" width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="accordion-body">
+
+              <!-- Installing -->
+              <div class="guide-section">
+                <div class="guide-section-title">Installing Clone Hero</div>
+                <div class="guide-note">Apple restricts sideloading apps outside the App Store. The steps below use free, community-supported tools to work around these limitations, with no PC or jailbreak required.</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Install <a href="https://sidestore.io/" target="_blank" rel="noopener">SideStore</a>, a PC-free sideloading tool. Follow its built-in setup guide to get everything configured before continuing.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Because Apple limits how many sideloaded apps can be active at once, install <a href="https://github.com/LiveContainer/LiveContainer" target="_blank" rel="noopener">LiveContainer</a>. It lets you run additional IPA files inside a single sideloaded slot, making it much easier to manage Clone Hero and future installs.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Download the latest <a id="ch-ipa-link" href="https://github.com/clonehero-game/releases/releases" target="_blank" rel="noopener">Clone Hero IPA</a> <span id="ch-ipa-version" style="color:var(--text-dim);font-size:0.82em;"></span>, then install it through LiveContainer rather than SideStore directly to preserve your sideloading slots for other apps.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">4</div><span>Launch Clone Hero and create a profile. This ensures all required game data folders are generated on first run.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">5</div><span>Close Clone Hero, reopen LiveContainer, then tap and hold <strong>Clone Hero</strong> and select <strong>Open Data Folder</strong>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">6</div><span>Note the folder name shown. This is your Clone Hero data directory where all downloaded songs, custom backgrounds, highways, and profiles belong.</span></div>
+                </div>
+              </div>
+
+              <!-- Downloading Songs -->
+              <div class="guide-section">
+                <div class="guide-section-title">Downloading Songs</div>
+                <div class="guide-note">This process requires a PC. <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> is recommended for wirelessly moving files from your PC to your iPhone.</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Install <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> on both your iPhone and PC. Sign into the same account on both devices.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Download your desired song(s) on your PC.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Right-click the song's <code>.zip</code> file and select <strong>Send with Blip</strong>, then select your iPhone from the list.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">4</div><span>On your iPhone, the file will be auto-accepted. Tap it and select <strong>Open with Files</strong>. Then tap and hold the file and press <strong>Move</strong>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">5</div><span>Navigate to <strong>LiveContainer → Data → Application → [your Clone Hero folder]</strong> (from step 6 of Installing Clone Hero) <strong>→ Documents → Songs</strong>, then tap <strong>Move</strong> to confirm.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">6</div><span>In the Songs folder, tap the zipped file to unzip it, then delete the original <code>.zip</code>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">7</div><span>Close the Files app, reopen Clone Hero, and rescan your library. Your new song should appear.</span></div>
+                </div>
+              </div>
+
+              <!-- Custom Content -->
+              <div class="guide-section">
+                <div class="guide-section-title">Downloading Custom Colors, Backgrounds &amp; Highways</div>
+                <div class="guide-note">This process is nearly identical to downloading songs. A PC and <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> are recommended.</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Install <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> on both your iPhone and PC, signed into the same account.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Download the desired custom content on your PC. If it isn't already, compress it into a <code>.zip</code> file.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Right-click the <code>.zip</code> and select <strong>Send with Blip</strong>, then select your iPhone.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">4</div><span>On your iPhone, tap the received file and select <strong>Open with Files</strong>. Tap and hold it and press <strong>Move</strong>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">5</div><span>Navigate to <strong>LiveContainer → Data → Application → [your Clone Hero folder] → Documents → Custom</strong>, then into the appropriate subfolder for your content type (<strong>Colors</strong>, <strong>Backgrounds</strong>, or <strong>Highways</strong>). Tap <strong>Move</strong> to confirm.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">6</div><span>Tap the zipped file to unzip it, then delete the original <code>.zip</code>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">7</div><span>Close the Files app, reopen Clone Hero, and rescan. Your new content will be available.</span></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="accordion-item" id="accordion-android">
+            <button class="accordion-header" data-accordion="android">
+              <span><img src="Images/Android256x256.png" alt="Android" width="20" height="20" style="vertical-align:middle;margin-right:0.4rem;border-radius:3px;"> Android</span>
+              <svg class="accordion-chevron" width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="accordion-body">
+
+              <!-- Unknown Sources -->
+              <div class="guide-section">
+                <div class="guide-section-title">Enabling Unknown Sources</div>
+                <div class="guide-note">Before installing the APK, you need to allow your device to install apps from outside the Play Store. The steps vary by Android version and manufacturer.</div>
+
+                <div class="guide-sub-section">
+                  <div class="guide-sub-title">Android 8 or above</div>
+                  <div class="guide-sub-label">Samsung devices</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Go to <strong>Settings &gt; Apps</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Tap the three-dot menu in the top-right corner.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Tap <strong>Special access &gt; Install unknown apps</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>Select the browser you will use to download the APK, such as Chrome.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">5</div><span>Toggle <strong>Allow from this source</strong> on if prompted.</span></div>
+                  </div>
+                  <div class="guide-sub-label" style="margin-top:0.75rem">Non-Samsung devices</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Go to <strong>Settings &gt; Apps</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Tap <strong>Special app access</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Tap <strong>Install unknown apps</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>Select your download browser and toggle <strong>Allow from this source</strong> on.</span></div>
+                  </div>
+                  <div class="guide-sub-label" style="margin-top:0.75rem">Android 7 or below</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Go to <strong>Settings &gt; Security</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Under <strong>Device administration</strong>, toggle <strong>Unknown sources</strong> on.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Installing -->
+              <div class="guide-section">
+                <div class="guide-section-title">Installing Clone Hero</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Download and install the latest <a id="ch-apk-link" href="https://github.com/clonehero-game/releases/releases" target="_blank" rel="noopener">Clone Hero APK</a> <span id="ch-apk-version" style="color:var(--text-dim);font-size:0.82em;"></span>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Launch Clone Hero and create a profile. This ensures all required game data folders are generated on first run.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Note the data folder location shown in-game. This is where all downloaded songs, custom backgrounds, highways, and profiles belong.</span></div>
+                </div>
+              </div>
+
+              <!-- Downloading Songs -->
+              <div class="guide-section">
+                <div class="guide-section-title">Downloading Songs</div>
+                <div class="guide-note">A PC and <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> are recommended for wirelessly moving files to your device.</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Install <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> on both your Android device and PC, signed into the same account.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Download your desired song(s) on your PC.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Right-click the song's <code>.zip</code> file and select <strong>Send with Blip</strong>, then select your device from the list.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">4</div><span>On your device, the file will be auto-accepted. Tap it and select <strong>Open with File Manager</strong>. Tap and hold the file and press <strong>Move</strong>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">5</div><span>Navigate to <strong>Documents &gt; Clone Hero &gt; Songs</strong> and confirm the move.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">6</div><span>Tap the zipped file in the Songs folder to unzip it, then delete the original <code>.zip</code>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">7</div><span>Reopen Clone Hero and rescan your library. Your new song should appear.</span></div>
+                </div>
+              </div>
+
+              <!-- Custom Content -->
+              <div class="guide-section">
+                <div class="guide-section-title">Downloading Custom Colors, Backgrounds &amp; Highways</div>
+                <div class="guide-note">This process is nearly identical to downloading songs. A PC and <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> are recommended.</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Install <a href="https://blip.net/download" target="_blank" rel="noopener">Blip: File Transfer</a> on both your Android device and PC, signed into the same account.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Download the desired custom content on your PC. If it isn't already, compress it into a <code>.zip</code>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Right-click the <code>.zip</code> and select <strong>Send with Blip</strong>, then select your device.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">4</div><span>On your device, tap the received file and select <strong>Open with File Manager</strong>. Tap and hold it and press <strong>Move</strong>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">5</div><span>Navigate to <strong>Documents &gt; Clone Hero &gt; Custom</strong> and into the subfolder for your content type (<strong>Colors</strong>, <strong>Backgrounds</strong>, or <strong>Highways</strong>). Confirm the move.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">6</div><span>Tap the zipped file to unzip it, then delete the original <code>.zip</code>.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">7</div><span>Reopen Clone Hero and rescan. Your new content will be available.</span></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Clone Hero PC Tab -->
+      <section class="tab-panel" id="tab-pc">
+        <div class="page-header">
+          <h1 class="page-title">Clone Hero <span class="accent-text">PC</span></h1>
+          <p class="page-desc">Guides for installing and running Clone Hero on Windows, Linux, and macOS.</p>
+        </div>
+
+        <div class="about-note" style="margin-bottom:1.25rem;">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M10 9v5M10 7h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span><strong>Supported file formats &mdash;</strong>
+          Static backgrounds &amp; highways: <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code> &nbsp;|&nbsp;
+          Animated backgrounds (Win &amp; Mac): <code>.mp4</code> (x264), <code>.avi</code>, <code>.webm</code> (VP8), <code>.ogv</code>, <code>.mpeg</code> &nbsp;|&nbsp;
+          Animated backgrounds (Linux): <code>.webm</code> (VP8), <code>.ogv</code> &nbsp;|&nbsp;
+          Animated highways: <code>.webm</code> (VP8)</span>
+        </div>
+
+        <div class="accordion">
+
+          <!-- Windows -->
+          <div class="accordion-item" id="accordion-windows">
+            <button class="accordion-header" data-accordion="windows">
+              <span><img src="Images/Windows256x256.png" alt="Windows" width="20" height="20" style="vertical-align:middle;margin-right:0.4rem;border-radius:3px;"> Windows</span>
+              <svg class="accordion-chevron" width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="accordion-body">
+
+              <div class="guide-section">
+                <div class="guide-section-title">Installing Clone Hero</div>
+                <div class="guide-note">There are three ways to install Clone Hero on Windows. Pick whichever suits you best.</div>
+                <div class="guide-sub-section">
+                  <div class="guide-sub-title">Option 1 — via CHSuite</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Install the latest version of <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener">CHSuite</a> and navigate to <strong>CHManager</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Press <strong>Check</strong> and choose either <strong>Release</strong> or <strong>PTB</strong>. Find your desired version and press <strong>Download and Install</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 2 — via Clone Hero Launcher</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download and install the <a href="https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/chlauncher-setup.exe" target="_blank" rel="noopener">Clone Hero Launcher</a>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Game downloads</strong> and choose either <strong>Release</strong> or <strong>PTB</strong>. Find your desired version and press <strong>Download</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 3 — via the official website</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Go to <a href="https://clonehero.net/" target="_blank" rel="noopener">clonehero.net</a> and press <strong>Download vX.X.X.X</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Press <strong>Download</strong> once it confirms your OS and architecture.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Select <strong>Install for all users</strong> and follow the rest of the installer. Choose <strong>Typical</strong> when prompted — this is strongly recommended over Portable. A Typical Install stores your game data (songs, custom content, profiles) in <strong>Documents &gt; Clone Hero</strong>, which is the standard location. Portable mode stores everything in a <code>PlayerData</code> folder inside the game's install directory instead.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="guide-section">
+                <div class="guide-section-title">Downloading Songs</div>
+                <div class="guide-note">There are numerous ways to download songs for Clone Hero on Windows. CHSuite only downloads <code>.sng</code> files, which requires Clone Hero v1.1 or later. Bridge and Chorus Encore do not force <code>.sng</code>, so they work with older versions. <code>.sng</code> is highly recommended if you're on a hard drive and downloading tens of thousands of songs.</div>
+                <div class="guide-sub-section">
+                  <div class="guide-sub-title">Option 1 — via CHSuite</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Install <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener">CHSuite</a> and navigate to <strong>CHSongManager</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Settings</strong> at the top and choose a directory for your songs. The default Clone Hero location (<strong>Documents/Clone Hero/Songs</strong>) is recommended.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Go back to <strong>Browse</strong>, search for the song you want, and download it.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret to open the menu, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 2 — via Bridge</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download and install <a href="https://github.com/Geomitron/Bridge/releases/download/v3.4.5/Bridge-Setup-3.4.5.exe" target="_blank" rel="noopener">Bridge</a>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Settings</strong> and choose your songs directory. To save space, you can disable <strong>Download Video Backgrounds</strong>. You can also choose between Chart Folder or <code>.sng</code> here.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Go to <strong>Browse</strong> and search for the song you want.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 3 — via Chorus Encore</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Make sure you have <a href="https://www.win-rar.com/start.html?&L=0" target="_blank" rel="noopener">WinRAR</a> or <a href="https://www.7-zip.org/" target="_blank" rel="noopener">7-Zip</a> installed.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <a href="https://www.enchor.us/" target="_blank" rel="noopener">enchor.us</a> and search for the song you want.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Press the download button. You can choose <code>.zip</code>, <code>.sng</code>, or the Google Drive folder. <code>.sng</code> is recommended to save space and reduce scan times. If you downloaded <code>.sng</code>, skip to step 5.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>Extract the <code>.zip</code> and place the folder in your Songs directory (<strong>Documents/Clone Hero/Songs</strong> is recommended).</span></div>
+                    <div class="guide-step"><div class="guide-step-num">5</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="guide-section" style="margin-bottom:0">
+                <div class="guide-section-title">Downloading Custom Colors, Backgrounds &amp; Highways</div>
+                <div class="guide-note">This process is very similar to downloading songs. The location of your Custom folder depends on which install mode you chose:
+                  <ul style="margin: 0.5rem 0 0 1rem; padding: 0; list-style: disc;">
+                    <li><strong>Typical Install:</strong> <code>Documents &gt; Clone Hero &gt; Custom</code></li>
+                    <li><strong>Portable Mode:</strong> <code>PlayerData &gt; Custom</code> inside the game's install directory</li>
+                  </ul>
+                </div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Find and download the Color(s), Background(s), or Highway(s) you'd like to use.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Move the downloaded file into your <strong>Custom</strong> folder (see location above), into the appropriate subfolder for your content type (<strong>Colors</strong>, <strong>Backgrounds</strong>, or <strong>Highways</strong>).</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Rescan or reopen Clone Hero and your new content will be available.</span></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Linux -->
+          <div class="accordion-item" id="accordion-linux">
+            <button class="accordion-header" data-accordion="linux">
+              <span><img src="Images/Linux256x256.png" alt="Linux" width="20" height="20" style="vertical-align:middle;margin-right:0.4rem;border-radius:3px;"> Linux</span>
+              <svg class="accordion-chevron" width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="accordion-body">
+
+              <div class="guide-section">
+                <div class="guide-section-title">Installing Clone Hero</div>
+                <div class="guide-note">There are three ways to install Clone Hero on Linux. Pick whichever suits you best.</div>
+                <div class="guide-sub-section">
+                  <div class="guide-sub-title">Option 1 — via CHSuite</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Install the latest version of <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener">CHSuite</a> and navigate to <strong>CHManager</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Press <strong>Check</strong> and choose either <strong>Release</strong> or <strong>PTB</strong>. Find your desired version and press <strong>Download and Install</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 2 — via Clone Hero Launcher</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download the <a href="https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/ch_launcher-linux.AppImage" target="_blank" rel="noopener">Clone Hero Launcher AppImage</a>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Game downloads</strong> and choose either <strong>Release</strong> or <strong>PTB</strong>. Find your desired version and press <strong>Download</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 3 — via the official website</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Go to <a href="https://clonehero.net/" target="_blank" rel="noopener">clonehero.net</a> and press <strong>Download vX.X.X.X</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Press <strong>Download</strong> once it confirms your OS and architecture.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="guide-section">
+                <div class="guide-section-title">Downloading Songs</div>
+                <div class="guide-note">There are numerous ways to download songs for Clone Hero on Linux. CHSuite only downloads <code>.sng</code> files, which requires Clone Hero v1.1 or later. Bridge and Chorus Encore do not force <code>.sng</code>, so they work with older versions. <code>.sng</code> is highly recommended if you're on a hard drive and downloading tens of thousands of songs.</div>
+                <div class="guide-sub-section">
+                  <div class="guide-sub-title">Option 1 — via CHSuite</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener">CHSuite</a> and navigate to <strong>CHSongManager</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Settings</strong> at the top and choose a directory for your songs. The default Clone Hero location (<strong>Documents/Clone Hero/Songs</strong>) is recommended.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Go back to <strong>Browse</strong>, search for the song you want, and download it.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret to open the menu, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 2 — via Bridge</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download the <a href="https://github.com/Geomitron/Bridge/releases/download/v3.4.5/Bridge-3.4.5.AppImage" target="_blank" rel="noopener">Bridge AppImage</a>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Settings</strong> and choose your songs directory. To save space, you can disable <strong>Download Video Backgrounds</strong>. You can also choose between Chart Folder or <code>.sng</code> here.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Go to <strong>Browse</strong> and search for the song you want.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 3 — via Chorus Encore</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Make sure you have <a href="https://www.win-rar.com/start.html?&L=0" target="_blank" rel="noopener">WinRAR</a> or <a href="https://www.7-zip.org/" target="_blank" rel="noopener">7-Zip</a> installed.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <a href="https://www.enchor.us/" target="_blank" rel="noopener">enchor.us</a> and search for the song you want.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Press the download button. You can choose <code>.zip</code>, <code>.sng</code>, or the Google Drive folder. <code>.sng</code> is recommended to save space and reduce scan times. If you downloaded <code>.sng</code>, skip to step 5.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>Extract the <code>.zip</code> using WinRAR or 7-Zip and place the folder in your Songs directory (<strong>Documents/Clone Hero/Songs</strong> is recommended).</span></div>
+                    <div class="guide-step"><div class="guide-step-num">5</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="guide-section" style="margin-bottom:0">
+                <div class="guide-section-title">Downloading Custom Colors, Backgrounds &amp; Highways</div>
+                <div class="guide-note">This process is very similar to downloading songs.</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Find and download the Color(s), Background(s), or Highway(s) you'd like to use.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Move the downloaded file to <strong>Documents/Clone Hero/Custom/</strong> and into the appropriate subfolder for your content type (<strong>Colors</strong>, <strong>Backgrounds</strong>, or <strong>Highways</strong>).</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Rescan or reopen Clone Hero and your new content will be available.</span></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- macOS -->
+          <div class="accordion-item" id="accordion-macos">
+            <button class="accordion-header" data-accordion="macos">
+              <span><img src="Images/Apple256x256.png" alt="macOS" width="20" height="20" style="vertical-align:middle;margin-right:0.4rem;border-radius:3px;"> macOS</span>
+              <svg class="accordion-chevron" width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="accordion-body">
+
+              <div class="guide-section">
+                <div class="guide-section-title">Installing Clone Hero</div>
+                <div class="guide-note">There are three ways to install Clone Hero on macOS. Pick whichever suits you best.</div>
+                <div class="guide-sub-section">
+                  <div class="guide-sub-title">Option 1 — via CHSuite</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Install the latest version of <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener">CHSuite</a> and navigate to <strong>CHManager</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Press <strong>Check</strong> and choose either <strong>Release</strong> or <strong>PTB</strong>. Find your desired version and press <strong>Download and Install</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 2 — via Clone Hero Launcher</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download the <a href="https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/Clone.Hero.Launcher.dmg" target="_blank" rel="noopener">Clone Hero Launcher DMG</a> and open it.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Game downloads</strong> and choose either <strong>Release</strong> or <strong>PTB</strong>. Find your desired version and press <strong>Download</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 3 — via the official website</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Go to <a href="https://clonehero.net/" target="_blank" rel="noopener">clonehero.net</a> and press <strong>Download vX.X.X.X</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Press <strong>Download</strong> once it confirms your OS and architecture.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Open the downloaded file and follow any prompts to complete the installation.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>Once installed, open Clone Hero once and close it to make sure it generates all of the required files.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="guide-section">
+                <div class="guide-section-title">Downloading Songs</div>
+                <div class="guide-note">There are numerous ways to download songs for Clone Hero on macOS. CHSuite only downloads <code>.sng</code> files, which requires Clone Hero v1.1 or later. Bridge and Chorus Encore do not force <code>.sng</code>, so they work with older versions. <code>.sng</code> is highly recommended if you're on a hard drive and downloading tens of thousands of songs.</div>
+                <div class="guide-sub-section">
+                  <div class="guide-sub-title">Option 1 — via CHSuite</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener">CHSuite</a> and navigate to <strong>CHSongManager</strong>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Settings</strong> at the top and choose a directory for your songs. The default Clone Hero location (<strong>~/Clone Hero/Songs</strong>) is recommended.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Go back to <strong>Browse</strong>, search for the song you want, and download it.</span></div>
+					<div class="guide-step"><div class="guide-step-num">4</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret to open the menu, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 2 — via Bridge</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Download and open the <a href="https://github.com/Geomitron/Bridge/releases/download/v3.4.5/Bridge-3.4.5-universal.dmg" target="_blank" rel="noopener">Bridge DMG</a>.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Go to <strong>Settings</strong> and choose your songs directory. The default Clone Hero location (<strong>~/Clone Hero/Songs</strong>) is recommended. To save space, you can disable <strong>Download Video Backgrounds</strong>. You can also choose between Chart Folder or <code>.sng</code> here.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Go to <strong>Browse</strong> search for the song you want, and download it.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                  <div class="guide-sub-title" style="margin-top:1rem;">Option 3 — via Chorus Encore</div>
+                  <div class="guide-steps">
+                    <div class="guide-step"><div class="guide-step-num">1</div><span>Go to <a href="https://www.enchor.us/" target="_blank" rel="noopener">enchor.us</a> and search for the song you want.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">2</div><span>Press the download button. You can choose <code>.zip</code>, <code>.sng</code>, or the Google Drive folder. <code>.sng</code> is recommended to save space and reduce scan times. If you downloaded <code>.sng</code>, skip to step 4.</span></div>
+                    <div class="guide-step"><div class="guide-step-num">3</div><span>Extract the <code>.zip</code> using the built-in Archive Utility (double-click) and place the folder in your Songs directory (<strong>~/Clone Hero/Songs</strong> is recommended).</span></div>
+                    <div class="guide-step"><div class="guide-step-num">4</div><span>If you used the default Songs location, rescan in Clone Hero and the song will appear. Otherwise, go to <strong>Settings → General → Manage Song Paths</strong>, press the green fret, press <strong>Add Folder</strong>, add your folder, then rescan.</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="guide-section" style="margin-bottom:0">
+                <div class="guide-section-title">Downloading Custom Colors, Backgrounds &amp; Highways</div>
+                <div class="guide-note">This process is very similar to downloading songs. On macOS, the Custom folder is located at <code>~/Clone Hero/Custom</code>.</div>
+                <div class="guide-steps">
+                  <div class="guide-step"><div class="guide-step-num">1</div><span>Find and download the Color(s), Background(s), or Highway(s) you'd like to use.</span></div>
+                  <div class="guide-step"><div class="guide-step-num">2</div><span>Move the downloaded file to <strong>~/Clone Hero/Custom/</strong> and into the appropriate subfolder for your content type (<strong>Colors</strong>, <strong>Backgrounds</strong>, or <strong>Highways</strong>).</span></div>
+                  <div class="guide-step"><div class="guide-step-num">3</div><span>Rescan or reopen Clone Hero and your new content will be available.</span></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </section>
 

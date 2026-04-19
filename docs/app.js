@@ -1488,6 +1488,56 @@ if (_mcEnabled) {
   }
 })();
 
+// ── Clone Hero latest release fetch ───────────────────────────────────────────
+(async function fetchLatestReleases() {
+  try {
+    const res = await fetch("https://api.github.com/repos/clonehero-game/releases/releases");
+    if (!res.ok) return;
+    const releases = await res.json();
+
+    let ipaFound = false, apkFound = false;
+    for (const release of releases) {
+      if (!ipaFound) {
+        const ipa = release.assets?.find(a => a.name.endsWith(".ipa"));
+        if (ipa) {
+          ["ch-ipa-link", "ch-ipa-link-about"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.href = ipa.browser_download_url;
+          });
+          ["ch-ipa-version", "ch-ipa-version-about"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = `(${release.tag_name})`;
+          });
+          ipaFound = true;
+        }
+      }
+      if (!apkFound) {
+        const apk = release.assets?.find(a => a.name.endsWith(".apk"));
+        if (apk) {
+          ["ch-apk-link", "ch-apk-link-about"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.href = apk.browser_download_url;
+          });
+          ["ch-apk-version", "ch-apk-version-about"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = `(${release.tag_name})`;
+          });
+          apkFound = true;
+        }
+      }
+      if (ipaFound && apkFound) break;
+    }
+  } catch (_) { /* leave fallback links intact */ }
+})();
+
+// ── Accordion ──────────────────────────────────────────────────────────────────
+document.querySelectorAll(".accordion-header").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const item = btn.closest(".accordion-item");
+    item.classList.toggle("open");
+  });
+});
+
 // ── Boot ───────────────────────────────────────────────────────────────────────
 function initApp() {
   // Initialize notegen colors
