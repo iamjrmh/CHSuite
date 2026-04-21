@@ -391,6 +391,12 @@ They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
 **Export to profiles.ini doesn't work**  
 `profiles.ini` is in use or read-only. Close Clone Hero and check file permissions.
 
+**ThemeGen.exe not found**
+`ThemeGen.exe` was not found next to your CHSuite.exe. Redownload CHSuite and install as admin.
+
+**CHPatcher not patching**
+`CHPatcher` cannot overwrite the files while Clone Hero and Clone Hero Launcher is open. CHSuite will try to force close Clone Hero and Clone Hero Launcher if it detects it is open and try to patch it.
+
 ---
 
 ## 🔨 Building from Source
