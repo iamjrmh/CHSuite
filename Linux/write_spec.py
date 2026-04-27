@@ -96,7 +96,7 @@ else:
 # Icon path  (Windows only — Linux uses a .desktop file + .png, not .ico)
 # ---------------------------------------------------------------------------
 if _IS_WIN:
-    ICON_PATH = r"E:\Downloads\JURMR CHSuite\JURMRWEED.ico"
+    ICON_PATH = r"JURMRWEED.ico"
     if not os.path.isfile(ICON_PATH):
         print(f"  WARNING: icon not found at {ICON_PATH!r} -- building without icon.")
         icon_line = "    # icon not found at build time"
