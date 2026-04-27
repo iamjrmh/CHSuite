@@ -31,8 +31,8 @@ jobs:
       - name: Verify build script exists
         shell: bash
         run: |
-          if [ ! -f build.bat ]; then
-            echo "::error::build.bat not found in repository root"
+          if [ ! -f Windows/build.bat ]; then
+            echo "::error::Windows/build.bat not found"
             exit 1
           fi
 
@@ -48,7 +48,7 @@ jobs:
           # would hang forever on CI. Pre-defining it bypasses the relaunch.
           _RELAUNCHED: '1'
         run: |
-          call build.bat
+          call Windows/build.bat
           if errorlevel 1 exit /b %errorlevel%
 
       - name: Verify primary outputs
@@ -91,8 +91,8 @@ jobs:
 
       - name: Verify build script exists
         run: |
-          if [ ! -f build.sh ]; then
-            echo "::error::build.sh not found in repository root"
+          if [ ! -f Linux/build.sh ]; then
+            echo "::error::Linux/build.sh not found"
             exit 1
           fi
 
@@ -111,10 +111,10 @@ jobs:
           python-version: '3.11'
 
       - name: Make build.sh executable
-        run: chmod +x build.sh
+        run: chmod +x Linux/build.sh
 
       - name: Run build.sh
-        run: ./build.sh
+        run: ./Linux/build.sh
 
       - name: Verify primary outputs
         run: |
@@ -155,8 +155,8 @@ jobs:
 
       - name: Verify build script exists
         run: |
-          if [ ! -f build_mac.sh ]; then
-            echo "::error::build_mac.sh not found in repository root"
+          if [ ! -f macOS/build_mac.sh ]; then
+            echo "::error::macOS/build_mac.sh not found"
             exit 1
           fi
 
@@ -166,10 +166,10 @@ jobs:
           python-version: '3.11'
 
       - name: Make build_mac.sh executable
-        run: chmod +x build_mac.sh
+        run: chmod +x macOS/build_mac.sh
 
       - name: Run build_mac.sh
-        run: ./build_mac.sh
+        run: ./macOS/build_mac.sh
 
       - name: Verify primary outputs
         run: |
