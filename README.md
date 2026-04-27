@@ -414,25 +414,25 @@ They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
 
 1. Navigate to the **`Windows/`** folder in this repository
 2. Ensure the following files are present:
-   - `CHSuite.py`
-   - `build.bat`
-   - `write_spec.py`
-   - `rthook_texture2d.py`
+   - `CHSuite.py` *(required)*
+   - `build.bat` *(required)*
+   - `write_spec.py` *(required)*
+   - `rthook_texture2d.py` *(required)*
    - `CHSuite_Installer.nsi` *(optional, for installer)*
    - `JURMRWEED.ico` *(optional, for icon)*
-   - `ThemeGen.py`
-   - `Version Updater.py`
-   - `base64.txt`
-   - `CHCleaner.py`
-   - `CHManager.py`
-   - `CHMenuChanger.py`
-   - `CHNameGen.py`
-   - `CHNoteGen.py`
-   - `CHPatcher.py`
-   - `CHSongManager.py`
-   - `/themes/`
-   - `/Images/`
-   - `/_internal/Images/`
+   - `ThemeGen.py` *(required)*
+   - `Version Updater.py` *(required)*
+   - `base64.txt` *(required)*
+   - `CHCleaner.py` *(required)*
+   - `CHManager.py` *(required)*
+   - `CHMenuChanger.py` *(required)*
+   - `CHNameGen.py` *(required)*
+   - `CHNoteGen.py` *(required)*
+   - `CHPatcher.py` *(required)*
+   - `CHSongManager.py` *(required)*
+   - `/themes/` *(required)*
+   - `/Images/` *(required for testing, not for compiled app)*
+   - `/_internal/Images/` *(required)*
 3. Double-click **`build.bat`**
 
 The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable - do not ship the `.exe` alone.
@@ -465,24 +465,24 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 
 1. Navigate to the **`Linux/`** folder in this repository
 2. Ensure the following files are present:
-   - `CHSuite.py`
-   - `build.sh`
-   - `write_spec.py`
-   - `rthook_texture2d.py`
-   - `ThemeGen.py`
-   - `Version Updater.py`
-   - `base64.txt`
+   - `CHSuite.py` *(required)*
+   - `build.sh` *(required)*
+   - `write_spec.py` *(required)*
+   - `rthook_texture2d.py` *(required)*
+   - `ThemeGen.py` *(required)*
+   - `Version Updater.py` *(required)*
+   - `base64.txt` *(required)*
    - `JURMRWEED.ico` *(optional, for AppImage icon)*
-   - `CHCleaner.py`
-   - `CHManager.py`
-   - `CHMenuChanger.py`
-   - `CHNameGen.py`
-   - `CHNoteGen.py`
-   - `CHPatcher.py`
-   - `CHSongManager.py`
-   - `/themes/`
-   - `/Images/`
-   - `/_internal/Images/`
+   - `CHCleaner.py` *(required)*
+   - `CHManager.py` *(required)*
+   - `CHMenuChanger.py` *(required)*
+   - `CHNameGen.py` *(required)*
+   - `CHNoteGen.py` *(required)*
+   - `CHPatcher.py` *(required)*
+   - `CHSongManager.py` *(required)*
+   - `/themes/` *(required)*
+   - `/Images/` *(required for testing, not for compiled app)*
+   - `/_internal/Images/` *(required)*
 3. Open a terminal in the Linux folder
 4. Run:
    ```bash
@@ -535,24 +535,24 @@ Do not distribute the binary alone — it depends on bundled assets.
 
 1. Navigate to the **`macOS/`** folder in this repository
 2. Ensure the following files are present:
-   - `CHSuite.py`
-   - `build_mac.sh`
-   - `write_spec_mac.py`
-   - `rthook_texture2d_mac.py`
-   - `ThemeGen.py`
-   - `Version Updater.py`
-   - `base64.txt`
+   - `CHSuite.py` *(required)*
+   - `build_mac.sh` *(required)*
+   - `write_spec_mac.py` *(required)*
+   - `rthook_texture2d_mac.py` *(required)*
+   - `ThemeGen.py` *(required)*
+   - `Version Updater.py` *()*
+   - `base64.txt` *(required)*
    - `JURMRWEED.icns` *(optional, for app icon)*
-   - `CHCleaner.py`
-   - `CHManager.py`
-   - `CHMenuChanger.py`
-   - `CHNameGen.py`
-   - `CHNoteGen.py`
-   - `CHPatcher.py`
-   - `CHSongManager.py`
-   - `/themes/`
-   - `/Images/`
-   - `/_internal/Images/`
+   - `CHCleaner.py` *(required)*
+   - `CHManager.py` *(required)*
+   - `CHMenuChanger.py` *(required)*
+   - `CHNameGen.py` *(required)*
+   - `CHNoteGen.py` *(required)*
+   - `CHPatcher.py` *(required)*
+   - `CHSongManager.py` *(required)*
+   - `/themes/` *(required)*
+   - `/Images/` *(required for testing, not for compiled app)*
+   - `/_internal/Images/`  *(required)*
 3. Open a terminal in the macOS folder
 4. Run:
    ```bash
