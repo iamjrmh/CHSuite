@@ -1,0 +1,194 @@
+name: Build (Windows / Linux / macOS)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Windows — runs build.bat
+  # Output (per build.bat):
+  #   dist/CHSuite/                  raw PyInstaller bundle
+  #   dist/CHSuiteWindows.zip        7-Zip archive of the bundle
+  #   dist/CHSuiteWindows.exe        NSIS installer (if NSIS is installed)
+  # ──────────────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify build script exists
+        shell: bash
+        run: |
+          if [ ! -f build.bat ]; then
+            echo "::error::build.bat not found in repository root"
+            exit 1
+          fi
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run build.bat
+        shell: cmd
+        env:
+          # build.bat self-relaunches under `cmd /k` when this is unset, which
+          # would hang forever on CI. Pre-defining it bypasses the relaunch.
+          _RELAUNCHED: '1'
+        run: |
+          call build.bat
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Verify primary outputs
+        shell: bash
+        run: |
+          missing=0
+          for p in "dist/CHSuite" "dist/CHSuiteWindows.zip"; do
+            if [ ! -e "$p" ]; then
+              echo "::error::Expected output missing: $p"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-windows
+          path: |
+            dist/CHSuite/**
+            dist/CHSuiteWindows.zip
+            dist/CHSuiteWindows.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Linux — runs build.sh
+  # Output (per build.sh):
+  #   dist/CHSuite/                  raw PyInstaller bundle
+  #   CHSuiteLinux.zip               (repo root) zip of the bundle
+  #   CHSuiteLinux.AppImage          (repo root) self-contained AppImage
+  # ──────────────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify build script exists
+        run: |
+          if [ ! -f build.sh ]; then
+            echo "::error::build.sh not found in repository root"
+            exit 1
+          fi
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfuse2 \
+            zip \
+            wget \
+            ca-certificates
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Make build.sh executable
+        run: chmod +x build.sh
+
+      - name: Run build.sh
+        run: ./build.sh
+
+      - name: Verify primary outputs
+        run: |
+          missing=0
+          for p in "dist/CHSuite" "CHSuiteLinux.zip"; do
+            if [ ! -e "$p" ]; then
+              echo "::error::Expected output missing: $p"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: |
+            dist/CHSuite/**
+            CHSuiteLinux.zip
+            CHSuiteLinux.AppImage
+          if-no-files-found: error
+          retention-days: 30
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # macOS — runs build_mac.sh
+  # Output (per build_mac.sh):
+  #   dist/CHSuite.app               runnable .app bundle
+  #   dist/CHSuiteMac.dmg            drag-to-install disk image
+  #   dist/CHSuiteMac.pkg            flat installer package
+  # ──────────────────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify build script exists
+        run: |
+          if [ ! -f build_mac.sh ]; then
+            echo "::error::build_mac.sh not found in repository root"
+            exit 1
+          fi
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Make build_mac.sh executable
+        run: chmod +x build_mac.sh
+
+      - name: Run build_mac.sh
+        run: ./build_mac.sh
+
+      - name: Verify primary outputs
+        run: |
+          missing=0
+          for p in "dist/CHSuite.app"; do
+            if [ ! -e "$p" ]; then
+              echo "::error::Expected output missing: $p"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-macos
+          path: |
+            dist/CHSuite.app/**
+            dist/CHSuiteMac.dmg
+            dist/CHSuiteMac.pkg
+          if-no-files-found: error
+          retention-days: 30
