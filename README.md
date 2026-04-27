@@ -1,5 +1,8 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/JURMRWEED.png">
+</p>
 <div align="center">
-  <h1>🎸 CHSuite by JURMR</h1>
+  <h1>CHSuite by JURMR</h1>
 </div>
 
 An all-in-one utility suite for Clone Hero - swap menu backgrounds, generate custom colored player names, and clean up bad songs from your library. All three tools in a single unified application.
