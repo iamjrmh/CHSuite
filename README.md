@@ -410,8 +410,8 @@ They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
 
 **Steps**
 
-1. Clone or download this repository into a single folder (e.g. `C:\Downloads\CHSuite`)
-2. Ensure the following files are all present in that folder:
+1. Navigate to the **`Windows/`** folder in this repository
+2. Ensure the following files are present:
    - `CHSuite.py`
    - `build.bat`
    - `write_spec.py`
@@ -419,8 +419,18 @@ They're under `Warning:` sections, not `ERROR:` sections - this is intentional.
    - `CHSuite_Installer.nsi` *(optional, for installer)*
    - `JURMRWEED.ico` *(optional, for icon)*
    - `ThemeGen.py`
-   - `/themes`
-   - `/Images`
+   - `Version Updater.py`
+   - `base64.txt`
+   - `CHCleaner.py`
+   - `CHManager.py`
+   - `CHMenuChanger.py`
+   - `CHNameGen.py`
+   - `CHNoteGen.py`
+   - `CHPatcher.py`
+   - `CHSongManager.py`
+   - `/themes/`
+   - `/Images/`
+   - `/_internal/Images/`
 3. Double-click **`build.bat`**
 
 The script will automatically create a virtual environment, install all dependencies, generate the spec, and produce the finished build at `dist\CHSuite\`. Zip that entire folder to distribute as portable - do not ship the `.exe` alone.
@@ -451,22 +461,33 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 
 **Steps**
 
-1. Clone or download this repository into a single folder (e.g. `~/CHSuite`)
+1. Navigate to the **`Linux/`** folder in this repository
 2. Ensure the following files are present:
    - `CHSuite.py`
    - `build.sh`
    - `write_spec.py`
    - `rthook_texture2d.py`
    - `ThemeGen.py`
-   - `/themes`
-   - `/Images`
-   - `JURMRWEED.png` *(optional, for AppImage icon)*
-3. Open a terminal in that folder
+   - `Version Updater.py`
+   - `base64.txt`
+   - `JURMRWEED.ico` *(optional, for AppImage icon)*
+   - `CHCleaner.py`
+   - `CHManager.py`
+   - `CHMenuChanger.py`
+   - `CHNameGen.py`
+   - `CHNoteGen.py`
+   - `CHPatcher.py`
+   - `CHSongManager.py`
+   - `/themes/`
+   - `/Images/`
+   - `/_internal/Images/`
+3. Open a terminal in the Linux folder
 4. Run:
    ```bash
    ./build.sh
+   ```
 
-## The script will automatically:
+The script will automatically:
 
 - Locate Python 3.11
 - Create and activate a .venv
@@ -476,13 +497,7 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 - Build using PyInstaller
 - Stage assets (themes, Images)
 
-## Create:
-  
-- dist/CHSuite/ (portable build)
-- CHSuiteLinux.zip (recommended for distribution)
-- CHSuiteLinux.AppImage (fully self-contained, if AppImage build succeeds)
-
-## Output
+**Output**
 
 | File                    | Purpose                             |
 | ----------------------- | ----------------------------------- |
@@ -490,10 +505,78 @@ If [NSIS](https://nsis.sourceforge.io/Download) is installed, `CHSuite_Setup.exe
 | `CHSuiteLinux.zip`      | Portable distribution (recommended) |
 | `CHSuiteLinux.AppImage` | Fully self-contained executable     |
 
-
 Do not distribute the binary alone — it depends on bundled assets.
 
-Dependencies installed by build.sh
+**Dependencies installed by build.sh**
+
+| Package                   | Purpose                          |
+| ------------------------- | -------------------------------- |
+| Pillow                    | Image decoding and encoding      |
+| UnityPy                   | Unity asset file reading/writing |
+| texture2ddecoder          | GPU texture decoding             |
+| brotli / brotlicffi / lz4 | Compression support              |
+| requests                  | Update checks                    |
+| pypresence                | Discord Rich Presence            |
+| PyInstaller               | Executable bundling              |
+
+</details>
+
+<details>
+  <summary>macOS</summary>
+
+  **Requirements**
+- macOS (Apple Silicon or Intel)
+- Python 3.11 - via [python.org](https://python.org) or `brew install python3.11`
+- Xcode Command Line Tools: `xcode-select --install`
+
+**Steps**
+
+1. Navigate to the **`macOS/`** folder in this repository
+2. Ensure the following files are present:
+   - `CHSuite.py`
+   - `build_mac.sh`
+   - `write_spec_mac.py`
+   - `rthook_texture2d_mac.py`
+   - `ThemeGen.py`
+   - `Version Updater.py`
+   - `base64.txt`
+   - `JURMRWEED.icns` *(optional, for app icon)*
+   - `CHCleaner.py`
+   - `CHManager.py`
+   - `CHMenuChanger.py`
+   - `CHNameGen.py`
+   - `CHNoteGen.py`
+   - `CHPatcher.py`
+   - `CHSongManager.py`
+   - `/themes/`
+   - `/Images/`
+   - `/_internal/Images/`
+3. Open a terminal in the macOS folder
+4. Run:
+   ```bash
+   ./build_mac.sh
+   ```
+
+The script will automatically:
+
+- Locate Python 3.11
+- Create and activate a virtual environment
+- Install all dependencies
+- Generate CHSuite.spec
+- Build using PyInstaller
+- Stage assets (themes, Images)
+- Create a .app bundle
+
+**Output**
+
+| File                  | Purpose                       |
+| --------------------- | ----------------------------- |
+| `dist/CHSuite.app/`   | Runnable .app bundle          |
+| `CHSuiteMac.zip`      | Portable distribution         |
+
+Do not distribute the app bundle alone — it depends on bundled assets.
+
+**Dependencies installed by build_mac.sh**
 
 | Package                   | Purpose                          |
 | ------------------------- | -------------------------------- |
