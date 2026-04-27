@@ -14,11 +14,11 @@ concurrency:
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
-  # Windows — runs build.bat
+  # Windows — runs Windows/build.bat
   # Output (per build.bat):
-  #   dist/CHSuite/                  raw PyInstaller bundle
-  #   dist/CHSuiteWindows.zip        7-Zip archive of the bundle
-  #   dist/CHSuiteWindows.exe        NSIS installer (if NSIS is installed)
+  #   Windows/dist/CHSuite/                  raw PyInstaller bundle
+  #   Windows/dist/CHSuiteWindows.zip        7-Zip archive of the bundle
+  #   Windows/dist/CHSuiteWindows.exe        NSIS installer (if NSIS is installed)
   # ──────────────────────────────────────────────────────────────────────────
   build-windows:
     name: Build Windows
@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           if [ ! -f Windows/build.bat ]; then
-            echo "::error::Windows/build.bat not found at Windows/build.bat"
+            echo "::error::Windows/build.bat not found"
             exit 1
           fi
 
@@ -43,12 +43,12 @@ jobs:
 
       - name: Run build.bat
         shell: cmd
-        working-directory: Windows
         env:
           # build.bat self-relaunches under `cmd /k` when this is unset, which
           # would hang forever on CI. Pre-defining it bypasses the relaunch.
           _RELAUNCHED: '1'
         run: |
+          cd Windows
           call build.bat
           if errorlevel 1 exit /b %errorlevel%
 
@@ -56,8 +56,8 @@ jobs:
         shell: bash
         run: |
           missing=0
-          for p in "dist/CHSuite" "dist/CHSuiteWindows.zip"; do
-            if [ ! -e "Windows/$p" ]; then
+          for p in "Windows/dist/CHSuite" "Windows/dist/CHSuiteWindows.zip"; do
+            if [ ! -e "$p" ]; then
               echo "::error::Expected output missing: $p"
               missing=1
             fi
@@ -76,11 +76,11 @@ jobs:
           retention-days: 30
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Linux — runs build.sh
+  # Linux — runs Linux/build.sh
   # Output (per build.sh):
-  #   dist/CHSuite/                  raw PyInstaller bundle
-  #   CHSuiteLinux.zip               (repo root) zip of the bundle
-  #   CHSuiteLinux.AppImage          (repo root) self-contained AppImage
+  #   Linux/dist/CHSuite/                  raw PyInstaller bundle
+  #   Linux/CHSuiteLinux.zip               (repo root) zip of the bundle
+  #   Linux/CHSuiteLinux.AppImage          (repo root) self-contained AppImage
   # ──────────────────────────────────────────────────────────────────────────
   build-linux:
     name: Build Linux
@@ -93,7 +93,7 @@ jobs:
       - name: Verify build script exists
         run: |
           if [ ! -f Linux/build.sh ]; then
-            echo "::error::Linux/build.sh not found at Linux/build.sh"
+            echo "::error::Linux/build.sh not found"
             exit 1
           fi
 
@@ -115,14 +115,13 @@ jobs:
         run: chmod +x Linux/build.sh
 
       - name: Run build.sh
-        working-directory: Linux
-        run: ./build.sh
+        run: cd Linux && ./build.sh
 
       - name: Verify primary outputs
         run: |
           missing=0
-          for p in "dist/CHSuite" "CHSuiteLinux.zip"; do
-            if [ ! -e "Linux/$p" ]; then
+          for p in "Linux/dist/CHSuite" "Linux/CHSuiteLinux.zip"; do
+            if [ ! -e "$p" ]; then
               echo "::error::Expected output missing: $p"
               missing=1
             fi
@@ -141,11 +140,11 @@ jobs:
           retention-days: 30
 
   # ──────────────────────────────────────────────────────────────────────────
-  # macOS — runs build_mac.sh
+  # macOS — runs macOS/build_mac.sh
   # Output (per build_mac.sh):
-  #   dist/CHSuite.app               runnable .app bundle
-  #   dist/CHSuiteMac.dmg            drag-to-install disk image
-  #   dist/CHSuiteMac.pkg            flat installer package
+  #   macOS/dist/CHSuite.app               runnable .app bundle
+  #   macOS/dist/CHSuiteMac.dmg            drag-to-install disk image
+  #   macOS/dist/CHSuiteMac.pkg            flat installer package
   # ──────────────────────────────────────────────────────────────────────────
   build-macos:
     name: Build macOS
@@ -158,7 +157,7 @@ jobs:
       - name: Verify build script exists
         run: |
           if [ ! -f macOS/build_mac.sh ]; then
-            echo "::error::macOS/build_mac.sh not found at macOS/build_mac.sh"
+            echo "::error::macOS/build_mac.sh not found"
             exit 1
           fi
 
@@ -171,14 +170,13 @@ jobs:
         run: chmod +x macOS/build_mac.sh
 
       - name: Run build_mac.sh
-        working-directory: macOS
-        run: ./build_mac.sh
+        run: cd macOS && ./build_mac.sh
 
       - name: Verify primary outputs
         run: |
           missing=0
-          for p in "dist/CHSuite.app"; do
-            if [ ! -e "macOS/$p" ]; then
+          for p in "macOS/dist/CHSuite.app"; do
+            if [ ! -e "$p" ]; then
               echo "::error::Expected output missing: $p"
               missing=1
             fi
