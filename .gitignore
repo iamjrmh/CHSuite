@@ -14,6 +14,7 @@ venv/
 *.egg-info/
 dist/
 build/
+*.spec
 
 # IDE
 .vscode/
@@ -24,3 +25,11 @@ build/
 
 # Windows
 Thumbs.db
+
+# Build outputs
+*.zip
+*.AppImage
+*.dmg
+*.pkg
+*.exe
+CHSuite.spec

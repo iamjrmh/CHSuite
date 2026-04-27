@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           if [ ! -f Windows/build.bat ]; then
-            echo "::error::Windows/build.bat not found"
+            echo "::error::Windows/build.bat not found at Windows/build.bat"
             exit 1
           fi
 
@@ -43,12 +43,13 @@ jobs:
 
       - name: Run build.bat
         shell: cmd
+        working-directory: Windows
         env:
           # build.bat self-relaunches under `cmd /k` when this is unset, which
           # would hang forever on CI. Pre-defining it bypasses the relaunch.
           _RELAUNCHED: '1'
         run: |
-          call Windows/build.bat
+          call build.bat
           if errorlevel 1 exit /b %errorlevel%
 
       - name: Verify primary outputs
@@ -56,7 +57,7 @@ jobs:
         run: |
           missing=0
           for p in "dist/CHSuite" "dist/CHSuiteWindows.zip"; do
-            if [ ! -e "$p" ]; then
+            if [ ! -e "Windows/$p" ]; then
               echo "::error::Expected output missing: $p"
               missing=1
             fi
@@ -68,9 +69,9 @@ jobs:
         with:
           name: build-windows
           path: |
-            dist/CHSuite/**
-            dist/CHSuiteWindows.zip
-            dist/CHSuiteWindows.exe
+            Windows/dist/CHSuite/**
+            Windows/dist/CHSuiteWindows.zip
+            Windows/dist/CHSuiteWindows.exe
           if-no-files-found: error
           retention-days: 30
 
@@ -92,7 +93,7 @@ jobs:
       - name: Verify build script exists
         run: |
           if [ ! -f Linux/build.sh ]; then
-            echo "::error::Linux/build.sh not found"
+            echo "::error::Linux/build.sh not found at Linux/build.sh"
             exit 1
           fi
 
@@ -114,13 +115,14 @@ jobs:
         run: chmod +x Linux/build.sh
 
       - name: Run build.sh
-        run: ./Linux/build.sh
+        working-directory: Linux
+        run: ./build.sh
 
       - name: Verify primary outputs
         run: |
           missing=0
           for p in "dist/CHSuite" "CHSuiteLinux.zip"; do
-            if [ ! -e "$p" ]; then
+            if [ ! -e "Linux/$p" ]; then
               echo "::error::Expected output missing: $p"
               missing=1
             fi
@@ -132,9 +134,9 @@ jobs:
         with:
           name: build-linux
           path: |
-            dist/CHSuite/**
-            CHSuiteLinux.zip
-            CHSuiteLinux.AppImage
+            Linux/dist/CHSuite/**
+            Linux/CHSuiteLinux.zip
+            Linux/CHSuiteLinux.AppImage
           if-no-files-found: error
           retention-days: 30
 
@@ -156,7 +158,7 @@ jobs:
       - name: Verify build script exists
         run: |
           if [ ! -f macOS/build_mac.sh ]; then
-            echo "::error::macOS/build_mac.sh not found"
+            echo "::error::macOS/build_mac.sh not found at macOS/build_mac.sh"
             exit 1
           fi
 
@@ -169,13 +171,14 @@ jobs:
         run: chmod +x macOS/build_mac.sh
 
       - name: Run build_mac.sh
-        run: ./macOS/build_mac.sh
+        working-directory: macOS
+        run: ./build_mac.sh
 
       - name: Verify primary outputs
         run: |
           missing=0
           for p in "dist/CHSuite.app"; do
-            if [ ! -e "$p" ]; then
+            if [ ! -e "macOS/$p" ]; then
               echo "::error::Expected output missing: $p"
               missing=1
             fi
@@ -187,8 +190,8 @@ jobs:
         with:
           name: build-macos
           path: |
-            dist/CHSuite.app/**
-            dist/CHSuiteMac.dmg
-            dist/CHSuiteMac.pkg
+            macOS/dist/CHSuite.app/**
+            macOS/dist/CHSuiteMac.dmg
+            macOS/dist/CHSuiteMac.pkg
           if-no-files-found: error
           retention-days: 30
