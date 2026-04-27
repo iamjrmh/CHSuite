@@ -1,0 +1,301 @@
+# =============================================================================
+#  CHSuite.spec  --  Production PyInstaller spec
+#  Auto-generated  |  Targets: Windows x64, Python 3.11, UnityPy 1.25.0
+#
+#  Produces two executables in dist\CHSuite\ sharing one _internal folder:
+#    CHSuite.exe   -- main application
+#    ThemeGen.exe  -- live theme designer (hidden, launched by CHSuite)
+# =============================================================================
+
+from pathlib import Path
+from PyInstaller.utils.hooks import collect_all, collect_submodules
+
+block_cipher = None
+
+
+def _safe_collect(pkg):
+    try:
+        d, b, h = collect_all(pkg)
+        return d, b, h
+    except Exception:
+        return [], [], []
+
+
+# -- Collect all UnityPy pieces -----------------------------------------------
+up_datas,     up_binaries,    up_hidden    = collect_all("UnityPy")
+
+# -- Pillow image plugins ------------------------------------------------------
+pil_datas,    pil_binaries,   pil_hidden   = collect_all("PIL")
+
+# -- Compression backends ------------------------------------------------------
+brotli_d,     brotli_b,       brotli_h     = _safe_collect("brotli")
+brotlicffi_d, brotlicffi_b,  brotlicffi_h = _safe_collect("brotlicffi")
+lz4_d,        lz4_b,          lz4_h        = _safe_collect("lz4")
+
+# -- Native texture decoders via collect_all ----------------------------------
+t2d_d,        t2d_b,          t2d_h        = _safe_collect("texture2ddecoder")
+etcpak_d,     etcpak_b,       etcpak_h     = _safe_collect("etcpak")
+
+# -- archspec: CPU detection library pulled in by etcpak ----------------------
+archspec_d,   archspec_b,     archspec_h   = _safe_collect("archspec")
+
+# -- fmod_toolkit + pyfmodex --------------------------------------------------
+fmod_d,       fmod_b,         fmod_h       = _safe_collect("fmod_toolkit")
+pyfmod_d,     pyfmod_b,       pyfmod_h     = _safe_collect("pyfmodex")
+
+# -- Requests (used by Name Generator for update checks) ----------------------
+req_d,        req_b,          req_h        = _safe_collect("requests")
+
+# -- Discord Rich Presence ----------------------------------------------------
+discord_d,    discord_b,      discord_h    = _safe_collect("pypresence")
+
+# -- Explicit top-level .pyd copies -------------------------------------------
+_t2d_forced    = [('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\.venv\\Lib\\site-packages\\texture2ddecoder\\__init__.py', '.'), ('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\.venv\\Lib\\site-packages\\texture2ddecoder\\_texture2ddecoder.pyd', '.')]
+_etcpak_forced = [('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\.venv\\Lib\\site-packages\\etcpak\\__init__.py', '.'), ('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\.venv\\Lib\\site-packages\\etcpak\\_etcpak_avx2.cp37-win_amd64.pyd', '.'), ('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\.venv\\Lib\\site-packages\\etcpak\\_etcpak_avx512.cp37-win_amd64.pyd', '.'), ('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\.venv\\Lib\\site-packages\\etcpak\\_etcpak_none.pyd', '.'), ('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\.venv\\Lib\\site-packages\\etcpak\\_etcpak_sse41.cp37-win_amd64.pyd', '.')]
+
+# -- base64.txt (embedded icon / font data) — baked in at spec-generation time
+_base64_datas_repr = [('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\base64.txt', '.')]
+
+# -- Images folder (NoteGen templates) — value baked in at spec-generation time
+_images_datas_repr = [('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\_internal\\Images', 'Images')]
+
+# -- Themes folder (built-in theme picker themes) -----------------------------
+_themes_datas_repr = [('E:\\Downloads\\JURMR CHSuite\\macos-linux-windows\\CHSuiteSplit\\Windows\\themes', 'themes')]
+
+# -- Merge all collected pieces ------------------------------------------------
+all_datas = (
+    up_datas + pil_datas +
+    brotli_d + brotlicffi_d + lz4_d +
+    t2d_d + etcpak_d + archspec_d +
+    fmod_d + pyfmod_d +
+    req_d + discord_d +
+    _base64_datas_repr +
+    _images_datas_repr +
+    _themes_datas_repr
+)
+
+all_binaries = (
+    up_binaries + pil_binaries +
+    brotli_b + brotlicffi_b + lz4_b +
+    t2d_b + etcpak_b + archspec_b +
+    fmod_b + pyfmod_b +
+    req_b + discord_b +
+    _t2d_forced +
+    _etcpak_forced
+)
+
+all_hidden = list(set(
+    up_hidden + pil_hidden +
+    brotli_h + brotlicffi_h + lz4_h +
+    t2d_h + etcpak_h + archspec_h +
+    fmod_h + pyfmod_h +
+    req_h +
+
+    # UnityPy 1.25.0 full submodule tree
+    collect_submodules("UnityPy") +
+    collect_submodules("UnityPy.files") +
+    collect_submodules("UnityPy.classes") +
+    collect_submodules("UnityPy.streams") +
+    collect_submodules("UnityPy.helpers") +
+    collect_submodules("UnityPy.enums") +
+    collect_submodules("UnityPy.tools") +
+    collect_submodules("UnityPy.export") +
+    collect_submodules("UnityPy.math") +
+    collect_submodules("UnityPy.downloader") +
+    collect_submodules("fmod_toolkit") +
+    collect_submodules("pyfmodex") +
+
+    # Pillow plugins
+    collect_submodules("PIL") +
+
+    # archspec (CPU detection, required by etcpak)
+    collect_submodules("archspec") +
+    collect_submodules("archspec.cpu") +
+
+    # Requests + urllib3
+    collect_submodules("requests") +
+    collect_submodules("urllib3") +
+    collect_submodules("certifi") +
+    collect_submodules("charset_normalizer") +
+    collect_submodules("idna") +
+
+    # Discord Rich Presence
+    collect_submodules("pypresence") +
+    ["pypresence", "pypresence.presence", "pypresence.baseclient",
+     "pypresence.exceptions", "pypresence.payloads", "pypresence.utils"] +
+
+    # Compression
+    [
+        "brotli", "brotlicffi", "_brotli",
+        "lz4", "lz4.block", "lz4.frame", "lz4.stream",
+    ] +
+
+    # Native decoders
+    [
+        "texture2ddecoder",
+        "texture2ddecoder.texture2ddecoder",
+        "etcpak",
+    ] +
+
+    # stdlib items PyInstaller sometimes misses
+    [
+        "ctypes", "ctypes.util", "ctypes.wintypes",
+        "xml.etree.ElementTree",
+        "logging",
+        "logging.handlers",
+        "importlib.metadata",
+        "importlib.resources",
+        "zlib", "_struct",
+        "configparser",
+        "shutil",
+        "pathlib",
+        "datetime",
+        "threading",
+        "platform",
+        "tempfile",
+        "re",
+        "json",
+        "copy",
+        "colorsys",
+        "math",
+    ] +
+
+    # tkinter
+    [
+        "tkinter", "tkinter.ttk",
+        "tkinter.filedialog", "tkinter.messagebox",
+        "tkinter.simpledialog", "tkinter.colorchooser",
+        "tkinter.scrolledtext", "_tkinter",
+    ]
+))
+
+# =============================================================================
+#  Analysis 1 — CHSuite (main application)
+# =============================================================================
+a = Analysis(
+    ["CHSuite.py"],
+    pathex=[],
+    binaries=all_binaries,
+    datas=all_datas,
+    hiddenimports=all_hidden,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=["rthook_texture2d.py"],
+    excludes=[
+        "setuptools",
+        "setuptools.logging",
+        "test", "unittest",
+        "IPython", "jupyter", "notebook",
+        # matplotlib excluded: its typing.py shadows stdlib typing in frozen
+        # exes and causes a circular-import crash at startup.
+        # Color math is handled by pure-Python helpers in CHSuite.py instead.
+        "matplotlib", "matplotlib.backends", "matplotlib.testing",
+        "numpy", "scipy", "pandas",
+        "PyQt5", "PyQt6", "wx",
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+# =============================================================================
+#  Analysis 2 — ThemeGen (live theme designer, launched as hidden .exe)
+#  ThemeGen only needs stdlib + tkinter so its Analysis is lightweight.
+# =============================================================================
+a_tg = Analysis(
+    ["ThemeGen.py"],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[
+        "tkinter", "tkinter.colorchooser", "tkinter.filedialog",
+        "tkinter.messagebox", "_tkinter",
+        "json", "os", "socket", "struct", "subprocess",
+        "sys", "threading", "time", "pathlib",
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        "setuptools", "test", "unittest",
+        "numpy", "scipy", "pandas",
+        "PIL", "UnityPy",
+        "PyQt5", "PyQt6", "wx",
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+# Share modules between the two analyses so _internal isn't duplicated
+MERGE((a, "CHSuite", "CHSuite"), (a_tg, "ThemeGen", "ThemeGen"))
+
+# =============================================================================
+#  PYZ archives
+# =============================================================================
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz_tg = PYZ(a_tg.pure, a_tg.zipped_data, cipher=block_cipher)
+
+# =============================================================================
+#  EXE 1 — CHSuite.exe
+# =============================================================================
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="CHSuite",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='E:\\Downloads\\JURMR CHSuite\\JURMRWEED.ico',
+)
+
+# =============================================================================
+#  EXE 2 — ThemeGen.exe  (placed alongside CHSuite.exe in dist\CHSuite\)
+# =============================================================================
+exe_tg = EXE(
+    pyz_tg,
+    a_tg.scripts,
+    [],
+    exclude_binaries=True,
+    name="ThemeGen",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='E:\\Downloads\\JURMR CHSuite\\JURMRWEED.ico',
+)
+
+# =============================================================================
+#  COLLECT — one output folder containing both executables + shared _internal
+# =============================================================================
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    exe_tg,
+    a_tg.binaries,
+    a_tg.zipfiles,
+    a_tg.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="CHSuite",
+)
