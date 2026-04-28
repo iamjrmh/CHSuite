@@ -93,7 +93,6 @@ Reads and writes Unity `.assets` files directly using UnityPy. No external tools
 
 | Name | Min Size | Source File |
 |--|--|--|
-| Black | 1920×1080 (Uneditable) | sharedassets1.assets |
 | Spray | 1920×1080 | sharedassets1.assets |
 | Pastel Burst | 1920×1080 | sharedassets1.assets |
 | Groovy | 1920×1080 | sharedassets1.assets |
