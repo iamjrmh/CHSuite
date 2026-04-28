@@ -373,7 +373,25 @@ An all-in-one install manager for Clone Hero. View every registered install at a
 
 ## macOS Installation
   
-being worked on :^)
+## 📁 Method 1 (Recommended)
+
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteMac.dmg).
+2. Double-click **CHSuiteMac.dmg** to open the CHSuite installer.
+3. Drag and drop CHSuite onto the Applications folder. Launch clone hero from the Applications folder or from the Launchpad
+4. CHSuite **should** auto detect your Clone Hero installation. If not, head over to CHManager and locate your Clone Hero.app.
+
+## 📁 Method 2
+
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteMac.pkg).
+2. Double-click **CHSuiteMac.pkg** to open the CHSuite installer.
+3. Follow the on-screen instructions to install CHSuite.
+4. CHSuite **should** auto detect your Clone Hero installation. If not, head over to CHManager and locate your Clone Hero.app.
+
+## 🔄 Updating (Not working as of v7.0)
+
+1. Click on "Check for Update".
+2. If an update is found, press update.
+3. It will automatically install - once done, CHSuite should restart.
 
 ---
 
