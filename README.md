@@ -319,7 +319,7 @@ An all-in-one install manager for Clone Hero. View every registered install at a
   
 ## 📁 Direct Install (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteWindows.exe** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.exe).
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteWindows.exe** from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.exe).
 2. Double-click **CHSuiteWindows.exe** to run the installer.
 3. By default it installs to `C:\CHSuite`. Change it if you prefer.
 4. Complete the installer, then launch **CHSuite** from your Start Menu or Desktop.
@@ -327,7 +327,7 @@ An all-in-one install manager for Clone Hero. View every registered install at a
 
 ## 🚀 Portable Install
 
-1. Download **[CHSuiteWindows.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip).
+1. Download **[CHSuiteWindows.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip)** from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteWindows.zip).
 2. Extract the ZIP anywhere on your PC.
 3. Double-click **CHSuite.exe** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted.
@@ -348,13 +348,13 @@ An all-in-one install manager for Clone Hero. View every registered install at a
   
 ## 📁 Direct Install (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.AppImage).
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.AppImage).
 2. Double-click **CHSuiteLinux.AppImage** to run CHSuite.
 3. On first launch, select your Clone Hero installation folder - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
 
 ## 🚀 Portable Install
 
-1. Download **[CHSuiteLinux.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip)** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip).
+1. Download **[CHSuiteLinux.zip](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip)** from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteLinux.zip).
 2. Extract the ZIP anywhere on your PC.
 3. Double-click **CHSuite** - no install, no Python, nothing else needed.
 4. On first launch, select your Clone Hero installation folder when prompted - CHSuite will derive the `clonehero_Data` path automatically and patch your install in the background (Clone Hero Launcher users).
@@ -375,14 +375,14 @@ An all-in-one install manager for Clone Hero. View every registered install at a
   
 ## 📁 Method 1 (Recommended)
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteMac.dmg).
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteMac.dmg).
 2. Double-click **CHSuiteMac.dmg** to open the CHSuite installer.
 3. Drag and drop CHSuite onto the Applications folder. Launch clone hero from the Applications folder or from the Launchpad
 4. CHSuite **should** auto detect your Clone Hero installation. If not, head over to CHManager and locate your Clone Hero.app.
 
 ## 📁 Method 2
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [latest release](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteMac.pkg).
+1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download **CHSuiteLinux.AppImage** from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest/download/CHSuiteMac.pkg).
 2. Double-click **CHSuiteMac.pkg** to open the CHSuite installer.
 3. Follow the on-screen instructions to install CHSuite.
 4. CHSuite **should** auto detect your Clone Hero installation. If not, head over to CHManager and locate your Clone Hero.app.
