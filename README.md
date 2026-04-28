@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/JURMRWEED.png" width="300">
+  <a href="https://github.com/iamjrmh/CHSuite">
+    <img src="https://raw.githubusercontent.com/iamjrmh/CHSuite/refs/heads/main/JURMRWEED.png" width="300">
+  </a>
 </p>
 <div align="center">
   <h1>CHSuite by JURMR</h1>
