@@ -561,6 +561,32 @@ html, body {
 .form-input::placeholder { color: var(--text-dim); }
 .form-select option { background: var(--card2); }
 
+.info-card {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.875rem 1rem; background: var(--card2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 0.9rem; line-height: 1.5; color: var(--text-mid);
+}
+.info-card svg { margin-top: 0.15rem; }
+
+.mc-bg-info {
+  padding: 0.5rem 0.75rem; background: var(--card);
+  border-radius: var(--radius-sm); font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.mc-img-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  margin-top: 0.5rem; padding: 0.35rem 0.65rem;
+  background: var(--accent); color: white;
+  border-radius: var(--radius-sm); font-size: 0.8rem;
+}
+.mc-img-pill svg { width: 12px; height: 12px; }
+
+.mc-preview-row canvas {
+  display: block; max-width: 100%; height: auto;
+}
+
 .form-input-sm {
   width: 110px; padding: 0.45rem 0.6rem;
   background: var(--card); border: 1px solid var(--border);

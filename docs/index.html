@@ -610,19 +610,88 @@
         </div>
       </section>
 
-      <!-- Menu Changer Tab (Lite notice) -->
+      <!-- Menu Changer Tab -->
       <section class="tab-panel" id="tab-menuchanger">
         <div class="page-header">
           <h1 class="page-title">CH<span class="accent-text">MenuChanger</span></h1>
-          <p class="page-desc">Unfortunately, due to limitations, this is unavailable to the Lite version of CHSuiteLite.</p>
+          <p class="page-desc">Replace Clone Hero menu backgrounds using server-side processing.</p>
         </div>
+
         <div class="tool-body">
-          <div class="output-area">
-            <div class="output-header">Unavailable in Lite</div>
-            <div style="color: var(--text-mid); font-size: 0.9rem;">
-              Check out the full version <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener noreferrer" style="color: var(--accent); text-decoration: none; font-weight: 600;">here</a>.
+          <!-- Warning about Launcher -->
+          <div class="info-card" style="margin-bottom: 1.25rem;">
+            <svg viewBox="0 0 20 20" fill="none" width="18" height="18" style="flex-shrink:0;color:var(--warn);"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 5v4m0 2.5h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>If you're launching Clone Hero through the Launcher, it will reset your custom backgrounds. It's recommended to download the <a href="https://github.com/iamjrmh/CHSuite" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;font-weight:600;">full CHSuite</a> for permanent changes.</span>
+          </div>
+
+          <!-- Background selection -->
+          <div class="form-row">
+            <label class="form-label">Select Background</label>
+            <select class="form-select" id="mc-background-select">
+              <option value="">— choose a background —</option>
+              <option value="Spray">Spray</option>
+              <option value="Pastel Burst">Pastel Burst</option>
+              <option value="Groovy">Groovy</option>
+              <option value="Grains">Grains</option>
+              <option value="Blue Rays">Blue Rays</option>
+              <option value="Alien">Alien</option>
+              <option value="Autumn">Autumn</option>
+              <option value="Light">Light</option>
+              <option value="Dark">Dark</option>
+              <option value="Classic">Classic</option>
+              <option value="Surfer">Surfer</option>
+              <option value="SurferAlt">SurferAlt</option>
+              <option value="Rainbow">Rainbow</option>
+              <option value="Animated">Animated</option>
+              <option value="Logo_Transparent">Logo_Transparent</option>
+            </select>
+          </div>
+
+          <!-- Background info -->
+          <div class="form-row">
+            <div class="mc-bg-info" id="mc-bg-info" style="display:none;">
+              <span class="mc-bg-size"></span>
             </div>
           </div>
+
+          <!-- Replacement image upload -->
+          <div class="form-row">
+            <label class="form-label">Replacement Image <span class="form-hint">(PNG or JPG)</span></label>
+            <div class="drop-zone drop-zone-sm" id="mc-img-drop">
+              <svg viewBox="0 0 24 24" fill="none" width="24" height="24"><path d="M12 16V8M12 8l-3 3M12 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="16" width="18" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+              <span>Drop image or <u>click to browse</u></span>
+              <input type="file" accept=".png,.jpg,.jpeg" hidden id="mc-img-input" />
+            </div>
+            <div class="mc-img-pill" id="mc-img-pill" style="display:none;"></div>
+            <div class="error-msg" id="mc-img-error" style="display:none;"></div>
+          </div>
+
+          <!-- Preview -->
+          <div class="form-row mc-preview-row" id="mc-preview-row" style="display:none;">
+            <label class="form-label">Preview</label>
+            <canvas id="mc-preview-canvas" width="480" height="270" style="max-width:100%;background:#000;border-radius:8px;"></canvas>
+            <div class="mc-preview-hint" id="mc-preview-hint" style="margin-top:0.5rem;color:var(--text-dim);font-size:0.85rem;"></div>
+          </div>
+
+          <!-- Process button -->
+          <div class="form-row">
+            <button class="btn btn-primary" id="mc-process-btn" disabled>
+              <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 3v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Process Background
+            </button>
+          </div>
+
+          <!-- Status / Download -->
+          <div class="output-area mc-output" id="mc-output" style="display:none;">
+            <div class="output-header">Result</div>
+            <div class="mc-status" id="mc-status"></div>
+            <a class="btn btn-primary mc-download-btn" id="mc-download-btn" style="display:none;margin-top:0.75rem;" download>
+              <svg viewBox="0 0 20 20" fill="none" width="16" height="16"><path d="M10 2v12M10 14l-4-4M10 14l4-4M3 17h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Download Modified Assets
+            </a>
+          </div>
+
+          <div class="error-msg mc-error-msg" id="mc-error-msg" style="display:none;margin-top:0.75rem;"></div>
         </div>
       </section>
 

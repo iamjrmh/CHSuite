@@ -941,518 +941,259 @@ if (_ngResetBtn) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MENU CHANGER (JavaScript Unity Asset Parser)
+// MENU CHANGER (Server-Side Processing)
 // ══════════════════════════════════════════════════════════════════════════════
 
-const mcAssetDrop = document.getElementById("mc-asset-drop");
-const mcAssetInput = document.getElementById("mc-asset-input");
-const mcAssetPill = document.getElementById("mc-asset-pill");
-const mcImgDrop = document.getElementById("mc-img-drop");
-const mcImgInput = document.getElementById("mc-img-input");
-const mcImgPill = document.getElementById("mc-img-pill");
-const mcTextureRow = document.getElementById("mc-texture-row");
-const mcTextureSelect = document.getElementById("mc-texture-select");
-const mcProcessBtn = document.getElementById("mc-process-btn");
-const mcOutput = document.getElementById("mc-output");
-const mcDownloadBtn = document.getElementById("mc-download-btn");
-const mcErrorMsg = document.getElementById("mc-error-msg");
-const mcImgError = document.getElementById("mc-img-error");
-const mcBgInfo = document.getElementById("mc-bg-info");
-const mcPreviewRow = document.getElementById("mc-preview-row");
-const mcPreviewCanvas = document.getElementById("mc-preview-canvas");
-const mcPreviewHint = document.getElementById("mc-preview-hint");
+const MC_BACKGROUNDS = [
+  { name: "Spray", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Pastel Burst", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Groovy", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Grains", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Blue Rays", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Alien", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Autumn", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Light", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Dark", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Classic", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Surfer", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "SurferAlt", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Rainbow", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Animated", minWidth: 1920, minHeight: 1080, exactWidth: null, exactHeight: null },
+  { name: "Logo_Transparent", minWidth: 2030, minHeight: 1328, exactWidth: 2030, exactHeight: 1328 },
+];
 
-// If CHMenuChanger UI is not present (Lite), do not run MenuChanger logic.
-const _mcEnabled =
-  !!mcAssetDrop &&
-  !!mcAssetInput &&
-  !!mcImgDrop &&
-  !!mcImgInput &&
-  !!mcTextureSelect &&
-  !!mcProcessBtn &&
-  !!mcPreviewCanvas &&
-  !!mcPreviewHint;
+// Check if new server-side UI elements exist
+const _mcServerEnabled = !!document.getElementById("mc-background-select") && !!document.getElementById("mc-img-drop");
 
-// Safe binary reading utilities
-function safeReadUint32(data, offset) {
-  if (offset + 4 > data.length) return null;
-  return new DataView(data.buffer, data.byteOffset + offset, 4).getUint32(0, true);
-}
+if (_mcServerEnabled) {
+  // State for server-side processing
+  const mcState = {
+    background: null,
+    imgBytes: null,
+    imgName: null,
+    imgUrl: null,
+    workflowRunId: null,
+    pollInterval: null,
+  };
 
-function safeReadUint64(data, offset) {
-  if (offset + 8 > data.length) return null;
-  const lo = new DataView(data.buffer, data.byteOffset + offset, 4).getUint32(0, true);
-  const hi = new DataView(data.buffer, data.byteOffset + offset + 4, 4).getUint32(0, true);
-  return { lo, hi, value: lo + (hi * 0x100000000) };
-}
+  // Elements
+  const mcBgSelect = document.getElementById("mc-background-select");
+  const mcBgInfo = document.getElementById("mc-bg-info");
+  const mcBgInfoSize = mcBgInfo?.querySelector(".mc-bg-size");
+  const mcImgDrop = document.getElementById("mc-img-drop");
+  const mcImgInput = document.getElementById("mc-img-input");
+  const mcImgPill = document.getElementById("mc-img-pill");
+  const mcImgError = document.getElementById("mc-img-error");
+  const mcPreviewRow = document.getElementById("mc-preview-row");
+  const mcPreviewCanvas = document.getElementById("mc-preview-canvas");
+  const mcPreviewHint = document.getElementById("mc-preview-hint");
+  const mcProcessBtn = document.getElementById("mc-process-btn");
+  const mcOutput = document.getElementById("mc-output");
+  const mcStatus = document.getElementById("mc-status");
+  const mcDownloadBtn = document.getElementById("mc-download-btn");
+  const mcErrorMsg = document.getElementById("mc-error-msg");
 
-function safeReadString(data, offset, maxLen) {
-  const len = safeReadUint32(data, offset);
-  if (len === null || len > maxLen || offset + 4 + len > data.length) return null;
-  let str = "";
-  for (let i = 0; i < len; i++) {
-    const charCode = data[offset + 4 + i];
-    if (charCode === 0) break;
-    str += String.fromCharCode(charCode);
-  }
-  return str;
-}
+  // Background selection
+  mcBgSelect?.addEventListener("change", () => {
+    const bgName = mcBgSelect.value;
+    mcState.background = bgName;
 
-function safeReadCString(data, offset, maxLen) {
-  let str = "";
-  for (let i = 0; i < maxLen; i++) {
-    if (offset + i >= data.length) break;
-    const charCode = data[offset + i];
-    if (charCode === 0) break;
-    str += String.fromCharCode(charCode);
-  }
-  return str;
-}
-
-// Unity .assets file parser (minimal, bounds-safe)
-function parseAssetsFile(buffer) {
-  const data = new Uint8Array(buffer);
-  const textures = [];
-
-  try {
-    // Check UnityFS magic or standard assets header
-    if (data.length < 12) {
-      return { error: "File too small to be valid asset" };
-    }
-
-    // Try to find texture objects by looking for common patterns
-    // Unity assets files have type ID and script ID after header
-    // Texture2D type ID is 28 (0x1C) in most Unity versions
-
-    const typeId = 28; // Texture2D
-    const typeIdBytes = new Uint8Array([0x1C, 0x00, 0x00, 0x00]);
-
-    // Search for texture name patterns
-    for (let i = 0; i < data.length - 100; i++) {
-      // Look for possible Texture2D objects
-      // This is a simplified approach - full Unity parsing would be more complex
-      const possibleName = safeReadCString(data, i, 64);
-      if (possibleName && possibleName.length > 3 && possibleName.length < 50) {
-        // Check if name looks like a texture name (no special chars)
-        if (/^[A-Za-z0-9_]+$/.test(possibleName)) {
-          // Check if there's a valid structure nearby
-          const structCheck = safeReadUint32(data, i + 64);
-          if (structCheck !== null) {
-            textures.push({
-              name: possibleName,
-              offset: i,
-            });
-          }
-        }
-      }
-    }
-
-    // If we found no textures, return empty but don't error
-    return { textures };
-
-  } catch (err) {
-    return { error: "Parse error: " + err.message };
-  }
-}
-
-// Extract PNG from Unity assets Texture2D data
-function extractTextureFromAssets(data, textureName) {
-  try {
-    // Search for the texture by name
-    const nameBytes = new TextEncoder().encode(textureName);
-    let foundOffset = -1;
-
-    for (let i = 0; i < data.length - nameBytes.length; i++) {
-      let match = true;
-      for (let j = 0; j < nameBytes.length; j++) {
-        if (data[i + j] !== nameBytes[j]) {
-          match = false;
-          break;
-        }
-      }
-      if (match) {
-        foundOffset = i;
-        break;
-      }
-    }
-
-    if (foundOffset < 0) {
-      return null;
-    }
-
-    // Look for PNG signature after the name, then walk PNG chunks until IEND.
-    // PNG structure: signature (8) + repeating { length(4 BE), type(4), data(length), crc(4) }
-    const searchStart = foundOffset;
-    const searchEnd = Math.min(foundOffset + 2000000, data.length - 8); // allow bigger window; still bounded
-    for (let i = searchStart; i < searchEnd; i++) {
-      if (
-        data[i] === 0x89 && data[i + 1] === 0x50 && data[i + 2] === 0x4E && data[i + 3] === 0x47 &&
-        data[i + 4] === 0x0D && data[i + 5] === 0x0A && data[i + 6] === 0x1A && data[i + 7] === 0x0A
-      ) {
-        let p = i + 8;
-        while (p + 12 <= data.length) {
-          const len = new DataView(data.buffer, data.byteOffset + p, 4).getUint32(0, false);
-          const type0 = data[p + 4], type1 = data[p + 5], type2 = data[p + 6], type3 = data[p + 7];
-          const chunkType = String.fromCharCode(type0, type1, type2, type3);
-          const next = p + 12 + len;
-          if (next > data.length) break;
-          if (chunkType === "IEND") {
-            return data.slice(i, next);
-          }
-          p = next;
-        }
-        // Signature found but chunk walk failed; keep scanning for another signature
-      }
-    }
-
-    return null;
-  } catch (err) {
-    console.error("Texture extraction error:", err);
-    return null;
-  }
-}
-
-function _trySlicePngAt(data, start) {
-  // Returns { bytes, width, height, end } or null
-  if (start < 0 || start + 8 > data.length) return null;
-  if (
-    data[start] !== 0x89 || data[start + 1] !== 0x50 || data[start + 2] !== 0x4E || data[start + 3] !== 0x47 ||
-    data[start + 4] !== 0x0D || data[start + 5] !== 0x0A || data[start + 6] !== 0x1A || data[start + 7] !== 0x0A
-  ) {
-    return null;
-  }
-
-  let width = null;
-  let height = null;
-  let p = start + 8;
-  while (p + 12 <= data.length) {
-    const len = new DataView(data.buffer, data.byteOffset + p, 4).getUint32(0, false);
-    const type0 = data[p + 4], type1 = data[p + 5], type2 = data[p + 6], type3 = data[p + 7];
-    const chunkType = String.fromCharCode(type0, type1, type2, type3);
-    const dataStart = p + 8;
-    const next = p + 12 + len;
-    if (next > data.length) return null;
-
-    if (chunkType === "IHDR" && len >= 8) {
-      width = new DataView(data.buffer, data.byteOffset + dataStart, 4).getUint32(0, false);
-      height = new DataView(data.buffer, data.byteOffset + dataStart + 4, 4).getUint32(0, false);
-    }
-    if (chunkType === "IEND") {
-      return { bytes: data.slice(start, next), width, height, end: next };
-    }
-    p = next;
-  }
-  return null;
-}
-
-function extractBestPngFromAssets(data, expected) {
-  // expected: { exactWidth?, exactHeight?, minWidth?, minHeight? }
-  const maxScan = Math.min(data.length, 64 * 1024 * 1024); // scan up to first 64MB for responsiveness
-  const matches = [];
-
-  for (let i = 0; i + 8 < maxScan; i++) {
-    // PNG signature: 89 50 4E 47 0D 0A 1A 0A
-    if (
-      data[i] === 0x89 && data[i + 1] === 0x50 && data[i + 2] === 0x4E && data[i + 3] === 0x47 &&
-      data[i + 4] === 0x0D && data[i + 5] === 0x0A && data[i + 6] === 0x1A && data[i + 7] === 0x0A
-    ) {
-      const sliced = _trySlicePngAt(data, i);
-      if (sliced?.bytes) {
-        matches.push(sliced);
-        // Skip ahead to end of this PNG to avoid quadratic scanning
-        i = Math.max(i, sliced.end - 1);
-        if (matches.length >= 200) break;
-      }
-    }
-  }
-
-  if (!matches.length) return null;
-
-  const wantExact = expected?.exactWidth && expected?.exactHeight;
-  if (wantExact) {
-    const exact = matches.find(m => m.width === expected.exactWidth && m.height === expected.exactHeight);
-    if (exact) return exact.bytes;
-  }
-
-  const wantMin = expected?.minWidth && expected?.minHeight;
-  if (wantMin) {
-    // pick smallest image that still satisfies minimums
-    const eligible = matches
-      .filter(m => (m.width ?? 0) >= expected.minWidth && (m.height ?? 0) >= expected.minHeight)
-      .sort((a, b) => ((a.width * a.height) - (b.width * b.height)));
-    if (eligible.length) return eligible[0].bytes;
-  }
-
-  // Fallback: biggest PNG we found
-  matches.sort((a, b) => ((b.width ?? 0) * (b.height ?? 0)) - ((a.width ?? 0) * (a.height ?? 0)));
-  return matches[0].bytes;
-}
-
-// Display texture preview on canvas
-async function showTexturePreview(textureData, canvas, hintEl, replacementData) {
-  // If we have a replacement image loaded, show that instead
-  if (replacementData) {
-    try {
-      const blob = new Blob([replacementData], { type: "image/png" });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-
-      img.onload = () => {
-        const ctx = canvas.getContext("2d");
-        // Scale to fit canvas while maintaining aspect ratio
-        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        const x = (canvas.width - w) / 2;
-        const y = (canvas.height - h) / 2;
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, x, y, w, h);
-        hintEl.textContent = `Replacement: ${img.width}×${img.height}px`;
-        URL.revokeObjectURL(url);
-      };
-
-      img.onerror = () => {
-        hintEl.textContent = "Could not load preview";
-        URL.revokeObjectURL(url);
-      };
-
-      img.src = url;
-      return;
-    } catch (err) {
-      // Fall through to default behavior
-    }
-  }
-
-  if (!textureData) {
-    hintEl.textContent = "Preview not available for this asset";
-    return;
-  }
-
-  try {
-    const blob = new Blob([textureData], { type: "image/png" });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-
-    img.onload = () => {
-      const ctx = canvas.getContext("2d");
-      // Scale to fit the existing canvas while maintaining aspect ratio
-      const cw = canvas.width || 480;
-      const ch = canvas.height || 270;
-      const scale = Math.min(cw / img.width, ch / img.height);
-      const w = img.width * scale;
-      const h = img.height * scale;
-      const x = (cw - w) / 2;
-      const y = (ch - h) / 2;
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, cw, ch);
-      ctx.drawImage(img, x, y, w, h);
-      hintEl.textContent = `Current texture: ${img.width}×${img.height}px`;
-      URL.revokeObjectURL(url);
-    };
-
-    img.onerror = () => {
-      hintEl.textContent = "Could not load texture preview";
-      URL.revokeObjectURL(url);
-    };
-
-    img.src = url;
-  } catch (err) {
-    hintEl.textContent = "Preview error: " + err.message;
-  }
-}
-
-function updateMcPreview() {
-  const selectedBg = SUPPORTED_BACKGROUNDS.find(b => b.name === mcTextureSelect.value);
-  if (!selectedBg) return;
-
-  // Try to extract the current texture from the loaded asset bytes.
-  // Most CH texture names match the supported background name.
-  let currentTexture = null;
-  if (state.mc.assetBytes) {
-    currentTexture = extractTextureFromAssets(state.mc.assetBytes, selectedBg.name);
-    if (!currentTexture) {
-      // Fallback: find best matching embedded PNG by dimensions
-      currentTexture = extractBestPngFromAssets(state.mc.assetBytes, selectedBg);
-    }
-  }
-
-  showTexturePreview(currentTexture, mcPreviewCanvas, mcPreviewHint, state.mc.imgBytes);
-}
-
-if (_mcEnabled) {
-  setupDropZone(
-    mcAssetDrop, mcAssetInput, mcAssetPill, /\.assets$/,
-    async file => {
-      const buf = await file.arrayBuffer();
-      state.mc.assetBytes = new Uint8Array(buf);
-      state.mc.assetName = file.name;
-
-      // Clear error message
-      if (mcErrorMsg) mcErrorMsg.style.display = "none";
-
-      // Parse the asset file
-      const result = parseAssetsFile(buf);
-      if (result.error) {
-        if (mcErrorMsg) {
-          mcErrorMsg.textContent = result.error;
-          mcErrorMsg.style.display = "block";
-        }
-        toast("⚠ " + result.error);
-        return;
-      }
-
-      // Populate with supported backgrounds
-      mcTextureSelect.innerHTML = '<option value="">— select texture —</option>';
-      SUPPORTED_BACKGROUNDS.forEach(bg => {
-        const opt = document.createElement("option");
-        opt.value = bg.name;
-        opt.textContent = bg.name + (bg.editable === false ? " (Uneditable)" : "");
-        mcTextureSelect.appendChild(opt);
-      });
-
-      if (mcTextureRow) mcTextureRow.style.display = "";
-      state.mc.textures = result.textures;
-      toast(`Loaded ${state.mc.assetName}`);
-
-      // Hide preview when new asset is loaded
-      if (mcPreviewRow) mcPreviewRow.style.display = "none";
-      updateMcButton();
-
-      // If a background is already selected, refresh preview
-      if (mcTextureSelect.value) {
-        if (mcPreviewRow) mcPreviewRow.style.display = "";
-        updateMcPreview();
-      }
-    },
-    fileName => {
-      if (mcErrorMsg) {
-        mcErrorMsg.textContent = `Invalid file type. Only .assets files are accepted: ${fileName}`;
-        mcErrorMsg.style.display = "block";
-      }
-      toast("⚠ Only .assets files are allowed");
-    }
-  );
-
-  setupDropZone(
-    mcImgDrop, mcImgInput, mcImgPill, /\.(png|jpg|jpeg)$/i,
-    async file => {
-      const buf = await file.arrayBuffer();
-      state.mc.imgBytes = new Uint8Array(buf);
-      state.mc.imgName = file.name;
-      if (mcImgError) mcImgError.style.display = "none";
-
-      // Update preview if a background is selected
-      if (mcTextureSelect.value) {
-        updateMcPreview();
-      }
-
-      updateMcButton();
-    }
-  );
-
-  function updateMcButton() {
-    const hasAsset = !!state.mc.assetBytes;
-    const hasImg = !!state.mc.imgBytes;
-    const hasTexture = !!mcTextureSelect.value;
-    mcProcessBtn.disabled = !(hasAsset && hasImg && hasTexture);
-  }
-
-  mcTextureSelect.addEventListener("change", () => {
-    const selectedBg = SUPPORTED_BACKGROUNDS.find(b => b.name === mcTextureSelect.value);
-    if (selectedBg) {
-      if (mcBgInfo) {
-        if (selectedBg.exactWidth && selectedBg.exactHeight) {
-          mcBgInfo.textContent = `Required size: ${selectedBg.exactWidth}×${selectedBg.exactHeight} (exact)`;
+    if (bgName && mcBgInfo) {
+      const bg = MC_BACKGROUNDS.find(b => b.name === bgName);
+      if (bg) {
+        mcBgInfo.style.display = "";
+        if (bg.exactWidth && bg.exactHeight) {
+          mcBgInfoSize.textContent = `Required size: ${bg.exactWidth}×${bg.exactHeight} (exact)`;
         } else {
-          mcBgInfo.textContent = `Minimum size: ${selectedBg.minWidth}×${selectedBg.minHeight}`;
-        }
-        if (selectedBg.editable === false) {
-          mcBgInfo.textContent += " — This background cannot be edited";
+          mcBgInfoSize.textContent = `Minimum size: ${bg.minWidth}×${bg.minHeight}`;
         }
       }
-
-      // Show preview section
-      if (mcPreviewRow) mcPreviewRow.style.display = "";
-      updateMcPreview();
-    } else {
-      if (mcBgInfo) mcBgInfo.textContent = "";
-      if (mcPreviewRow) mcPreviewRow.style.display = "none";
+    } else if (mcBgInfo) {
+      mcBgInfo.style.display = "none";
     }
+
     updateMcButton();
   });
 
-  mcProcessBtn.addEventListener("click", async () => {
-    const selectedBg = SUPPORTED_BACKGROUNDS.find(b => b.name === mcTextureSelect.value);
-    if (!selectedBg || !state.mc.imgBytes || !state.mc.assetBytes) return;
+  // Image drop zone setup
+  if (mcImgDrop && mcImgInput) {
+    setupDropZone(
+      mcImgDrop, mcImgInput, mcImgPill, /\.(png|jpg|jpeg)$/i,
+      async file => {
+        const buf = await file.arrayBuffer();
+        mcState.imgBytes = new Uint8Array(buf);
+        mcState.imgName = file.name;
 
-    // Check if editable
-    if (selectedBg.editable === false) {
-      toast("⚠ This background cannot be edited");
-      return;
-    }
+        // Create a data URL for preview
+        const blob = new Blob([mcState.imgBytes]);
+        mcState.imgUrl = URL.createObjectURL(blob);
 
-    // Get image dimensions
-    const imgBlob = new Blob([state.mc.imgBytes]);
-    const imgUrl = URL.createObjectURL(imgBlob);
-    const img = new Image();
+        if (mcImgError) mcImgError.style.display = "none";
 
-    img.onload = () => {
-      const width = img.width;
-      const height = img.height;
-      URL.revokeObjectURL(imgUrl);
-
-      // Validate size
-      if (selectedBg.exactWidth && selectedBg.exactHeight) {
-        if (width !== selectedBg.exactWidth || height !== selectedBg.exactHeight) {
-          if (mcImgError) {
-            mcImgError.textContent = `Image must be exactly ${selectedBg.exactWidth}×${selectedBg.exactHeight}, got ${width}×${height}`;
-            mcImgError.style.display = "block";
-          }
-          toast(`⚠ Image must be exactly ${selectedBg.exactWidth}×${selectedBg.exactHeight}`);
-          return;
-        }
-      } else if (width < selectedBg.minWidth || height < selectedBg.minHeight) {
+        // Show preview
+        showReplacementPreview();
+        updateMcButton();
+      },
+      fileName => {
         if (mcImgError) {
-          mcImgError.textContent = `Image must be at least ${selectedBg.minWidth}×${selectedBg.minHeight}, got ${width}×${height}`;
+          mcImgError.textContent = `Invalid file type. Only PNG/JPG allowed: ${fileName}`;
           mcImgError.style.display = "block";
         }
-        toast(`⚠ Image must be at least ${selectedBg.minWidth}×${selectedBg.minHeight}`);
-        return;
+        toast("⚠ Only PNG/JPG files are allowed");
       }
+    );
+  }
 
-      if (mcImgError) mcImgError.style.display = "none";
+  // Show replacement image preview
+  function showReplacementPreview() {
+    if (!mcState.imgUrl || !mcPreviewCanvas || !mcPreviewHint) return;
 
-      state.mc._resultBytes = state.mc.assetBytes;
-      if (mcOutput) mcOutput.classList.remove("hidden");
-      toast("✓ Asset processed (demo mode - full replacement requires server-side tools)");
+    const img = new Image();
+    img.onload = () => {
+      const ctx = mcPreviewCanvas.getContext("2d");
+      const scale = Math.min(mcPreviewCanvas.width / img.width, mcPreviewCanvas.height / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      const x = (mcPreviewCanvas.width - w) / 2;
+      const y = (mcPreviewCanvas.height - h) / 2;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, mcPreviewCanvas.width, mcPreviewCanvas.height);
+      ctx.drawImage(img, x, y, w, h);
+      mcPreviewHint.textContent = `Replacement: ${img.width}×${img.height}px`;
     };
-
     img.onerror = () => {
-      URL.revokeObjectURL(imgUrl);
-      if (mcImgError) {
-        mcImgError.textContent = "Could not load the replacement image";
-        mcImgError.style.display = "block";
-      }
-      toast("⚠ Could not load replacement image");
+      mcPreviewHint.textContent = "Could not load preview";
     };
+    img.src = mcState.imgUrl;
 
-    img.src = imgUrl;
-  });
+    if (mcPreviewRow) mcPreviewRow.style.display = "";
+  }
 
-  if (mcDownloadBtn) {
-    mcDownloadBtn.addEventListener("click", () => {
-      if (!state.mc._resultBytes) return;
-      const blob = new Blob([state.mc._resultBytes]);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = state.mc.assetName || "modified.assets";
-      a.click();
+  // Validate image size against selected background
+  async function validateImageSize() {
+    if (!mcState.imgBytes || !mcState.background) return true;
+
+    const bg = MC_BACKGROUNDS.find(b => b.name === mcState.background);
+    if (!bg) return false;
+
+    return new Promise(resolve => {
+      const blob = new Blob([mcState.imgBytes]);
+      const img = new Image();
+      img.onload = () => {
+        const w = img.width;
+        const h = img.height;
+
+        if (bg.exactWidth && bg.exactHeight) {
+          if (w !== bg.exactWidth || h !== bg.exactHeight) {
+            if (mcImgError) {
+              mcImgError.textContent = `Image must be exactly ${bg.exactWidth}×${bg.exactHeight}, got ${w}×${h}`;
+              mcImgError.style.display = "block";
+            }
+            resolve(false);
+            return;
+          }
+        } else {
+          if (w < bg.minWidth || h < bg.minHeight) {
+            if (mcImgError) {
+              mcImgError.textContent = `Image must be at least ${bg.minWidth}×${bg.minHeight}, got ${w}×${h}`;
+              mcImgError.style.display = "block";
+            }
+            resolve(false);
+            return;
+          }
+        }
+
+        if (mcImgError) mcImgError.style.display = "none";
+        resolve(true);
+      };
+      img.onerror = () => resolve(false);
+      img.src = URL.createObjectURL(blob);
     });
   }
-} else {
-  // Stub so other code paths won't fail if called
-  function updateMcButton() {}
+
+  // Update process button state
+  function updateMcButton() {
+    const hasBg = !!mcState.background;
+    const hasImg = !!mcState.imgBytes;
+    if (mcProcessBtn) mcProcessBtn.disabled = !(hasBg && hasImg);
+  }
+
+  // Upload image to a temporary hosting service (uses data URL via Blob)
+  // For GitHub Actions, we need a URL. Using a simple approach: trigger with data
+  // Note: In production, this would upload to a service like tmpfiles.org or similar
+  async function getImageUrl(file) {
+    // For now, we'll use a data URL approach - the workflow can be triggered
+    // with the image data directly or we can upload to a simple host
+    // This is a placeholder - in production, use a file upload service
+    return URL.createObjectURL(file);
+  }
+
+  // Trigger GitHub workflow via repository dispatch
+  async function triggerWorkflow() {
+    const owner = "iamjrmh";
+    const repo = "CHSuite";
+
+    // For the workflow dispatch, we need to provide a replacement URL
+    // Since we can't easily upload files from browser to a URL, we'll use a workaround:
+    // Encode the image as base64 and pass it differently, or use a simple upload service
+
+    // For now, show a message that this requires server-side file hosting
+    // In production: upload to tmpfiles.org or similar
+    toast("Setting up workflow trigger...");
+
+    // This is a simplified trigger - in production, you'd upload the image first
+    // and then trigger with the URL
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
+      method: "POST",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": "Bearer GITHUB_TOKEN", // User would need to provide this
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      body: JSON.stringify({
+        event_type: "chmenuchanger",
+        client_payload: {
+          background: mcState.background,
+          // In production: use a real URL after uploading
+          replacement_url: mcState.imgUrl
+        }
+      })
+    });
+
+    return response.ok;
+  }
+
+  // Process button handler
+  mcProcessBtn?.addEventListener("click", async () => {
+    if (!mcState.background || !mcState.imgBytes) return;
+
+    // Validate image size
+    const valid = await validateImageSize();
+    if (!valid) return;
+
+    // Show processing state
+    if (mcOutput) mcOutput.style.display = "";
+    if (mcStatus) mcStatus.textContent = "Processing... This may take a minute.";
+    if (mcDownloadBtn) mcDownloadBtn.style.display = "none";
+    if (mcProcessBtn) mcProcessBtn.disabled = true;
+
+    // Note: The actual workflow triggering requires a GitHub token or file hosting
+    // For now, show instructions for manual workflow trigger
+    if (mcStatus) {
+      mcStatus.innerHTML = `
+        <div style="color: var(--text-mid);">
+          To process your background:<br/><br/>
+          1. Upload your image to a public URL<br/>
+          2. Go to <a href="https://github.com/iamjrmh/CHSuite/actions/workflows/chmenuchanger.yml" target="_blank" style="color:var(--accent);">GitHub Actions</a><br/>
+          3. Click "Run workflow" with your image URL<br/><br/>
+          <em>Or download the full <a href="https://github.com/iamjrmh/CHSuite" target="_blank" style="color:var(--accent);">CHSuite app</a> for direct processing.</em>
+        </div>
+      `;
+    }
+    if (mcProcessBtn) mcProcessBtn.disabled = false;
+
+    toast("Please use GitHub Actions to process");
+  });
 }
 
 // ── Sidebar toggle ─────────────────────────────────────────────────────────────
