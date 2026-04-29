@@ -1,0 +1,185 @@
+name: CHMenuChanger Asset Processor
+
+on:
+  workflow_dispatch:
+    inputs:
+      background:
+        description: 'Background name to replace'
+        required: true
+        type: choice
+        options:
+          - Spray
+          - Pastel Burst
+          - Groovy
+          - Grains
+          - Blue Rays
+          - Alien
+          - Autumn
+          - Light
+          - Dark
+          - Classic
+          - Surfer
+          - SurferAlt
+          - Rainbow
+          - Animated
+          - Logo_Transparent
+      replacement_url:
+        description: 'URL to replacement image (PNG/JPG)'
+        required: true
+        type: string
+
+  repository_dispatch:
+    types: [chmenuchanger]
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-chmenuchanger.txt
+
+      - name: Download asset files
+        env:
+          REPLACEMENT_URL: ${{ github.event.inputs.replacement_url || 'https://placeholder' }}
+        run: |
+          # This step expects the asset files to already be in the repository
+          # For the web UI flow, files should be committed to a branch first
+          echo "Waiting for asset files..."
+          # In production, the frontend would commit files to a branch
+          # and this workflow would be triggered after
+
+      - name: Process assets (example with bundled test files)
+        run: |
+          # Create a sample input directory structure for demonstration
+          mkdir -p input_data
+
+          # If no real files present, show message
+          if [ ! -f "input_data/sharedassets1.assets" ]; then
+            echo "No input asset files found in input_data/"
+            echo "Please ensure asset files are committed to the repository"
+            echo "Expected structure:"
+            echo "  input_data/sharedassets1.assets"
+            echo "  input_data/sharedassets1.assets.resS"
+            echo "  input_data/globalgamemanagers.assets"
+            echo "  input_data/globalgamemanagers.assets.resS"
+          fi
+
+      - name: Process with CHMenuChanger
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          BACKGROUND: ${{ github.event.inputs.background }}
+          REPLACEMENT_URL: ${{ github.event.inputs.replacement_url }}
+        run: |
+          # Download replacement image
+          if [ -n "$REPLACEMENT_URL" ] && [ "$REPLACEMENT_URL" != "https://placeholder" ]; then
+            echo "Downloading replacement image from $REPLACEMENT_URL"
+            curl -L -o replacement_image.png "$REPLACEMENT_URL" || echo "Download failed"
+          fi
+
+          # Process if files exist
+          if [ -f "input_data/sharedassets1.assets" ]; then
+            python chmenuchanger_cli.py \
+              -i input_data \
+              -o output_data \
+              -r replacement_image.png \
+              -b "$BACKGROUND"
+          else
+            echo "Skipping processing - no input files"
+            exit 1
+          fi
+
+      - name: Upload artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modified-assets
+          path: output_data/
+          retention-days: 7
+          if-no-files-found: error
+
+  # Alternative job for web-based processing via file uploads
+  process-upload:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'repository_dispatch'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || 'main' }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-chmenuchanger.txt
+
+      - name: Download input files from URLs
+        env:
+          ASSETS1_URL: ${{ github.event.client_payload.assets1_url }}
+          ASSETS1_RESS_URL: ${{ github.event.client_payload.assets1_ress_url }}
+          GGM_URL: ${{ github.event.client_payload.ggm_url }}
+          GGM_RESS_URL: ${{ github.event.client_payload.ggm_ress_url }}
+          REPLACEMENT_URL: ${{ github.event.client_payload.replacement_url }}
+          BACKGROUND: ${{ github.event.client_payload.background }}
+        run: |
+          mkdir -p input_data
+
+          # Download asset files
+          [ -n "$ASSETS1_URL" ] && curl -L -o input_data/sharedassets1.assets "$ASSETS1_URL"
+          [ -n "$ASSETS1_RESS_URL" ] && curl -L -o input_data/sharedassets1.assets.resS "$ASSETS1_RESS_URL"
+          [ -n "$GGM_URL" ] && curl -L -o input_data/globalgamemanagers.assets "$GGM_URL"
+          [ -n "$GGM_RESS_URL" ] && curl -L -o input_data/globalgamemanagers.assets.resS "$GGM_RESS_URL"
+
+          # Download replacement image
+          [ -n "$REPLACEMENT_URL" ] && curl -L -o replacement.png "$REPLACEMENT_URL"
+
+          echo "Files downloaded:"
+          ls -la input_data/
+          ls -la replacement.png 2>/dev/null || echo "No replacement image"
+
+      - name: Process assets
+        env:
+          BACKGROUND: ${{ github.event.client_payload.background }}
+        run: |
+          if [ -f "input_data/sharedassets1.assets" ] && [ -f "replacement.png" ]; then
+            python chmenuchanger_cli.py \
+              -i input_data \
+              -o output_data \
+              -r replacement.png \
+              -b "$BACKGROUND"
+          else
+            echo "Missing required files"
+            exit 1
+          fi
+
+      - name: Create artifact zip
+        run: |
+          cd output_data
+          zip -r ../modified-assets.zip *
+          cd ..
+          ls -la modified-assets.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-assets
+          path: modified-assets.zip
+          retention-days: 7
