@@ -138,13 +138,15 @@ echo.
 
 REM -- [10/10] Clean up intermediate build junk ---------------------------------
 echo  [10/10] Cleaning up intermediate build files...
-IF EXIST "%SIDECAR%\build_pyi" RMDIR /S /Q "%SIDECAR%\build_pyi"
 IF EXIST "%SIDECAR%\__pycache__" RMDIR /S /Q "%SIDECAR%\__pycache__"
 IF EXIST "%SIDECAR%\core\__pycache__" RMDIR /S /Q "%SIDECAR%\core\__pycache__"
 IF EXIST "%SCRIPT_DIR%dist" RMDIR /S /Q "%SCRIPT_DIR%dist"
-REM node_modules, sidecar\.venv, and src-tauri\target are left alone on
-REM purpose -- they're dependency/incremental-compile caches, not junk, and
-REM wiping them would force a full reinstall/recompile on the next build.
+REM node_modules, sidecar\.venv, sidecar\build_pyi, and src-tauri\target are
+REM left alone on purpose -- they're dependency/incremental-compile caches,
+REM not junk. build_pyi in particular is PyInstaller's own analysis cache
+REM for the --collect-all packages (UnityPy, PIL, texture2ddecoder, etc.);
+REM wiping it forces a full re-bundle of every dependency on the next build
+REM even when only the version string changed.
 echo        done.
 
 echo.

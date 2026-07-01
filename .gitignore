@@ -18,6 +18,9 @@ sidecar/chsuite-sidecar
 # Built installers/exe - published via GitHub Releases, not committed
 Software/
 
+# Draft release notes - pasted into the GitHub release form, not committed
+release.md
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

@@ -42,8 +42,10 @@ ROUTES = {
     ("POST", "/config"): lambda body: config.update_config(body),
     ("POST", "/config/detect"): lambda body: config.detect_installs(body),
 
-    # Self-update check (same GitHub repo/releases as the original CHSuite)
+    # Self-update check + install (same GitHub repo/releases as the original CHSuite)
     ("GET", "/updater/check"): lambda body: updater.check(body),
+    ("POST", "/updater/install"): lambda body: updater.start_install_update(body),
+    ("POST", "/updater/install/status"): lambda body: updater.install_update_status(body),
 
     # CHCleaner
     ("POST", "/cleaner/parse"): lambda body: cleaner.parse_bad_songs(body),

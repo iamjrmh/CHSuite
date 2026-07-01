@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Check, Wand2, RefreshCw, ExternalLink } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { Settings as SettingsIcon, Check, Wand2, RefreshCw } from "lucide-react";
 import { Page, Card, SectionLabel, PathPicker, Spinner, pickFolder } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { useConfig } from "../lib/config-context";
@@ -11,7 +10,7 @@ import { api, ApiError } from "../lib/api";
 export function SettingsView() {
   const toast = useToast();
   const { config, changeTheme, update } = useConfig();
-  const { checking, result, checkNow } = useUpdateCheck();
+  const { checking, result, openModal } = useUpdateCheck();
   const [themes, setThemes] = useState<string[]>([]);
   const [swatches, setSwatches] = useState<Record<string, { accent: string; accent2: string; bg: string; card: string }>>({});
   const [detecting, setDetecting] = useState(false);
@@ -131,17 +130,12 @@ export function SettingsView() {
             <div className="font-bold">CHSuite v8.0.0</div>
             <div style={{ color: "var(--text-dim)" }}>Rebuilt with Tauri · React · a Python sidecar. Made with 🎸 by JURMR.</div>
             {result && (
-              <div className="mt-1 flex items-center gap-1.5" style={{ color: result.updateAvailable ? "var(--accent)" : "var(--text-dim)" }}>
-                <span>{result.updateAvailable ? `Update available: v${result.latest}` : `You're up to date (v${result.current})`}</span>
-                {result.updateAvailable && (
-                  <button className="inline-flex items-center gap-1 underline" onClick={() => openUrl(result.url)}>
-                    View release <ExternalLink size={11} />
-                  </button>
-                )}
+              <div className="mt-1" style={{ color: result.updateAvailable ? "var(--accent)" : "var(--text-dim)" }}>
+                {result.updateAvailable ? `Update available: v${result.latest}` : `You're up to date (v${result.current})`}
               </div>
             )}
           </div>
-          <button className="btn btn-ghost btn-sm flex-none" onClick={() => checkNow(true)} disabled={checking}>
+          <button className="btn btn-ghost btn-sm flex-none" onClick={openModal} disabled={checking}>
             {checking ? <Spinner size={14} /> : <RefreshCw size={14} />} Check for updates
           </button>
         </div>

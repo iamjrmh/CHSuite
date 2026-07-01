@@ -15,16 +15,8 @@ export function Sidebar({
   active: ToolId;
   onSelect: (id: ToolId) => void;
 }) {
-  const { checking, result, checkNow } = useUpdateCheck();
+  const { checking, result, openModal } = useUpdateCheck();
   const hasUpdate = !!result?.updateAvailable;
-
-  async function handleUpdateClick() {
-    if (hasUpdate && result) {
-      await openUrl(result.url);
-      return;
-    }
-    await checkNow(true);
-  }
 
   return (
     <nav
@@ -55,7 +47,7 @@ export function Sidebar({
           </div>
         </div>
         <button
-          onClick={handleUpdateClick}
+          onClick={openModal}
           disabled={checking}
           aria-label={hasUpdate ? `Update available: v${result?.latest}` : "Check for updates"}
           title={hasUpdate ? `Update available: v${result?.latest} - click to view` : "Check for updates"}

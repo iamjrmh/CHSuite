@@ -67,6 +67,7 @@ _DEFAULTS = {
     "discord_rpc": False,
     "install_names": {},
     "default_install_dir": "",
+    "skipped_update_version": "",
 }
 
 

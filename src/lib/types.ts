@@ -23,6 +23,7 @@ export interface AppConfig {
   sm_songs_dir: string;
   discord_rpc: boolean;
   default_install_dir: string;
+  skipped_update_version: string;
   [k: string]: unknown;
 }
 
