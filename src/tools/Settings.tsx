@@ -127,7 +127,7 @@ export function SettingsView() {
         <div className="mt-1 flex items-center gap-3">
           <img src="/assets/images/logo.png" alt="" className="h-12 w-12 flex-none rounded-xl" draggable={false} />
           <div className="min-w-0 flex-1 text-[13px]">
-            <div className="font-bold">CHSuite v8.0.0</div>
+            <div className="font-bold">CHSuite v8.0.1</div>
             <div style={{ color: "var(--text-dim)" }}>Rebuilt with Tauri · React · a Python sidecar. Made with 🎸 by JURMR.</div>
             {result && (
               <div className="mt-1" style={{ color: result.updateAvailable ? "var(--accent)" : "var(--text-dim)" }}>

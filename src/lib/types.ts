@@ -59,4 +59,5 @@ export interface Song {
   hasVideoBackground: boolean;
   diffGuitar: number;
   diffDrums: number;
+  alreadyDownloaded: boolean;
 }

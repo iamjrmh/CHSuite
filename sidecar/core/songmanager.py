@@ -60,6 +60,17 @@ def _safe_name(s: str) -> str:
     return s[:140] or "song"
 
 
+def _expected_filename(artist: str, name: str) -> str:
+    return _safe_name(f"{artist} - {name}" if artist else name) + ".sng"
+
+
+def _songs_dir(body: dict) -> Path:
+    songs_dir = body.get("dir") or config.get_config().get("sm_songs_dir", "")
+    if not songs_dir:
+        songs_dir = str(config.documents_clone_hero() / "songs")
+    return Path(songs_dir)
+
+
 def search(body: dict) -> dict:
     requests = _requests()
     sort_prop = body.get("sort")
@@ -79,14 +90,17 @@ def search(body: dict) -> dict:
     except Exception as e:  # noqa: BLE001
         raise ApiError(f"Search failed: {e}", code="search", status=502)
 
+    songs_dir = _songs_dir(body)
     data = resp.get("data", [])
     found = resp.get("found", 0)
     songs = []
     for s in data:
+        artist = s.get("artist", "")
+        name = s.get("name", "")
         songs.append({
             "md5": s.get("md5", ""),
-            "name": s.get("name", ""),
-            "artist": s.get("artist", ""),
+            "name": name,
+            "artist": artist,
             "album": s.get("album", ""),
             "genre": s.get("genre", ""),
             "year": s.get("year", ""),
@@ -96,16 +110,10 @@ def search(body: dict) -> dict:
             "hasVideoBackground": bool(s.get("hasVideoBackground")),
             "diffGuitar": s.get("diff_guitar", -1),
             "diffDrums": s.get("diff_drums", -1),
+            "alreadyDownloaded": (songs_dir / _expected_filename(artist, name)).is_file(),
         })
     page = int(body.get("page", 1))
     return {"found": found, "page": page, "hasMore": page * PER_PAGE < found, "songs": songs}
-
-
-def _songs_dir(body: dict) -> Path:
-    songs_dir = body.get("dir") or config.get_config().get("sm_songs_dir", "")
-    if not songs_dir:
-        songs_dir = str(config.documents_clone_hero() / "songs")
-    return Path(songs_dir)
 
 
 def start_download(body: dict) -> dict:
@@ -144,8 +152,14 @@ def start_download(body: dict) -> dict:
                     _download_jobs[job_id]["queue"][i]["error"] = "no md5"
                     _download_jobs[job_id]["done"] += 1
                 continue
-            fname = _safe_name(f"{artist} - {name}" if artist else name) + ".sng"
+            fname = _expected_filename(artist, name)
             dest = out_dir / fname
+            if dest.is_file():
+                with _download_lock:
+                    _download_jobs[job_id]["queue"][i]["status"] = "skipped"
+                    _download_jobs[job_id]["queue"][i]["path"] = str(dest)
+                    _download_jobs[job_id]["done"] += 1
+                continue
             try:
                 with requests.get(f"{FILES_URL}/{md5}.sng", stream=True, timeout=60, headers=_UA) as r:
                     r.raise_for_status()

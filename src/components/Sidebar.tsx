@@ -92,7 +92,7 @@ export function Sidebar({
         />
         <div className="mt-2.5 flex items-center justify-between px-2.5">
           <span className="text-[10.5px]" style={{ color: "var(--text-dim)" }}>
-            v8.0.0
+            v8.0.1
           </span>
           <div className="flex gap-1">
             <IconLink

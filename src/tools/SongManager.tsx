@@ -34,7 +34,7 @@ interface DownloadQueueItem {
   md5: string;
   name: string;
   artist: string;
-  status: "pending" | "downloading" | "done" | "failed";
+  status: "pending" | "downloading" | "done" | "skipped" | "failed";
   error?: string;
   path?: string;
 }
@@ -275,8 +275,15 @@ export function SongManager() {
           window.clearInterval(downloadPollRef.current!);
           downloadPollRef.current = null;
           const ok = job.queue.filter((q) => q.status === "done").length;
+          const skipped = job.queue.filter((q) => q.status === "skipped").length;
           const failed = job.queue.filter((q) => q.status === "failed").length;
-          toast.success(`Downloaded ${ok}/${job.total}`, failed ? `${failed} failed.` : job.dir);
+          const detail = [
+            skipped ? `${skipped} already downloaded, skipped` : null,
+            failed ? `${failed} failed` : null,
+          ].filter(Boolean).join(" · ") || job.dir;
+          toast.success(`Downloaded ${ok}/${job.total}`, detail);
+          const finishedMd5s = new Set(job.queue.filter((q) => q.status === "done" || q.status === "skipped").map((q) => q.md5));
+          setSongs((prev) => prev.map((s) => (finishedMd5s.has(s.md5) ? { ...s, alreadyDownloaded: true } : s)));
           setSelectAll(false);
           setSelected(new Set());
           setTimeout(() => setDownloadJob(null), 2500);
@@ -400,6 +407,7 @@ export function SongManager() {
                 {songs.map((s) => {
                   const isDl = downloadingMd5s.has(s.md5);
                   const isSel = selected.has(s.md5);
+                  const already = s.alreadyDownloaded;
                   return (
                     <Card key={s.md5 + s.name} className="flex items-center gap-3.5" pad={false}>
                       <div className="flex items-center gap-3.5 py-2.5 pl-3">
@@ -410,6 +418,7 @@ export function SongManager() {
                         <div className="flex items-center gap-2">
                           <span className="truncate text-[14px] font-bold">{renderRichText(s.name) || "Untitled"}</span>
                           {s.hasVideoBackground && <Video size={13} style={{ color: "var(--text-dim)" }} />}
+                          {already && <span className="badge badge-ok">Downloaded</span>}
                         </div>
                         <div className="truncate text-[12px]" style={{ color: "var(--text-mid)" }}>
                           {renderRichText(s.artist)}{s.album ? ` · ${s.album}` : ""}{s.year ? ` · ${s.year}` : ""}
@@ -419,8 +428,13 @@ export function SongManager() {
                         </div>
                       </div>
                       <div className="pr-3">
-                        <button className="btn btn-ghost btn-sm" onClick={() => download([s])} disabled={isDl}>
-                          {isDl ? <Spinner size={14} /> : <Download size={14} />} {isDl ? "" : "Get"}
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => download([s])}
+                          disabled={isDl || already}
+                          title={already ? "Already in your songs folder" : ""}
+                        >
+                          {isDl ? <Spinner size={14} /> : <Download size={14} />} {isDl ? "" : already ? "Downloaded" : "Get"}
                         </button>
                       </div>
                     </Card>
