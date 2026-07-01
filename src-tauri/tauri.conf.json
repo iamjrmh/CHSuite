@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CHSuite",
+  "version": "8.0.0",
+  "identifier": "lol.iamjrmh.chsuite",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "CHSuite",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 1000,
+        "minHeight": 660,
+        "resizable": true,
+        "decorations": false,
+        "transparent": false,
+        "center": true,
+        "theme": "Dark",
+        "backgroundColor": "#0c0e13"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: https://files.enchor.us; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* https://api.enchor.us https://files.enchor.us https://api.github.com https://github.com https://objects.githubusercontent.com"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../sidecar/chsuite-sidecar.exe": "sidecar/chsuite-sidecar.exe"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    }
+  }
+}

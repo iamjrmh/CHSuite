@@ -1,0 +1,8 @@
+# CHSuite sidecar dependencies.
+# The HTTP server core needs none of these - they are imported lazily by the
+# tools that use them, so a missing package degrades to a clean 503 instead of
+# breaking startup.
+Pillow>=10.0
+UnityPy>=1.20
+texture2ddecoder>=1.0
+requests>=2.31

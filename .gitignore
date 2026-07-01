@@ -1,0 +1,25 @@
+# Frontend
+node_modules/
+dist/
+*.local
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Python sidecar
+sidecar/.venv/
+sidecar/**/__pycache__/
+sidecar/build_pyi/
+sidecar/chsuite-sidecar.exe
+sidecar/chsuite-sidecar
+*.pyc
+
+# Built installers/exe - published via GitHub Releases, not committed
+Software/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
