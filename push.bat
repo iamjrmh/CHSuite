@@ -29,6 +29,9 @@ IF NOT EXIST "%SCRIPT_DIR%.git" (
     echo  [1/5] Existing git repo found.
     git remote get-url origin >nul 2>&1 || git remote add origin "%REMOTE_URL%"
 )
+REM Force the local branch to be named "main" regardless of git's default
+REM (older/unconfigured git inits as "master") so this always pushes to main.
+git branch -M main || goto :error
 echo.
 
 REM -- [2/5] Stage changes ---------------------------------------------------------
@@ -52,8 +55,8 @@ git commit -m "%COMMIT_MSG%" || goto :error
 echo.
 
 REM -- [5/5] Push -------------------------------------------------------------
-echo  [5/5] Pushing to origin...
-git push -u origin HEAD
+echo  [5/5] Pushing to origin/main...
+git push -u origin main
 IF ERRORLEVEL 1 (
     echo.
     echo  [WARN] Push was rejected. This repo already has history from the
