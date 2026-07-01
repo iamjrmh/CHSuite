@@ -1,7 +1,7 @@
 @echo off
 REM ============================================================================
 REM  CHSuite (Tauri) -- Push to GitHub
-REM  Stages, commits, and pushes to https://github.com/iamjrmh/CHSuite.
+REM  Stages, commits (if needed), and always pushes to https://github.com/iamjrmh/CHSuite (main).
 REM  .gitignore already excludes build caches (node_modules, dist,
 REM  src-tauri/target, sidecar/.venv, etc.) and Software\ (installers are
 REM  published via GitHub Releases, not committed).
@@ -19,14 +19,14 @@ echo.
 
 where git >nul 2>&1 || ( echo  [ERROR] git not found on PATH. & goto :error )
 
-REM -- [1/5] Repo check ----------------------------------------------------------
+REM -- [1/4] Repo check ----------------------------------------------------------
 IF NOT EXIST "%SCRIPT_DIR%.git" (
-    echo  [1/5] No git repo here yet -- initializing...
+    echo  [1/4] No git repo here yet -- initializing...
     git init || goto :error
     git remote add origin "%REMOTE_URL%" || goto :error
     echo        origin set to %REMOTE_URL%
 ) ELSE (
-    echo  [1/5] Existing git repo found.
+    echo  [1/4] Existing git repo found.
     git remote get-url origin >nul 2>&1 || git remote add origin "%REMOTE_URL%"
 )
 REM Force the local branch to be named "main" regardless of git's default
@@ -34,38 +34,35 @@ REM (older/unconfigured git inits as "master") so this always pushes to main.
 git branch -M main || goto :error
 echo.
 
-REM -- [2/5] Stage changes ---------------------------------------------------------
-echo  [2/5] Staging changes...
+REM -- [2/4] Stage changes ---------------------------------------------------------
+echo  [2/4] Staging changes...
 git add -A || goto :error
 echo.
 
-REM -- [3/5] Anything to commit? -----------------------------------------------
-echo  [3/5] Checking for changes...
+REM -- [3/4] Commit if there's anything staged -------------------------------------
+echo  [3/4] Checking for changes to commit...
 git diff --cached --quiet
-IF NOT ERRORLEVEL 1 (
-    echo        Nothing to commit -- working tree matches the last commit.
-    goto :end
+IF ERRORLEVEL 1 (
+    set /p "COMMIT_MSG=       Commit message (Enter for default): "
+    IF "!COMMIT_MSG!"=="" set "COMMIT_MSG=Update CHSuite"
+    git commit -m "!COMMIT_MSG!" || goto :error
+) ELSE (
+    echo        Nothing new to stage -- skipping commit, still checking for
+    echo        unpushed commits below.
 )
 echo.
 
-REM -- [4/5] Commit ---------------------------------------------------------------
-set /p "COMMIT_MSG=[4/5] Commit message (Enter for default): "
-IF "%COMMIT_MSG%"=="" set "COMMIT_MSG=Update CHSuite"
-git commit -m "%COMMIT_MSG%" || goto :error
-echo.
-
-REM -- [5/5] Push -------------------------------------------------------------
-echo  [5/5] Pushing to origin/main...
+REM -- [4/4] Push -------------------------------------------------------------
+REM Always runs, even with nothing new to commit -- there may already be
+REM local commits that were never successfully pushed to origin/main.
+echo  [4/4] Pushing to origin/main...
 git push -u origin main
 IF ERRORLEVEL 1 (
     echo.
-    echo  [WARN] Push was rejected. This repo already has history from the
-    echo         original Tkinter CHSuite, which this rewrite's local git
-    echo         history doesn't share -- a normal push can't reconcile that.
-    echo         This script will NOT force-push automatically. If you want
-    echo         this rebuild's code to fully replace what's on GitHub, review
-    echo         the remote first, then push manually with the appropriate
-    echo         flag once you're sure.
+    echo  [WARN] Push failed. origin/main is a fresh branch on this repo (it
+    echo         doesn't yet exist alongside the original Tkinter version's
+    echo         "master" branch), so this usually isn't a history conflict --
+    echo         check your GitHub auth/credentials and network connection.
     goto :error
 )
 echo.
