@@ -55,14 +55,14 @@ echo.
 REM -- [4/4] Push -------------------------------------------------------------
 REM Always runs, even with nothing new to commit -- there may already be
 REM local commits that were never successfully pushed to origin/main.
-echo  [4/4] Pushing to origin/main...
-git push -u origin main
+REM Force-pushes: origin/main already has unrelated commits this local repo
+REM doesn't share, and this rebuild's history is meant to fully replace it.
+echo  [4/4] Force-pushing to origin/main...
+git push -u origin main --force
 IF ERRORLEVEL 1 (
     echo.
-    echo  [WARN] Push failed. origin/main is a fresh branch on this repo (it
-    echo         doesn't yet exist alongside the original Tkinter version's
-    echo         "master" branch), so this usually isn't a history conflict --
-    echo         check your GitHub auth/credentials and network connection.
+    echo  [WARN] Push failed -- check your GitHub auth/credentials and
+    echo         network connection.
     goto :error
 )
 echo.
