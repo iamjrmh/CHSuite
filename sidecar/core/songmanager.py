@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import configparser
 import copy
+import json
 import re
 import shutil
 import struct
@@ -69,6 +70,36 @@ def _songs_dir(body: dict) -> Path:
     if not songs_dir:
         songs_dir = str(config.documents_clone_hero() / "songs")
     return Path(songs_dir)
+
+
+# --- library scan cache -----------------------------------------------------
+# Keyed by songs-folder path so switching folders doesn't mix libraries.
+# Rescans reuse a cached entry's metadata as-is instead of reparsing song.ini
+# / re-summing folder size / re-checking for art - only paths missing from the
+# cache (newly added songs) get that work done, and paths no longer found on
+# disk (deleted songs) simply drop out when the tree is walked again.
+
+def _cache_file() -> Path:
+    d = Path.home() / "Documents" / "CHSuite"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "song_cache.json"
+
+
+def _load_cache() -> dict:
+    f = _cache_file()
+    if not f.is_file():
+        return {}
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_cache(cache: dict) -> None:
+    try:
+        _cache_file().write_text(json.dumps(cache, indent=2), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def search(body: dict) -> dict:
@@ -305,7 +336,8 @@ def _find_album_art_in(folder: Path) -> Path | None:
     return None
 
 
-def _scan_library(root: Path, on_item=None) -> list[dict]:
+def _scan_library(root: Path, cached_by_path: dict[str, dict] | None = None, on_item=None) -> list[dict]:
+    cached_by_path = cached_by_path or {}
     items: list[dict] = []
 
     def walk(directory: Path, depth: int) -> None:
@@ -316,18 +348,23 @@ def _scan_library(root: Path, on_item=None) -> list[dict]:
         except OSError:
             return
         if any((directory / f).is_file() for f in _CHART_FILES):
-            meta = _parse_song_ini(directory / "song.ini")
-            size = sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
-            art = _find_album_art_in(directory)
-            items.append({
-                "path": str(directory),
-                "name": meta.get("name") or directory.name,
-                "artist": meta.get("artist", ""),
-                "charter": meta.get("charter", ""),
-                "type": "folder",
-                "size": size,
-                "art": str(art) if art else "",
-            })
+            key = str(directory)
+            cached = cached_by_path.get(key)
+            if cached is not None:
+                items.append(cached)
+            else:
+                meta = _parse_song_ini(directory / "song.ini")
+                size = sum(f.stat().st_size for f in directory.rglob("*") if f.is_file())
+                art = _find_album_art_in(directory)
+                items.append({
+                    "path": key,
+                    "name": meta.get("name") or directory.name,
+                    "artist": meta.get("artist", ""),
+                    "charter": meta.get("charter", ""),
+                    "type": "folder",
+                    "size": size,
+                    "art": str(art) if art else "",
+                })
             if on_item:
                 on_item(len(items))
             return
@@ -335,27 +372,47 @@ def _scan_library(root: Path, on_item=None) -> list[dict]:
             if entry.is_dir():
                 walk(entry, depth + 1)
             elif entry.is_file() and entry.suffix.lower() == ".sng":
-                stem = entry.stem
-                artist, sep, name = stem.partition(" - ")
-                try:
-                    size = entry.stat().st_size
-                except OSError:
-                    size = 0
-                items.append({
-                    "path": str(entry),
-                    "name": name if sep else stem,
-                    "artist": artist if sep else "",
-                    "charter": "",
-                    "type": "sng",
-                    "size": size,
-                    "art": str(entry) if _sng_has_art(entry) else "",
-                })
+                key = str(entry)
+                cached = cached_by_path.get(key)
+                if cached is not None:
+                    items.append(cached)
+                else:
+                    stem = entry.stem
+                    artist, sep, name = stem.partition(" - ")
+                    try:
+                        size = entry.stat().st_size
+                    except OSError:
+                        size = 0
+                    items.append({
+                        "path": key,
+                        "name": name if sep else stem,
+                        "artist": artist if sep else "",
+                        "charter": "",
+                        "type": "sng",
+                        "size": size,
+                        "art": str(entry) if _sng_has_art(entry) else "",
+                    })
                 if on_item:
                     on_item(len(items))
 
     walk(root, 0)
     items.sort(key=lambda i: (i["artist"].lower(), i["name"].lower()))
     return items
+
+
+def cached_library(body: dict) -> dict:
+    """Return whatever was saved from the last scan of this folder, with no disk I/O.
+
+    Lets the frontend paint the library instantly on startup/tab-switch while
+    a real scan (which reconciles adds/removals) runs in the background.
+    """
+    root = _songs_dir(body)
+    cache = _load_cache()
+    entry = cache.get(str(root))
+    if not entry:
+        return {"songs": [], "dir": str(root), "totalSize": 0}
+    songs = entry.get("songs", [])
+    return {"songs": songs, "dir": str(root), "totalSize": sum(s["size"] for s in songs)}
 
 
 def start_library_scan(body: dict) -> dict:
@@ -375,7 +432,11 @@ def start_library_scan(body: dict) -> dict:
                 _scan_jobs[job_id]["count"] = n
 
         try:
-            items = _scan_library(root, on_item)
+            cache = _load_cache()
+            cached_by_path = {s["path"]: s for s in cache.get(str(root), {}).get("songs", [])}
+            items = _scan_library(root, cached_by_path, on_item)
+            cache[str(root)] = {"songs": items}
+            _save_cache(cache)
             with _scan_lock:
                 _scan_jobs[job_id] = {
                     "status": "done",
@@ -420,5 +481,12 @@ def delete_downloaded(body: dict) -> dict:
             deleted.append(raw)
         except OSError as e:
             failed.append({"path": raw, "error": str(e)})
+
+    if deleted:
+        cache = _load_cache()
+        deleted_set = set(deleted)
+        for entry in cache.values():
+            entry["songs"] = [s for s in entry.get("songs", []) if s["path"] not in deleted_set]
+        _save_cache(cache)
 
     return {"deleted": deleted, "failed": failed}

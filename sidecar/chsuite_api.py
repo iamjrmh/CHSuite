@@ -68,6 +68,7 @@ ROUTES = {
     ("POST", "/songs/search"): lambda body: songmanager.search(body),
     ("POST", "/songs/download"): lambda body: songmanager.start_download(body),
     ("POST", "/songs/download/status"): lambda body: songmanager.download_status(body),
+    ("POST", "/songs/library/cached"): lambda body: songmanager.cached_library(body),
     ("POST", "/songs/library/scan"): lambda body: songmanager.start_library_scan(body),
     ("POST", "/songs/library/scan/status"): lambda body: songmanager.library_scan_status(body),
     ("POST", "/songs/library/delete"): lambda body: songmanager.delete_downloaded(body),

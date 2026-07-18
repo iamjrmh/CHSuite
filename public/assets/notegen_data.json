@@ -402,6 +402,16 @@
     ]
    ],
    [
+    "Strikeline Base",
+    [
+     "striker_base_green",
+     "striker_base_red",
+     "striker_base_yellow",
+     "striker_base_blue",
+     "striker_base_orange"
+    ]
+   ],
+   [
     "Strikeline Head Light",
     [
      "striker_head_light_green",
@@ -495,6 +505,28 @@
      "note_anim_kick_sp_phrase_active",
      "note_overlay_kick_sp_phrase",
      "note_overlay_kick_sp_active"
+    ]
+   ],
+   [
+    "Strikeline",
+    [
+     "striker_base_green",
+     "striker_base_red",
+     "striker_base_yellow",
+     "striker_base_blue",
+     "striker_head_light_kick",
+     "striker_head_light_green",
+     "striker_head_light_red",
+     "striker_head_light_yellow",
+     "striker_head_light_blue",
+     "striker_head_cover_green",
+     "striker_head_cover_red",
+     "striker_head_cover_yellow",
+     "striker_head_cover_blue",
+     "striker_cover_green",
+     "striker_cover_red",
+     "striker_cover_yellow",
+     "striker_cover_blue"
     ]
    ],
    [

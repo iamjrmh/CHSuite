@@ -33,7 +33,7 @@ const NO_FLAGS: Flags = { bold: false, italic: false, underline: false, strike: 
 export function NameGen() {
   const toast = useToast();
   const [mode, setMode] = useState<Mode>("gradient");
-  const [name, setName] = useState("JURMR");
+  const [name, setName] = useState("Your Username");
 
   // Gradient state
   const [stops, setStops] = useState<string[]>(["#6C3BFF", "#FF3B8A"]);
@@ -42,7 +42,7 @@ export function NameGen() {
   const [spacing, setSpacing] = useState("");
 
   // Per-letter state
-  const [letters, setLetters] = useState<LetterStyle[]>(() => seedLetters("JURMR"));
+  const [letters, setLetters] = useState<LetterStyle[]>(() => seedLetters("Your Username"));
 
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);

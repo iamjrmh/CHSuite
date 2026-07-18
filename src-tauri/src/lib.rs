@@ -172,6 +172,30 @@ fn spawn_sidecar(app: &tauri::AppHandle) -> Result<(Child, u16), String> {
     }
 }
 
+/// Kill the sidecar and every process it spawned. A plain `Child::kill()` only
+/// signals the direct child - fine for a plain script, but the bundled sidecar
+/// is a PyInstaller onefile executable, which re-execs itself as a child
+/// process on first launch. `child.kill()` alone leaves that re-exec'd process
+/// (the one actually holding the HTTP server / scan threads / song cache file)
+/// running forever as an orphan after the window closes. `taskkill /T` walks
+/// the whole process tree rooted at the child's PID instead.
+fn kill_tree(child: &mut Child) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let _ = Command::new("taskkill")
+            .args(["/PID", &child.id().to_string(), "/T", "/F"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -199,7 +223,7 @@ pub fn run() {
             if let tauri::WindowEvent::Destroyed = event {
                 if let Some(state) = window.try_state::<Sidecar>() {
                     if let Some(mut child) = state.child.lock().unwrap().take() {
-                        let _ = child.kill();
+                        kill_tree(&mut child);
                     }
                 }
             }

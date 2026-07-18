@@ -106,9 +106,14 @@ export function SongManager() {
 
   // Only scan once per app session - switching tabs re-shows the cached
   // list instead of rescanning. Refresh (or a full app restart) is what
-  // triggers a fresh scan.
+  // triggers a fresh scan. The on-disk cache (from the last scan) is painted
+  // instantly while that fresh scan runs in the background, so restarting
+  // the app doesn't mean staring at a scanning spinner every time.
   useEffect(() => {
-    if (tab === "library" && !libLoaded) loadLibrary();
+    if (tab === "library" && !libLoaded) {
+      primeFromCache();
+      loadLibrary();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -116,7 +121,10 @@ export function SongManager() {
   useEffect(() => {
     setLibLoaded(false);
     setLibSongs([]);
-    if (tab === "library") loadLibrary();
+    if (tab === "library") {
+      primeFromCache();
+      loadLibrary();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songsDir]);
 
@@ -174,9 +182,27 @@ export function SongManager() {
     }
   }
 
+  // Best-effort instant paint from the sidecar's on-disk scan cache - no
+  // filesystem walk, so it resolves almost immediately. Only ever adds data;
+  // never blanks the list, so it's safe to fire alongside loadLibrary().
+  async function primeFromCache() {
+    const dir = songsDir;
+    try {
+      const res = await api.post<{ songs: LibrarySong[] }>("/songs/library/cached", { dir: dir || undefined });
+      // The songs folder may have changed while this was in flight - a stale
+      // cache read for the old folder must not paint over the new one.
+      if (dir !== songsDir) return;
+      if (res.songs && res.songs.length) {
+        setLibSongs(res.songs);
+        setLibLoaded(true);
+      }
+    } catch {
+      // Real scan below is the source of truth either way.
+    }
+  }
+
   async function loadLibrary() {
     setLibLoading(true);
-    setLibLoaded(false);
     setScanCount(0);
     try {
       const res = await api.post<{ jobId: string }>("/songs/library/scan", { dir: songsDir || undefined });
@@ -196,9 +222,16 @@ export function SongManager() {
         if (job.status === "done") {
           window.clearInterval(scanPollRef.current!);
           scanPollRef.current = null;
-          setLibSongs(job.songs || []);
+          const next = job.songs || [];
+          setLibSongs(next);
           setLibLoaded(true);
           setLibLoading(false);
+          setLibSelected((prev) => {
+            if (prev.size === 0) return prev;
+            const validPaths = new Set(next.map((s) => s.path));
+            const filtered = new Set([...prev].filter((p) => validPaths.has(p)));
+            return filtered.size === prev.size ? prev : filtered;
+          });
         } else if (job.status === "error") {
           window.clearInterval(scanPollRef.current!);
           scanPollRef.current = null;

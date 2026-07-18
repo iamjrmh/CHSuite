@@ -21,7 +21,7 @@ IS_MAC = platform.system() == "Darwin"
 # Single source of truth for the running app's version. build.bat's version
 # bump step rewrites this line (and the matching fields in package.json /
 # tauri.conf.json / the frontend) together, so keep the "X.Y.Z" format exact.
-APP_VERSION = "8.0.1"
+APP_VERSION = "8.1.0"
 
 
 def app_config_dir() -> Path:

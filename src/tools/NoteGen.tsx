@@ -7,14 +7,20 @@ import { useToast } from "../components/Toast";
 import { api, ApiError } from "../lib/api";
 
 type Colors = Record<string, Record<string, string>>;
+type GroupSpec = [label: string, keys: string[]];
 interface NoteGenData {
   _NG_DEFAULT_COLORS: Colors;
   _NG_FRIENDLY: Record<string, string>;
   _SECTION_ORDER: string[];
+  _NG_GROUPS: Record<string, GroupSpec[]>;
 }
 interface Profile {
   name: string;
   colors: Colors;
+}
+interface ColorGroup {
+  label: string;
+  keys: string[];
 }
 
 const DEFAULT_PROFILE = "Default";
@@ -29,22 +35,16 @@ const SECTION_LABELS: Record<string, string> = {
   other: "Effects",
 };
 
-/** The primary strike-color keys (Note/Cymbal/Tom/Kick), excluding animation, overlay, and tap variants. */
-function isPrimaryNoteKey(section: string, key: string): boolean {
-  if (key.includes("_anim_") || key.startsWith("note_anim_")) return false;
-  if (key.includes("_overlay_") || key.startsWith("note_overlay_")) return false;
-  if (key.includes("_tap_")) return false;
-  switch (section) {
-    case "guitar":
-      return key.startsWith("note_");
-    case "drums":
-      return key.startsWith("note_kick") || key.startsWith("cym_") || key.startsWith("tom_");
-    case "sixfret":
-      return key.startsWith("sf_note_");
-    default:
-      return false;
-  }
-}
+// The "other" (Effects) section has no natural instrument groups baked into
+// notegen_data.json the way guitar/drums/sixfret do, so it's grouped here
+// instead. Any key that shows up in the data but isn't listed below still
+// renders - it just falls into a trailing "Other" group.
+const OTHER_GROUPS: GroupSpec[] = [
+  ["Multiplier", ["combo_one", "combo_two", "combo_three", "combo_four", "combo_sp_active", "combo_two_glow", "combo_three_glow", "combo_four_glow", "combo_sp_active_glow"]],
+  ["Hit Effects", ["striker_hit_flame", "striker_hit_flame_sp_active", "striker_hit_flame_kick", "striker_hit_flame_open", "striker_hit_particles", "striker_hit_particles_sp_active", "striker_hold_spark", "striker_hold_spark_sp_active"]],
+  ["SP Bar & Activation", ["sp_bar_color", "sp_bar_arrow", "sp_bar_elec", "sp_act_animation", "sp_act_flash", "general_sp", "general_sp_active", "sp_gain_lightning", "sp_gain_lightning_secondary"]],
+  ["Leaderboard", ["leaderboard_first", "leaderboard_second", "leaderboard_third"]],
+];
 
 export function NoteGen() {
   const toast = useToast();
@@ -113,15 +113,28 @@ export function NoteGen() {
 
   const sections = useMemo(() => TAB_ORDER.filter((s) => colors[s]), [colors]);
 
-  const keys = useMemo(() => {
+  // Grouped into labeled, color-ordered sections (Notes, Sustains, Strikeline, ...)
+  // instead of one flat list in whatever order the source JSON happened to use.
+  const groups = useMemo<ColorGroup[]>(() => {
     if (!data || !colors[section]) return [];
     const q = filter.trim().toLowerCase();
-    const filtered = Object.keys(colors[section]).filter((k) => {
+    const matches = (k: string) => {
       if (!q) return true;
       const label = (data._NG_FRIENDLY[k] || k).toLowerCase();
       return label.includes(q) || k.toLowerCase().includes(q);
-    });
-    return filtered.sort((a, b) => Number(isPrimaryNoteKey(section, b)) - Number(isPrimaryNoteKey(section, a)));
+    };
+    const available = colors[section];
+    const specs = data._NG_GROUPS[section] || OTHER_GROUPS;
+    const used = new Set<string>();
+    const result: ColorGroup[] = [];
+    for (const [label, groupKeys] of specs) {
+      groupKeys.forEach((k) => used.add(k));
+      const present = groupKeys.filter((k) => k in available && matches(k));
+      if (present.length) result.push({ label, keys: present });
+    }
+    const leftover = Object.keys(available).filter((k) => !used.has(k) && matches(k)).sort();
+    if (leftover.length) result.push({ label: "Other", keys: leftover });
+    return result;
   }, [data, colors, section, filter]);
 
   function setColor(sec: string, key: string, value: string) {
@@ -258,27 +271,39 @@ export function NoteGen() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2">
-            {keys.map((key) => {
-              const val = colors[section][key];
-              return (
-                <div key={key} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-1.5" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12px] font-medium">{data._NG_FRIENDLY[key] || key}</div>
-                    <div className="truncate text-[10px]" style={{ color: "var(--text-dim)", fontFamily: "ui-monospace, Consolas, monospace" }}>{key}</div>
-                  </div>
-                  <div className="flex flex-none items-center gap-1.5">
-                    <ColorPicker value={val} onChange={(hex) => setColor(section, key, hex)} />
-                    <input
-                      className="input flex-none font-mono text-[11px]"
-                      style={{ width: 92, height: 30, padding: "0 8px" }}
-                      value={val}
-                      onChange={(e) => setColor(section, key, e.target.value.toUpperCase())}
-                    />
-                  </div>
+          <div className="flex flex-col gap-4">
+            {groups.map((g) => (
+              <div key={g.label}>
+                <div className="section-label mb-1.5 px-0.5">{g.label}</div>
+                <div className="grid grid-cols-1 gap-2">
+                  {g.keys.map((key) => {
+                    const val = colors[section][key];
+                    return (
+                      <div key={key} className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-1.5" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[12px] font-medium">{data._NG_FRIENDLY[key] || key}</div>
+                          <div className="truncate text-[10px]" style={{ color: "var(--text-dim)", fontFamily: "ui-monospace, Consolas, monospace" }}>{key}</div>
+                        </div>
+                        <div className="flex flex-none items-center gap-1.5">
+                          <ColorPicker value={val} onChange={(hex) => setColor(section, key, hex)} />
+                          <input
+                            className="input flex-none font-mono text-[11px]"
+                            style={{ width: 92, height: 30, padding: "0 8px" }}
+                            value={val}
+                            onChange={(e) => setColor(section, key, e.target.value.toUpperCase())}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
+            {groups.length === 0 && (
+              <div className="py-6 text-center text-[13px]" style={{ color: "var(--text-dim)" }}>
+                No colors match "{filter}"
+              </div>
+            )}
           </div>
         </div>
 
