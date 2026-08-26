@@ -441,10 +441,9 @@ Use at your own risk.
 ## 🎮 Related Projects
 
 - [Clone Hero](https://clonehero.net/) - The rhythm game this tool supports
-- [CHColorGen](https://github.com/iamjrmh/CHColorGen) - Colored name generator for Clone Hero
-- [CHCleaner](https://github.com/iamjrmh/CHCleaner) - Clean up problematic songs from your library
 - [Chorus](https://chorus.fightthe.pw/) - Song database and downloader
 - [Clone Hero Launcher](https://github.com/clonehero-game/releases/releases/download/CloneHeroLauncher/chlauncher-setup.exe) - Direct download of the latest build of the Clone Hero Launcher
+- [CHQueue](https://github.com/iamjrmh/CHQueue) - Are you a streamer? Check out this neat tool for queuing up songs in tiktok chat!
 - [Murrin' It Central](https://discord.gg/PtVqaCWFHa) - Questions? Join the discord server and ask!
 
 ---
