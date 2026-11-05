@@ -8,6 +8,7 @@ interface BadSong {
   path: string;
   name: string;
   exists: boolean;
+  isFile: boolean;
 }
 
 export function Cleaner() {
@@ -81,7 +82,7 @@ export function Cleaner() {
   return (
     <Page
       title="CHCleaner"
-      subtitle="Parse badsongs.txt and bulk-delete the ERROR folders"
+      subtitle="Parse badsongs.txt and bulk-delete the ERROR songs"
       icon={<Trash2 size={20} />}
       actions={
         scanned && songs.length > 0 ? (
@@ -102,9 +103,9 @@ export function Cleaner() {
       >
         <ShieldAlert size={16} style={{ color: "var(--warn)", marginTop: 2, flex: "none" }} />
         <p className="text-[12.5px]" style={{ color: "var(--text-mid)" }}>
-          Only folders under <b>ERROR:</b> sections are listed. Songs under{" "}
-          <b>Warning:</b> are intentionally left alone. Deletions are permanent
-          but logged.
+          Only songs under <b>ERROR:</b> sections are listed - song folders and
+          standalone <b>.sng</b> files alike. Songs under <b>Warning:</b> are
+          intentionally left alone. Deletions are permanent but logged.
         </p>
       </div>
 
@@ -119,12 +120,12 @@ export function Cleaner() {
           hint="Pick your badsongs.txt to see which broken song folders can be cleaned up."
         />
       ) : songs.length === 0 ? (
-        <EmptyState icon={<Trash2 size={26} />} title="Nothing to clean" hint="No ERROR folders were found - your library is healthy." />
+        <EmptyState icon={<Trash2 size={26} />} title="Nothing to clean" hint="No ERROR songs were found - your library is healthy." />
       ) : (
         <Card pad={false}>
           <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
             <span className="text-[13px] font-semibold">
-              {songs.length} folder{songs.length === 1 ? "" : "s"} marked for deletion
+              {songs.length} song{songs.length === 1 ? "" : "s"} marked for deletion
             </span>
             <div className="flex gap-2">
               <button className="btn btn-ghost btn-sm" onClick={() => setChecked(new Set(songs.filter((s) => s.exists).map((s) => s.path)))}>Select all</button>

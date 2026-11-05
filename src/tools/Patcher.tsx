@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Wrench, RefreshCw, ShieldCheck, RotateCcw, Cog } from "lucide-react";
+import { Wrench, RefreshCw, ShieldCheck, RotateCcw, Cog, Zap, ZapOff } from "lucide-react";
 import { Page, Card, EmptyState, Spinner } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { api, ApiError } from "../lib/api";
@@ -10,12 +10,14 @@ export function Patcher() {
   const [installs, setInstalls] = useState<Install[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [fastAuto, setFastAuto] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get<{ installs: Install[] }>("/patcher/installs");
+      const res = await api.get<{ installs: Install[]; fastBootAuto: boolean }>("/patcher/installs");
       setInstalls(res.installs);
+      setFastAuto(res.fastBootAuto);
     } catch (e) {
       toast.error("Could not read installs", (e as ApiError).message);
     } finally {
@@ -43,7 +45,35 @@ export function Patcher() {
     }
   }
 
+  async function toggleFastBoot(install: Install, enable: boolean) {
+    setBusy(`${install.path}#fast`);
+    try {
+      const res = await api.post<{ message: string }>(
+        enable ? "/patcher/fastboot/enable" : "/patcher/fastboot/disable",
+        { path: install.path },
+      );
+      toast.success(enable ? "Fast boot on" : "Fast boot off", res.message);
+      await refresh();
+    } catch (e) {
+      toast.error("Fast boot failed", (e as ApiError).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function setAuto(enabled: boolean) {
+    setFastAuto(enabled);
+    try {
+      await api.post("/patcher/fastboot/auto", { enabled });
+      if (enabled) setTimeout(refresh, 1500);
+    } catch (e) {
+      setFastAuto(!enabled);
+      toast.error("Could not save setting", (e as ApiError).message);
+    }
+  }
+
   const patchedCount = installs.filter((i) => !i.fromLauncher).length;
+  const fastCount = installs.filter((i) => i.fastBoot?.state === "on").length;
 
   return (
     <Page
@@ -71,7 +101,27 @@ export function Patcher() {
             <Stat label="Installs" value={installs.length} />
             <Stat label="Patched (Manual)" value={patchedCount} accent />
             <Stat label="Launcher-managed" value={installs.length - patchedCount} />
+            <Stat label="Fast boot" value={fastCount} accent />
           </div>
+          <Card className="mb-4 flex items-center gap-4">
+            <div
+              className="grid h-11 w-11 flex-none place-items-center rounded-[12px]"
+              style={{ background: "var(--card2)", border: "1px solid var(--border2)", color: "var(--accent)" }}
+            >
+              <Zap size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-bold">Fast boot</div>
+              <div className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+                Clone Hero opens every .sng file on startup just to check it loads, which takes 30+ minutes for a big
+                library on a hard drive. Fast boot skips that check; songs still load normally when you play them.
+              </div>
+            </div>
+            <label className="flex flex-none cursor-pointer items-center gap-2 text-[12.5px] font-semibold">
+              <input type="checkbox" checked={fastAuto} onChange={(e) => setAuto(e.target.checked)} />
+              Keep on after updates
+            </label>
+          </Card>
           <div className="flex flex-col gap-2.5">
             {installs.map((inst) => {
               const patched = !inst.fromLauncher;
@@ -95,9 +145,26 @@ export function Patcher() {
                         {patched ? "✓ Manual" : "⚙ Launcher"}
                       </span>
                       {!inst.exists && <span className="badge badge-warn">exe missing</span>}
+                      <FastBootBadge state={inst.fastBoot?.state} reason={inst.fastBoot?.reason} />
                     </div>
                     <div className="truncate text-[11.5px]" style={{ color: "var(--text-dim)", fontFamily: "ui-monospace, Consolas, monospace" }}>{inst.path}</div>
                   </div>
+                  {(inst.fastBoot?.state === "on" || inst.fastBoot?.state === "off") && (
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => toggleFastBoot(inst, inst.fastBoot?.state !== "on")}
+                      disabled={busy === `${inst.path}#fast`}
+                    >
+                      {busy === `${inst.path}#fast` ? (
+                        <Spinner size={15} />
+                      ) : inst.fastBoot?.state === "on" ? (
+                        <ZapOff size={15} />
+                      ) : (
+                        <Zap size={15} />
+                      )}
+                      {inst.fastBoot?.state === "on" ? "Fast boot off" : "Fast boot on"}
+                    </button>
+                  )}
                   {patched ? (
                     <button className="btn btn-ghost" onClick={() => act(inst, false)} disabled={isBusy}>
                       {isBusy ? <Spinner size={15} /> : <RotateCcw size={15} />} Unpatch
@@ -115,6 +182,18 @@ export function Patcher() {
       )}
     </Page>
   );
+}
+
+function FastBootBadge({ state, reason }: { state?: string; reason?: string }) {
+  if (state === "on") return <span className="badge badge-ok">⚡ Fast boot</span>;
+  if (state === "off") return <span className="badge">Fast boot off</span>;
+  if (state === "unsupported")
+    return (
+      <span className="badge badge-warn" title={reason}>
+        Fast boot n/a
+      </span>
+    );
+  return null;
 }
 
 function Stat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {

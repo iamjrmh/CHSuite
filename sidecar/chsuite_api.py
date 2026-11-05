@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from core import cleaner, config, manager, menuchanger, namegen, notegen, songmanager, updater
+from core import cleaner, config, fastboot, manager, menuchanger, namegen, notegen, songmanager, updater
 from core.errors import ApiError
 
 # ---------------------------------------------------------------------------
@@ -52,9 +52,12 @@ ROUTES = {
     ("POST", "/cleaner/delete"): lambda body: cleaner.delete_songs(body),
 
     # CHPatcher
-    ("GET", "/patcher/installs"): lambda body: manager.list_installs(),
+    ("GET", "/patcher/installs"): lambda body: manager.list_installs_with_fastboot(),
     ("POST", "/patcher/patch"): lambda body: manager.patch_installs(body, manual=True),
     ("POST", "/patcher/unpatch"): lambda body: manager.patch_installs(body, manual=False),
+    ("POST", "/patcher/fastboot/enable"): lambda body: fastboot.route_enable(body),
+    ("POST", "/patcher/fastboot/disable"): lambda body: fastboot.route_disable(body),
+    ("POST", "/patcher/fastboot/auto"): lambda body: fastboot.route_set_auto(body),
 
     # CHNameGen (export only - preview is rendered in the frontend)
     ("POST", "/namegen/export"): lambda body: namegen.export_profile_name(body),
@@ -67,11 +70,19 @@ ROUTES = {
     # CHSongManager (ChorusEncore)
     ("POST", "/songs/search"): lambda body: songmanager.search(body),
     ("POST", "/songs/download"): lambda body: songmanager.start_download(body),
+    ("POST", "/songs/download-all"): lambda body: songmanager.start_download_all(body),
     ("POST", "/songs/download/status"): lambda body: songmanager.download_status(body),
+    ("POST", "/songs/bulk/status"): lambda body: songmanager.bulk_download_status(body),
+    ("POST", "/songs/bulk/start"): lambda body: songmanager.start_bulk_download(body),
+    ("POST", "/songs/bulk/stop"): lambda body: songmanager.stop_bulk_download(body),
+    ("POST", "/songs/bulk/skip"): lambda body: songmanager.skip_current_bulk_download(body),
+    ("POST", "/songs/bulk/discard"): lambda body: songmanager.discard_bulk_download(body),
     ("POST", "/songs/library/cached"): lambda body: songmanager.cached_library(body),
     ("POST", "/songs/library/scan"): lambda body: songmanager.start_library_scan(body),
     ("POST", "/songs/library/scan/status"): lambda body: songmanager.library_scan_status(body),
     ("POST", "/songs/library/delete"): lambda body: songmanager.delete_downloaded(body),
+    ("POST", "/songs/library/convert"): lambda body: songmanager.start_library_convert(body),
+    ("POST", "/songs/library/convert/status"): lambda body: songmanager.library_convert_status(body),
 
     # CHManager (installs + GitHub releases)
     ("GET", "/manager/installs"): lambda body: manager.list_installs(),
@@ -190,6 +201,8 @@ def main():
 
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    # Re-apply fast boot to any install a Clone Hero update has replaced.
+    fastboot.sweep_async()
     try:
         # Block forever; the parent process kills us on app exit.
         thread.join()

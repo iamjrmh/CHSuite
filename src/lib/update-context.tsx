@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { api, ApiError } from "./api";
 import { useConfig } from "./config-context";
 import { UpdateModal } from "../components/UpdateModal";
@@ -29,6 +30,7 @@ export interface InstallJob {
   total: number;
   message?: string;
   error?: string;
+  path?: string;
 }
 
 export type ModalState = "hidden" | "checking" | "current" | "available" | "downloading" | "error";
@@ -121,10 +123,19 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         if (job.status === "done") {
           window.clearInterval(installPollRef.current!);
           installPollRef.current = null;
-          setInstallJob({ ...job, message: "Installer launched. Closing CHSuite…" });
-          setTimeout(() => {
-            getCurrentWindow().close();
-          }, 900);
+          try {
+            // Launched from the Rust shell, not the sidecar - the sidecar's
+            // whole process tree gets torn down when this window closes, which
+            // would kill an installer spawned as the sidecar's own child.
+            await invoke("launch_installer", { path: job.path });
+            setInstallJob({ ...job, message: "Installer launched. Closing CHSuite…" });
+            setTimeout(() => {
+              getCurrentWindow().close();
+            }, 900);
+          } catch (e) {
+            setModalState("error");
+            setModalError(String(e));
+          }
         } else if (job.status === "error") {
           window.clearInterval(installPollRef.current!);
           installPollRef.current = null;

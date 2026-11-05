@@ -122,12 +122,53 @@ export function SettingsView() {
         </div>
       </Card>
 
+      <Card className="mb-4">
+        <SectionLabel>CHSongManager downloads</SectionLabel>
+        <div className="mt-2 flex flex-col gap-4">
+          <div>
+            <div className="mb-1.5 text-[13px] font-semibold">Download format</div>
+            <div className="mb-1 text-[12px]" style={{ color: "var(--text-dim)" }}>
+              New songs are saved this way. Existing songs can be converted from the Library tab.
+            </div>
+            <div className="inline-flex rounded-[12px] p-1" style={{ background: "var(--card2)", border: "1px solid var(--border)" }}>
+              {(["sng", "folder"] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  onClick={() => update({ sm_download_format: fmt })}
+                  className="rounded-[9px] px-4 py-1.5 text-[13px] font-semibold transition-colors"
+                  style={{
+                    background: (config?.sm_download_format || "sng") === fmt ? "var(--accent)" : "transparent",
+                    color: (config?.sm_download_format || "sng") === fmt ? "#fff" : "var(--text-mid)",
+                  }}
+                >
+                  {fmt === "sng" ? ".sng file" : "Song folder"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              className="check mt-0.5"
+              checked={!!config?.sm_skip_video}
+              onChange={(e) => update({ sm_skip_video: e.target.checked })}
+            />
+            <span>
+              <span className="block text-[13px] font-semibold">Skip video backgrounds</span>
+              <span className="block text-[12px]" style={{ color: "var(--text-dim)" }}>
+                New downloads have their background video removed to save space. Charts without a video download unaffected.
+              </span>
+            </span>
+          </label>
+        </div>
+      </Card>
+
       <Card>
         <SectionLabel>About</SectionLabel>
         <div className="mt-1 flex items-center gap-3">
           <img src="/assets/images/logo.png" alt="" className="h-12 w-12 flex-none rounded-xl" draggable={false} />
           <div className="min-w-0 flex-1 text-[13px]">
-            <div className="font-bold">CHSuite v8.1.0</div>
+            <div className="font-bold">CHSuite v8.2.1</div>
             <div style={{ color: "var(--text-dim)" }}>Rebuilt with Tauri · React · a Python sidecar. Made with 🎸 by JURMR.</div>
             {result && (
               <div className="mt-1" style={{ color: result.updateAvailable ? "var(--accent)" : "var(--text-dim)" }}>

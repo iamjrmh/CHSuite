@@ -18,7 +18,7 @@ import threading
 import uuid
 from pathlib import Path
 
-from . import config, menuchanger
+from . import config, fastboot, menuchanger
 from .errors import ApiError, MissingDependency
 
 IS_WINDOWS = platform.system() == "Windows"
@@ -539,6 +539,8 @@ def start_install(body: dict) -> dict:
                 _install_jobs[job_id]["message"] = "Registering install…"
 
             _register_new_install(actual_dest, tag)
+            # A fresh build ships an unpatched GameAssembly.dll.
+            fastboot.ensure_for_launch(str(actual_dest))
 
             with _install_lock:
                 _install_jobs[job_id] = {
@@ -586,6 +588,15 @@ def list_installs() -> dict:
             "isDefault": _norm(path) == default and bool(default),
         })
     return {"registry": str(config.installs_file()), "installs": out}
+
+
+def list_installs_with_fastboot() -> dict:
+    """list_installs() plus each install's fast-boot state (CHPatcher tab)."""
+    res = list_installs()
+    for inst in res["installs"]:
+        inst["fastBoot"] = fastboot.status(inst["path"]) if inst["path"] else {"state": "missing", "reason": ""}
+    res["fastBootAuto"] = bool(config.get_config().get(fastboot.CONFIG_KEY, True))
+    return res
 
 
 def rename_install(body: dict) -> dict:
@@ -702,10 +713,13 @@ def launch(body: dict) -> dict:
     exe = find_ch_exe(path)
     if not exe:
         raise ApiError("Could not find a Clone Hero executable to launch.", code="no_exe", status=404)
+    on_disk = fastboot.ensure_for_launch(str(Path(exe).parent))
     try:
-        subprocess.Popen([exe], cwd=str(Path(exe).parent))
+        proc = subprocess.Popen([exe], cwd=str(Path(exe).parent))
     except OSError as e:
         raise ApiError(f"Failed to launch Clone Hero: {e}", code="launch", status=500)
+    if not on_disk:
+        fastboot.patch_new_process_async(proc.pid)
     return {"launched": exe}
 
 

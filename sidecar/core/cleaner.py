@@ -1,7 +1,9 @@
-"""CHCleaner - parse badsongs.txt and bulk-delete ERROR song folders.
+"""CHCleaner - parse badsongs.txt and bulk-delete ERROR song entries.
 
-Ported faithfully from the original CHCleaner logic: only folders listed under
-``ERROR:`` sections are eligible; ``Warning:`` sections are ignored.
+Ported faithfully from the original CHCleaner logic: only entries listed under
+``ERROR:`` sections are eligible; ``Warning:`` sections are ignored. An entry
+may be a song folder or a standalone ``.sng`` file (Clone Hero's single-file
+song format) - both are deleted the same way once selected.
 """
 
 from __future__ import annotations
@@ -52,7 +54,8 @@ def parse_bad_songs(body: dict) -> dict:
         items.append({
             "path": fp,
             "name": Path(fp).name or fp,
-            "exists": Path(fp).is_dir(),
+            "exists": Path(fp).exists(),
+            "isFile": Path(fp).is_file(),
         })
     return {"path": path, "count": len(items), "songs": items}
 
@@ -76,9 +79,14 @@ def delete_songs(body: dict) -> dict:
             lines.append(f"⚠ Not found: {raw}")
             continue
         try:
-            shutil.rmtree(p)
-            deleted.append(raw)
-            lines.append(f"✓ Deleted Folder: {raw}")
+            if p.is_file():
+                p.unlink()
+                deleted.append(raw)
+                lines.append(f"✓ Deleted File: {raw}")
+            else:
+                shutil.rmtree(p)
+                deleted.append(raw)
+                lines.append(f"✓ Deleted Folder: {raw}")
         except Exception as e:  # noqa: BLE001
             failed.append({"path": raw, "error": str(e)})
             lines.append(f"✗ Failed: {raw}\n  Error: {e}")

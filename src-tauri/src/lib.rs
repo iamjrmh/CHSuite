@@ -25,6 +25,33 @@ fn sidecar_port(state: State<Sidecar>) -> Option<u16> {
     *state.port.lock().unwrap()
 }
 
+/// Spawn the downloaded installer detached from *this* process (not the
+/// sidecar). Must be launched from here rather than from the Python sidecar:
+/// the window-close handler `taskkill /T`s the sidecar's whole process tree,
+/// which would kill an installer the sidecar spawned as its own child before
+/// it ever got to run. A process this app spawns directly is never part of
+/// that tree and survives both the sidecar teardown and this app's own exit.
+#[tauri::command]
+fn launch_installer(path: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        Command::new(&path)
+            .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+            .spawn()
+            .map_err(|e| format!("failed to launch installer: {e}"))?;
+    }
+    #[cfg(not(windows))]
+    {
+        Command::new(&path)
+            .spawn()
+            .map_err(|e| format!("failed to launch installer: {e}"))?;
+    }
+    Ok(())
+}
+
 /// Resolve the python interpreter to use. A bundled/venv interpreter takes
 /// precedence so end users never need a system Python; otherwise fall back to
 /// whatever is on PATH (handy during development).
@@ -202,7 +229,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(Sidecar::default())
-        .invoke_handler(tauri::generate_handler![sidecar_port])
+        .invoke_handler(tauri::generate_handler![sidecar_port, launch_installer])
         .setup(|app| {
             let handle = app.handle().clone();
             match spawn_sidecar(&handle) {

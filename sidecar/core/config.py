@@ -21,7 +21,7 @@ IS_MAC = platform.system() == "Darwin"
 # Single source of truth for the running app's version. build.bat's version
 # bump step rewrites this line (and the matching fields in package.json /
 # tauri.conf.json / the frontend) together, so keep the "X.Y.Z" format exact.
-APP_VERSION = "8.1.0"
+APP_VERSION = "8.2.1"
 
 
 def app_config_dir() -> Path:
@@ -64,10 +64,15 @@ _DEFAULTS = {
     "default_data_path": "",
     "ch_default_install": "",
     "sm_songs_dir": "",
+    "sm_download_format": "sng",
+    "sm_skip_video": False,
     "discord_rpc": False,
     "install_names": {},
     "default_install_dir": "",
     "skipped_update_version": "",
+    # CHPatcher "Fast boot": keep every install's .sng boot check patched out,
+    # re-applying after Clone Hero updates (see core/fastboot.py).
+    "fastboot_auto": True,
 }
 
 

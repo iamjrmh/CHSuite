@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Music2, Search, Download, FolderInput, Video, CheckSquare, Square, HardDrive, RefreshCw, Trash2 } from "lucide-react";
+import { Music2, Search, Download, FolderInput, Video, VideoOff, FileArchive, FolderOutput, CheckSquare, Square, HardDrive, RefreshCw, Trash2, StopCircle, SkipForward, X } from "lucide-react";
 import { Page, Card, EmptyState, Spinner, pickFolder } from "../components/ui";
 import { useToast } from "../components/Toast";
 import { api, ApiError, fetchBlobUrl } from "../lib/api";
 import { useConfig } from "../lib/config-context";
 import { renderRichText } from "../lib/richtext";
-import type { Song } from "../lib/types";
+import type { Song, BulkStatus } from "../lib/types";
 
 const INSTRUMENTS = ["", "guitar", "bass", "drums", "keys", "rhythm", "vocals"];
 const DIFFICULTIES = ["", "expert", "hard", "medium", "easy"];
 const POLL_MS = 350;
+const BULK_POLL_MS = 1000;
 
 interface LibrarySong {
   path: string;
@@ -40,11 +41,26 @@ interface DownloadQueueItem {
 }
 
 interface DownloadJob {
-  status: "running" | "done";
+  status: "collecting" | "running" | "done";
   dir: string;
   total: number;
   done: number;
   queue: DownloadQueueItem[];
+  error?: string;
+}
+
+interface ConvertQueueItem {
+  path: string;
+  status: "pending" | "converting" | "done" | "skipped" | "failed";
+  newPath?: string;
+  error?: string;
+}
+
+interface ConvertJob {
+  status: "running" | "done";
+  total: number;
+  done: number;
+  queue: ConvertQueueItem[];
 }
 
 export function SongManager() {
@@ -71,23 +87,41 @@ export function SongManager() {
   const [libSelected, setLibSelected] = useState<Set<string>>(new Set());
   const [libDeleting, setLibDeleting] = useState(false);
   const [scanCount, setScanCount] = useState(0);
+  const [convertJob, setConvertJob] = useState<ConvertJob | null>(null);
+
+  const [bulkStatus, setBulkStatus] = useState<BulkStatus | null>(null);
+  const [bulkStarting, setBulkStarting] = useState(false);
 
   const songsDir = config?.sm_songs_dir || "";
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<(reset?: boolean) => void>(() => {});
   const scanPollRef = useRef<number | null>(null);
   const downloadPollRef = useRef<number | null>(null);
+  const convertPollRef = useRef<number | null>(null);
+  const bulkPollRef = useRef<number | null>(null);
 
   const downloadingMd5s = useMemo(() => {
     if (!downloadJob || downloadJob.status === "done") return new Set<string>();
     return new Set(downloadJob.queue.filter((q) => q.status === "pending" || q.status === "downloading").map((q) => q.md5));
   }, [downloadJob]);
 
+  const converting = !!convertJob && convertJob.status !== "done";
+  const libSelectedHasFolder = useMemo(
+    () => libSongs.some((s) => libSelected.has(s.path) && s.type === "folder"),
+    [libSongs, libSelected],
+  );
+  const libSelectedHasSng = useMemo(
+    () => libSongs.some((s) => libSelected.has(s.path) && s.type === "sng"),
+    [libSongs, libSelected],
+  );
+
   // Stop any in-flight polling when the tool unmounts.
   useEffect(() => {
     return () => {
       if (scanPollRef.current) window.clearInterval(scanPollRef.current);
       if (downloadPollRef.current) window.clearInterval(downloadPollRef.current);
+      if (convertPollRef.current) window.clearInterval(convertPollRef.current);
+      if (bulkPollRef.current) window.clearInterval(bulkPollRef.current);
     };
   }, []);
 
@@ -96,6 +130,25 @@ export function SongManager() {
     search(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Check on open whether a bulk "download all" is already running (survives
+  // switching tabs/tools) or was left interrupted/stopped from a previous
+  // session - the checkpoint on disk means that state outlives the app
+  // closing, so this can offer to resume right where it left off.
+  useEffect(() => {
+    refreshBulkStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (bulkStatus?.status === "running") {
+      if (!bulkPollRef.current) bulkPollRef.current = window.setInterval(refreshBulkStatus, BULK_POLL_MS);
+    } else if (bulkPollRef.current) {
+      window.clearInterval(bulkPollRef.current);
+      bulkPollRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bulkStatus?.status]);
 
   // "Select all" stays active as more results load in, so newly-appended
   // songs keep getting picked up automatically while scrolling.
@@ -269,6 +322,52 @@ export function SongManager() {
     }
   }
 
+  async function convertSelected(target: "sng" | "folder" | "keep", stripVideo: boolean) {
+    const paths = [...libSelected];
+    if (!paths.length) return;
+    try {
+      const res = await api.post<{ jobId: string }>("/songs/library/convert", {
+        paths,
+        target,
+        stripVideo,
+        dir: songsDir || undefined,
+      });
+      pollConvert(res.jobId);
+    } catch (e) {
+      toast.error("Conversion failed", (e as ApiError).message);
+    }
+  }
+
+  function pollConvert(jobId: string) {
+    if (convertPollRef.current) window.clearInterval(convertPollRef.current);
+    convertPollRef.current = window.setInterval(async () => {
+      try {
+        const job = await api.post<ConvertJob>("/songs/library/convert/status", { jobId });
+        setConvertJob(job);
+        if (job.status === "done") {
+          window.clearInterval(convertPollRef.current!);
+          convertPollRef.current = null;
+          const ok = job.queue.filter((q) => q.status === "done").length;
+          const skipped = job.queue.filter((q) => q.status === "skipped").length;
+          const failed = job.queue.filter((q) => q.status === "failed").length;
+          const detail = [
+            skipped ? `${skipped} unchanged` : null,
+            failed ? `${failed} failed` : null,
+          ].filter(Boolean).join(" · ") || undefined;
+          toast.success(`Converted ${ok}/${job.total}`, detail);
+          setLibSelected(new Set());
+          setTimeout(() => setConvertJob(null), 2500);
+          loadLibrary();
+        }
+      } catch (e) {
+        window.clearInterval(convertPollRef.current!);
+        convertPollRef.current = null;
+        toast.error("Conversion failed", (e as ApiError).message);
+        setConvertJob(null);
+      }
+    }, POLL_MS);
+  }
+
   function toggleLibSelectAll() {
     if (libSelected.size === libSongs.length && libSongs.length > 0) {
       setLibSelected(new Set());
@@ -298,6 +397,79 @@ export function SongManager() {
     }
   }
 
+  // An unfiltered "download all" is the whole-catalog case, handled by the
+  // resumable bulk subsystem below (checkpointed to disk, survives an app
+  // restart). A filtered one (a typed query or instrument/difficulty set) is
+  // a one-off batch scoped to those filters, so it stays on the simpler
+  // fire-and-forget job used for an explicit multi-select download.
+  async function downloadAll() {
+    if (!found) return;
+    if (!query && !instrument && !difficulty) {
+      startBulk(false);
+      return;
+    }
+    try {
+      const res = await api.post<{ jobId: string }>("/songs/download-all", {
+        query,
+        instrument: instrument || undefined,
+        difficulty: difficulty || undefined,
+        dir: songsDir || undefined,
+      });
+      pollDownload(res.jobId);
+    } catch (e) {
+      toast.error("Download failed", (e as ApiError).message);
+    }
+  }
+
+  async function refreshBulkStatus() {
+    try {
+      const st = await api.post<BulkStatus>("/songs/bulk/status", {});
+      setBulkStatus(st.status === "none" ? null : st);
+    } catch {
+      // Best-effort - the next poll (or the next time this tool opens) tries again.
+    }
+  }
+
+  async function startBulk(resume: boolean) {
+    setBulkStarting(true);
+    try {
+      const st = await api.post<BulkStatus>("/songs/bulk/start", { dir: songsDir || undefined, resume });
+      setBulkStatus(st);
+    } catch (e) {
+      toast.error("Couldn't start downloading", (e as ApiError).message);
+    } finally {
+      setBulkStarting(false);
+    }
+  }
+
+  async function stopBulk() {
+    try {
+      const st = await api.post<BulkStatus>("/songs/bulk/stop", {});
+      setBulkStatus(st);
+    } catch (e) {
+      toast.error("Couldn't stop", (e as ApiError).message);
+    }
+  }
+
+  async function skipCurrentBulk() {
+    try {
+      const st = await api.post<BulkStatus>("/songs/bulk/skip", {});
+      setBulkStatus(st);
+    } catch {
+      // Nothing to skip (job already finished/stopped) - safe to ignore.
+    }
+  }
+
+  async function discardBulk() {
+    try {
+      await api.post("/songs/bulk/discard", {});
+    } catch (e) {
+      toast.error("Couldn't dismiss", (e as ApiError).message);
+      return;
+    }
+    setBulkStatus(null);
+  }
+
   function pollDownload(jobId: string) {
     if (downloadPollRef.current) window.clearInterval(downloadPollRef.current);
     downloadPollRef.current = window.setInterval(async () => {
@@ -307,6 +479,11 @@ export function SongManager() {
         if (job.status === "done") {
           window.clearInterval(downloadPollRef.current!);
           downloadPollRef.current = null;
+          if (job.error) {
+            toast.error("Download failed", job.error);
+            setDownloadJob(null);
+            return;
+          }
           const ok = job.queue.filter((q) => q.status === "done").length;
           const skipped = job.queue.filter((q) => q.status === "skipped").length;
           const failed = job.queue.filter((q) => q.status === "failed").length;
@@ -343,6 +520,11 @@ export function SongManager() {
                 <Download size={15} /> Download {selected.size}
               </button>
             )}
+            {searched && found > 0 && !downloadJob && (query || instrument || difficulty) && (
+              <button className="btn btn-primary" onClick={downloadAll}>
+                <Download size={15} /> Download all {found.toLocaleString()} results
+              </button>
+            )}
             <button className="btn btn-ghost" onClick={setDir}>
               <FolderInput size={15} /> {songsDir ? "Songs folder" : "Set folder"}
             </button>
@@ -350,9 +532,24 @@ export function SongManager() {
         ) : (
           <>
             {libSelected.size > 0 && (
-              <button className="btn btn-danger" onClick={() => deleteLibraryPaths([...libSelected])} disabled={libDeleting}>
-                {libDeleting ? <Spinner size={15} /> : <Trash2 size={15} />} Delete {libSelected.size}
-              </button>
+              <>
+                <button className="btn btn-ghost" onClick={() => convertSelected("keep", true)} disabled={converting}>
+                  {converting ? <Spinner size={15} /> : <VideoOff size={15} />} Remove video
+                </button>
+                {libSelectedHasSng && (
+                  <button className="btn btn-ghost" onClick={() => convertSelected("folder", false)} disabled={converting}>
+                    <FolderOutput size={15} /> To folder
+                  </button>
+                )}
+                {libSelectedHasFolder && (
+                  <button className="btn btn-ghost" onClick={() => convertSelected("sng", false)} disabled={converting}>
+                    <FileArchive size={15} /> To .sng
+                  </button>
+                )}
+                <button className="btn btn-danger" onClick={() => deleteLibraryPaths([...libSelected])} disabled={libDeleting}>
+                  {libDeleting ? <Spinner size={15} /> : <Trash2 size={15} />} Delete {libSelected.size}
+                </button>
+              </>
             )}
             <button className="btn btn-ghost" onClick={setDir}>
               <FolderInput size={15} /> {songsDir ? "Songs folder" : "Set folder"}
@@ -380,6 +577,89 @@ export function SongManager() {
 
       {tab === "search" ? (
         <>
+          {!bulkStatus ? (
+            <Card className="mb-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold">Download every song on ChorusEncore</div>
+                <div className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+                  One click, runs in the background, resumes automatically if interrupted.
+                </div>
+              </div>
+              <button className="btn btn-primary flex-none" onClick={() => startBulk(false)} disabled={bulkStarting}>
+                {bulkStarting ? <Spinner size={15} /> : <Download size={15} />} Download All Songs
+              </button>
+            </Card>
+          ) : bulkStatus.status === "running" ? (
+            <Card className="mb-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="truncate text-[13px] font-semibold">
+                  {bulkStatus.phase === "deferred"
+                    ? `Retrying ${bulkStatus.deferredCount ?? 0} slow download${bulkStatus.deferredCount === 1 ? "" : "s"}…`
+                    : `Downloading every song… ${((bulkStatus.done ?? 0) + (bulkStatus.skipped ?? 0)).toLocaleString()}/${(bulkStatus.found ?? 0).toLocaleString()}`}
+                </span>
+                <div className="flex flex-none items-center gap-2">
+                  <button className="btn btn-ghost btn-sm" onClick={skipCurrentBulk}>
+                    <SkipForward size={13} /> Skip
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={stopBulk}>
+                    <StopCircle size={13} /> Stop
+                  </button>
+                </div>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--card2)" }}>
+                <div
+                  className="h-full rounded-full transition-[width]"
+                  style={{
+                    width: `${bulkStatus.found ? (((bulkStatus.done ?? 0) + (bulkStatus.skipped ?? 0)) / bulkStatus.found) * 100 : 0}%`,
+                    background: "var(--accent)",
+                  }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-[12px]" style={{ color: "var(--text-mid)" }}>
+                <span className="min-w-0 truncate">
+                  {bulkStatus.currentName || "Preparing…"}
+                  {bulkStatus.currentTotal ? ` · ${fmtSize(bulkStatus.currentBytes || 0)}/${fmtSize(bulkStatus.currentTotal)}` : ""}
+                </span>
+                <span className="flex-none">
+                  {(bulkStatus.skipped ?? 0).toLocaleString()} already owned
+                  {bulkStatus.failedCount ? ` · ${bulkStatus.failedCount.toLocaleString()} failed` : ""}
+                </span>
+              </div>
+            </Card>
+          ) : bulkStatus.status === "done" ? (
+            <Card className="mb-4 flex items-center justify-between gap-3">
+              <span className="text-[13px] font-semibold">
+                Downloaded everything - {(bulkStatus.done ?? 0).toLocaleString()} new,{" "}
+                {(bulkStatus.skipped ?? 0).toLocaleString()} already owned
+                {bulkStatus.failedCount ? `, ${bulkStatus.failedCount.toLocaleString()} failed` : ""}
+              </span>
+              <button className="btn btn-ghost btn-sm flex-none" onClick={discardBulk} title="Dismiss">
+                <X size={13} />
+              </button>
+            </Card>
+          ) : (
+            <Card className="mb-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold">
+                  {bulkStatus.status === "interrupted" ? "Download all was interrupted" : "Download all paused"} -{" "}
+                  {((bulkStatus.done ?? 0) + (bulkStatus.skipped ?? 0)).toLocaleString()}/{(bulkStatus.found ?? 0).toLocaleString()} songs
+                </div>
+                {bulkStatus.stopReason && (
+                  <div className="truncate text-[12px]" style={{ color: "var(--text-mid)" }}>{bulkStatus.stopReason}</div>
+                )}
+              </div>
+              <div className="flex flex-none items-center gap-2">
+                <button className="btn btn-primary btn-sm" onClick={() => startBulk(true)} disabled={bulkStarting}>
+                  {bulkStarting ? <Spinner size={13} /> : <Download size={13} />} Resume
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => startBulk(false)} disabled={bulkStarting}>Start over</button>
+                <button className="btn btn-ghost btn-sm" onClick={discardBulk} title="Dismiss">
+                  <X size={13} />
+                </button>
+              </div>
+            </Card>
+          )}
+
           <Card className="mb-4">
             <form onSubmit={(e) => { e.preventDefault(); search(true); }} className="flex gap-2.5">
               <div className="relative flex-1">
@@ -402,17 +682,21 @@ export function SongManager() {
             <Card className="mb-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[13px] font-semibold">
-                  {downloadJob.status === "done" ? "Download complete" : "Downloading…"} {downloadJob.done}/{downloadJob.total}
+                  {downloadJob.status === "collecting"
+                    ? `Finding songs… ${downloadJob.total.toLocaleString()} queued`
+                    : downloadJob.status === "done"
+                      ? "Download complete"
+                      : `Downloading… ${downloadJob.done}/${downloadJob.total}`}
                 </span>
                 {downloadJob.status !== "done" && <Spinner size={14} />}
               </div>
               <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--card2)" }}>
                 <div
                   className="h-full rounded-full transition-[width]"
-                  style={{ width: `${downloadJob.total ? (downloadJob.done / downloadJob.total) * 100 : 0}%`, background: "var(--accent)" }}
+                  style={{ width: `${downloadJob.status !== "collecting" && downloadJob.total ? (downloadJob.done / downloadJob.total) * 100 : 0}%`, background: "var(--accent)" }}
                 />
               </div>
-              {downloadJob.status !== "done" && (
+              {downloadJob.status === "running" && (
                 <div className="mt-2 truncate text-[12px]" style={{ color: "var(--text-mid)" }}>
                   {downloadJob.queue.find((q) => q.status === "downloading")?.name || "Preparing…"}
                 </div>
@@ -484,6 +768,22 @@ export function SongManager() {
         </>
       ) : (
         <>
+          {convertJob && (
+            <Card className="mb-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[13px] font-semibold">
+                  {convertJob.status === "done" ? "Conversion complete" : "Converting…"} {convertJob.done}/{convertJob.total}
+                </span>
+                {convertJob.status !== "done" && <Spinner size={14} />}
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--card2)" }}>
+                <div
+                  className="h-full rounded-full transition-[width]"
+                  style={{ width: `${convertJob.total ? (convertJob.done / convertJob.total) * 100 : 0}%`, background: "var(--accent)" }}
+                />
+              </div>
+            </Card>
+          )}
           {libLoading && !libLoaded ? (
             <Card className="flex flex-col items-center justify-center gap-3 py-12">
               <Spinner />

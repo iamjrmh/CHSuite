@@ -2,17 +2,20 @@
 
 Same GitHub repo and release feed the original Tkinter CHSuite used - this
 rebuild is published to the same repo. Mirrors how userdeck's Configurator
-handles updates: download the installer to a temp dir, spawn it detached
-(visible, not silent, so the user sees and drives the actual install), then
-let the frontend close the app so the installer can replace the running
-files. Runs as a background job (like every other download in this sidecar)
-so the frontend can show real progress instead of an indeterminate spinner.
+handles updates: download the installer to a temp dir, then let the Rust
+shell spawn it detached (visible, not silent, so the user sees and drives
+the actual install) and close the app so the installer can replace the
+running files. The installer is launched by Rust rather than from here:
+the window-close handler tree-kills this sidecar's whole process tree, which
+would kill an installer this process spawned as its own child before it got
+a chance to run. Runs as a background job (like every other download in
+this sidecar) so the frontend can show real progress instead of an
+indeterminate spinner.
 """
 
 from __future__ import annotations
 
 import copy
-import subprocess
 import tempfile
 import threading
 import uuid
@@ -92,19 +95,6 @@ def check(_body: dict | None = None) -> dict:
     }
 
 
-def _launch_installer(path: Path) -> None:
-    if config.IS_WINDOWS:
-        detached_process = 0x00000008
-        create_new_process_group = 0x00000200
-        subprocess.Popen(
-            [str(path)],
-            creationflags=detached_process | create_new_process_group,
-            close_fds=True,
-        )
-    else:
-        subprocess.Popen([str(path)], close_fds=True, start_new_session=True)
-
-
 def start_install_update(body: dict) -> dict:
     url = body.get("url") or ""
     name = body.get("name") or ""
@@ -141,14 +131,9 @@ def start_install_update(body: dict) -> dict:
                             _install_jobs[job_id]["message"] = msg
 
             with _install_lock:
-                _install_jobs[job_id]["message"] = "Launching installer…"
-
-            _launch_installer(dest)
-
-            with _install_lock:
                 _install_jobs[job_id] = {
                     "status": "done", "downloaded": downloaded, "total": downloaded,
-                    "message": "Installer launched.", "path": str(dest),
+                    "message": "Download complete.", "path": str(dest),
                 }
         except Exception as e:  # noqa: BLE001
             with _install_lock:

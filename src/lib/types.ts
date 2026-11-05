@@ -21,6 +21,8 @@ export interface AppConfig {
   default_data_path: string;
   ch_default_install: string;
   sm_songs_dir: string;
+  sm_download_format: "sng" | "folder";
+  sm_skip_video: boolean;
   discord_rpc: boolean;
   default_install_dir: string;
   skipped_update_version: string;
@@ -36,6 +38,8 @@ export interface Install {
   exists: boolean;
   exe?: string;
   isDefault?: boolean;
+  /** CHPatcher fast boot: the .sng-open check on the cache read, patched out. */
+  fastBoot?: { state: "on" | "off" | "unsupported" | "missing"; reason: string };
 }
 
 export interface Background {
@@ -60,4 +64,36 @@ export interface Song {
   diffGuitar: number;
   diffDrums: number;
   alreadyDownloaded: boolean;
+}
+
+export interface BulkFailedEntry {
+  md5: string;
+  name: string;
+  error: string;
+}
+
+export interface BulkSkippedEntry {
+  md5: string;
+  name: string;
+  reason: string;
+}
+
+export interface BulkStatus {
+  status: "none" | "running" | "stopped" | "interrupted" | "done";
+  dir?: string;
+  page?: number;
+  found?: number;
+  done?: number;
+  skipped?: number;
+  failedCount?: number;
+  failed?: BulkFailedEntry[];
+  skippedSample?: BulkSkippedEntry[];
+  deferredCount?: number;
+  currentName?: string;
+  currentBytes?: number;
+  currentTotal?: number;
+  bytesDownloaded?: number;
+  startedAt?: string;
+  phase?: "catalog" | "deferred";
+  stopReason?: string;
 }
