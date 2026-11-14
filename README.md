@@ -8,7 +8,7 @@
 
 An all-in-one toolkit for Clone Hero - swap menu backgrounds, craft colored names and note colors, clean up broken songs, download charts, and manage every install, all in one app.
 
-[![Platform](https://img.shields.io/badge/platform-Windows-green)](https://github.com/iamjrmh/CHSuite)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-green)](https://github.com/iamjrmh/CHSuite)
 [![Built with](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB)](https://tauri.app)
 [![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-61DAFB)](https://react.dev)
 [![Sidecar](https://img.shields.io/badge/sidecar-Python%203.11-3776AB)](https://python.org)
@@ -225,8 +225,10 @@ The cleaner **only** targets songs listed under `ERROR:` sections:
 
 | File | Default Location |
 |--|--|
-| `badsongs.txt` | `Documents\Clone Hero\badsongs.txt` |
-| Deletion log | `Documents\Clone Hero\deletedsongs.log` |
+| `badsongs.txt` | `badsongs.txt` in your Clone Hero data folder |
+| Deletion log | `deletedsongs.log` in the same folder |
+
+The Clone Hero data folder is `Documents\Clone Hero` on Windows. On macOS and Linux CHSuite looks in `~/Clone Hero`, `~/Documents/Clone Hero` and `~/.clonehero`, and uses the first one that exists.
 
 ---
 
@@ -246,6 +248,7 @@ Lists every install registered in `game_installs.json` and lets you patch or unp
 - **Unpatch** reverses this and restores the install to launcher-managed
 - `game_installs.json` is backed up automatically before every write
 - **Refresh** button to re-read the file at any time without restarting
+- **Fast boot** (Windows): skips Clone Hero v1.1's slow "Reading cache..." check of every `.sng` file, so big libraries load in seconds. It's kept on after Clone Hero updates, and **Disable** restores the original `GameAssembly.dll`. It patches the Windows build of the game, so it's hidden on macOS and Linux
 
 ---
 
@@ -310,7 +313,7 @@ An all-in-one install manager. View every registered install at a glance, manage
 
 - Every install registered in `game_installs.json` is listed with its version, path, and patch state
 - **Rename** any install with your own label - purely cosmetic, the actual folder is never touched
-- The version shown is read directly from that install's own `Clone Hero_Data/version.json`, not guessed from a filename
+- The version shown is read directly from that install's own `version.json` in its data folder, not guessed from a filename
 - **Launch**, **Open folder**, **Set default**, **Patch/Unpatch**, and **Delete** are all one click away
 - Deleting an install removes its files from disk too, not just the registry entry
 - **Add existing** registers any Clone Hero folder you already have
@@ -337,20 +340,36 @@ An all-in-one install manager. View every registered install at a glance, manage
 
 ## 🔄 Updating
 
-CHSuite checks the same GitHub release feed on every launch, silently if you're already up to date. You'll also find a check-for-updates icon next to the CHSuite logo in the sidebar, and a dedicated button in **Settings → About**.
+CHSuite checks the same GitHub release feed on every launch, silently if you're already up to date. You'll also find a check-for-updates icon next to the CHSuite logo in the sidebar, and a button in Settings.
 
-If a newer version is found, clicking through opens its GitHub release page so you can grab the new installer - this version doesn't replace itself automatically, you'll install the update the same way you installed CHSuite in the first place.
+When a newer version is out, CHSuite shows its release notes and can download and start the update for you:
+
+| Platform | What happens |
+|--|--|
+| Windows | The setup `.exe` runs and replaces CHSuite |
+| macOS | The new `.dmg` opens, ready to drag into Applications |
+| Linux AppImage | CHSuite replaces its own AppImage and restarts |
+| Linux `.deb` | The update installs through your system's password prompt, then CHSuite restarts |
 
 ---
 
 ## 📥 Installation
 
-CHSuite is a Windows desktop app (Tauri 2 + React, with a bundled Python sidecar - no Python install required on your machine).
+CHSuite is a desktop app for Windows, macOS and Linux (Tauri 2 + React, with a bundled Python sidecar - no Python install required on your machine). Download it from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest).
 
-1. Go to the **[Releases](https://github.com/iamjrmh/CHSuite/releases)** page and download either the `.exe` (NSIS installer) or the `.msi` from the [**latest release**](https://github.com/iamjrmh/CHSuite/releases/latest).
-2. Run the installer and follow the prompts.
-3. Launch **CHSuite** from your Start Menu or Desktop.
-4. On first launch, use **Auto-detect** in Settings or point each tool at your Clone Hero folders manually.
+**Windows** (10 or 11, 64-bit)
+1. Download the `.exe` (recommended) or the `.msi`, run it and follow the prompts.
+2. Launch **CHSuite** from your Start Menu or Desktop.
+
+**macOS** (10.15 or later; Apple silicon runs it through Rosetta)
+1. Download the `.dmg`, open it and drag **CHSuite** into **Applications**.
+2. CHSuite isn't signed with an Apple Developer ID yet, so the first time, right-click it in Applications and choose **Open**, then **Open** again.
+
+**Linux** (x86_64, glibc 2.35 or later: Ubuntu 22.04+, Fedora 36+ and most current distros)
+- **AppImage** (any distro): download it, make it executable (`chmod +x CHSuite_*.AppImage`) and run it.
+- **Debian / Ubuntu**: `sudo apt install ./CHSuite_*_amd64.deb`, then launch CHSuite from your app menu.
+
+On first launch, use **Auto-detect** in Settings or point each tool at your Clone Hero folders manually.
 
 ---
 
