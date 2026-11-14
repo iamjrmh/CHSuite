@@ -20,9 +20,10 @@ of a stuck boot loaded in under 2 seconds after the flip.
 
 Surviving updates
 -----------------
-The two sites are found by byte signature, not a fixed address, and every
-match is cross-checked (same ``isSng`` field offset, both ``get_Sng`` calls
-hitting one function). If anything disagrees, nothing is patched. When the
+The sites are found by byte signature, not a fixed address, and every match
+is cross-checked (same ``isSng`` field offset, all ``get_Sng`` calls hitting
+one function). Builds carry one to three copies of the loop (one per cache
+reader); each copy gets both flips. If anything disagrees, nothing is patched. When the
 GameAssembly.dll on disk is locked (the game is running) the running process
 is patched in memory instead and the disk copy is fixed on the next launch.
 """
@@ -92,19 +93,26 @@ class Signature:
                 parts.append(b"[" + bytes([JE_SHORT, JMP_SHORT]) + b"]")
             elif tok == "??":
                 parts.append(b".")
+            elif "|" in tok:
+                parts.append(b"[" + b"".join(re.escape(bytes([int(t, 16)])) for t in tok.split("|")) + b"]")
             else:
                 parts.append(re.escape(bytes([int(tok, 16)])))
         return re.compile(b"".join(parts), re.DOTALL)
 
 
-# test dil,dil / je / cmp byte [r13+isSng],0 / JE / xor edx,edx / mov rcx,r13 /
-# call get_Sng / test rax,rax / je rel32
+# cmp byte [r13+isSng],0 / JE / xor edx,edx / mov rcx,r13 / call get_Sng /
+# test rax,rax / je (rel8 or rel32)
+#
+# Some builds guard this with ``test dil,dil / je`` (a bool argument) and some
+# compile a copy without it, so the guard is not part of the signature. That
+# leaves a short, generic pattern, which is why it is only ever searched for
+# in the few bytes before a close-check (see ``find_sites``).
 SIG_OPEN = Signature(
     name="open-check",
-    pattern="40 84 FF 74 ?? 41 80 BD ?? 00 00 00 00 74 ?? 33 D2 49 8B CD E8 ?? ?? ?? ?? 48 85 C0 0F 84",
-    patch_index=13,
-    field_index=8,
-    call_indices=(20,),
+    pattern="41 80 BD ?? 00 00 00 00 74 ?? 33 D2 49 8B CD E8 ?? ?? ?? ?? 48 85 C0 74|0F",
+    patch_index=8,
+    field_index=3,
+    call_indices=(15,),
 )
 
 # cmp byte [r13+isSng],0 / JE / call get_Sng / test / je / call get_Sng /
@@ -122,11 +130,15 @@ SIG_CLOSE = Signature(
 
 SIGNATURES = (SIG_OPEN, SIG_CLOSE)
 
+# The open-check sits 0x3c-0x41 bytes before its close-check in every build
+# seen (only AddSong's call is in between); leave room for compiler drift.
+PAIR_WINDOW = 0x80
+
 
 @dataclass(frozen=True)
 class Sites:
     offsets: tuple[int, ...]
-    """Buffer offsets of the opcode bytes to flip, one per signature."""
+    """Buffer offsets of the opcode bytes to flip: (open, close) per cache reader."""
     state: State
 
 
@@ -137,20 +149,31 @@ def _call_target(data: bytes, at: int) -> int:
 
 
 def find_sites(data: bytes) -> Sites:
-    """Locate both patch sites in a file image or one mapped code section."""
+    """Locate every cache reader's two patch sites in a file image or code section.
+
+    Clone Hero builds differ in how many copies of the cache-read loop they
+    carry (6142 has one, 5977-PTB two, 6161 three), so each close-check is an
+    anchor and must have exactly one open-check right before it.
+    """
     offsets: list[int] = []
     fields: set[int] = set()
     targets: set[int] = set()
     opcodes: set[int] = set()
-    for sig in SIGNATURES:
-        matches = [m.start() for m in sig.regex().finditer(data)]
-        if len(matches) != 1:
-            raise FastBootError(f"{sig.name}: expected 1 match, found {len(matches)}")
-        start = matches[0]
-        fields.add(data[start + sig.field_index])
-        targets.update(_call_target(data, start + i) for i in sig.call_indices)
-        offsets.append(start + sig.patch_index)
-        opcodes.add(data[start + sig.patch_index])
+    open_re = SIG_OPEN.regex()
+    closes = [m.start() for m in SIG_CLOSE.regex().finditer(data)]
+    if not closes:
+        raise FastBootError(f"{SIG_CLOSE.name}: no match")
+    for close in closes:
+        opens = [m.start() for m in open_re.finditer(data, max(0, close - PAIR_WINDOW), close)]
+        if len(opens) != 1:
+            raise FastBootError(
+                f"{SIG_OPEN.name}: expected 1 match before the close-check at 0x{close:x}, found {len(opens)}"
+            )
+        for sig, start in ((SIG_OPEN, opens[0]), (SIG_CLOSE, close)):
+            fields.add(data[start + sig.field_index])
+            targets.update(_call_target(data, start + i) for i in sig.call_indices)
+            offsets.append(start + sig.patch_index)
+            opcodes.add(data[start + sig.patch_index])
     if len(fields) != 1:
         raise FastBootError("signatures disagree on the isSng field offset")
     if len(targets) != 1:
