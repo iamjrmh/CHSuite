@@ -382,40 +382,6 @@ Something still has a file in that install open, most often CHMenuChanger having
 
 ---
 
-## 🔨 Building from Source
-
-**Requirements**
-- Windows 10 or 11 (64-bit)
-- [Node.js](https://nodejs.org) + npm
-- [Rust](https://rustup.rs) (cargo)
-- Python 3.11 (64-bit) - from [python.org](https://python.org)
-
-**Steps**
-
-1. Clone this repository
-2. Run `build.bat`
-
-The first step lets you set a new version number (`X.X.X`), or press Enter to keep the current one. From there it's fully automatic:
-
-- Builds the Python sidecar into a standalone `.exe` (PyInstaller)
-- Builds the React frontend (`tsc` + Vite)
-- Compiles the Tauri shell and bundles an NSIS `.exe` and a WiX `.msi` installer
-- Collects both installers plus the raw `chsuite.exe` into `Software\`
-- Cleans up intermediate build files (PyInstaller's work dir, `__pycache__`, `dist\`) when it's done
-
-Cargo's incremental build cache, `node_modules`, and the Python virtual environment are all left alone between builds, so repeat builds are fast.
-
-**Sidecar dependencies** (installed automatically by `build.bat` into `sidecar\.venv`)
-
-| Package | Purpose |
-|--|--|
-| Pillow | Image decoding and encoding |
-| UnityPy | Unity asset file reading/writing |
-| texture2ddecoder | GPU texture format decoding |
-| requests | GitHub API calls, downloads, update checks |
-
----
-
 ## 📄 License
 
 [CHSuite Non-Commercial License](LICENSE) - free and open source to use, modify, and distribute, with two conditions:
